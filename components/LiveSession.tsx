@@ -145,8 +145,8 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       - "No problem, have a nice day!"
       `;
 
-      // ✅ Connect and await the session object directly
-      const session = await aiRef.current.live.connect({
+      // ✅ Start connection (but don't await yet)
+      const sessionPromise = aiRef.current.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: {
           responseModalities: [Modality.AUDIO],
@@ -163,14 +163,21 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
             if (isComponentMounted.current) {
                 setStatus('connected');
                 console.log("✅ Status set to 'connected', component mounted:", isComponentMounted.current);
-                setupAudioInput(stream, session);
 
-                // ✅ Trigger AI to start conversation with a greeting
+                // ✅ Wait for session to be stored, then initialize
                 setTimeout(() => {
-                  console.log("🎤 Sending empty message to trigger AI greeting...");
-                  // Send empty text to trigger AI's first response
-                  session.send({ text: "" });
-                }, 500);
+                  if (sessionRef.current) {
+                    console.log("🎙️ Setting up audio input...");
+                    setupAudioInput(stream, sessionRef.current);
+
+                    // ✅ Trigger AI to start conversation
+                    console.log("🎤 Sending empty message to trigger AI greeting...");
+                    sessionRef.current.send({ text: "" });
+                    console.log("✅ Empty message sent successfully");
+                  } else {
+                    console.error("❌ sessionRef.current is null in onopen!");
+                  }
+                }, 100);
             }
           },
           onmessage: async (message: LiveServerMessage) => {
@@ -236,10 +243,15 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         }
       });
 
-      // ✅ Store session for cleanup (already resolved)
+      // ✅ Await the session and store it for callbacks to use
+      const session = await sessionPromise;
+      console.log("✅ Session object received:", typeof session);
+
       if (isComponentMounted.current) {
         sessionRef.current = session;
+        console.log("✅ Session stored in sessionRef");
       } else {
+        console.log("⚠️ Component unmounted, closing session");
         session.close();
       }
 
