@@ -56,7 +56,9 @@ export class DeepgramRecorder {
       await this.processAudio();
     };
 
-    this.mediaRecorder.start();
+    // Start recording with timeslice to collect data in chunks
+    // This ensures we get data even if recording is very short
+    this.mediaRecorder.start(100); // Collect data every 100ms
     this.isRecording = true;
     console.log('🔴 Recording started with', mimeType);
   }
@@ -90,8 +92,21 @@ export class DeepgramRecorder {
       const blobStart = performance.now();
       const audioBlob = new Blob(this.audioChunks, { type: this.audioChunks[0].type });
       const blobTime = performance.now() - blobStart;
-      console.log('📦 Audio blob size:', audioBlob.size, 'bytes');
+      console.log('📦 Audio blob created:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+        chunks: this.audioChunks.length
+      });
       console.log('⏱️ Blob creation took:', blobTime.toFixed(2), 'ms');
+
+      // Validate audio blob
+      if (audioBlob.size < 100) {
+        throw new Error(`Audio too short: only ${audioBlob.size} bytes. Please speak for at least 1 second.`);
+      }
+
+      if (!audioBlob.type) {
+        console.warn('⚠️ Audio blob has no MIME type, this may cause issues');
+      }
 
       // Send to Deepgram API
       const fetchStart = performance.now();
@@ -132,22 +147,24 @@ export class DeepgramRecorder {
 
   /**
    * Get supported MIME type for MediaRecorder
+   * Prioritize formats that Deepgram handles best
    */
   private getSupportedMimeType(): string {
     const types = [
-      'audio/webm',
-      'audio/webm;codecs=opus',
-      'audio/ogg;codecs=opus',
-      'audio/mp4',
+      'audio/webm;codecs=opus',  // Best quality and widely supported
+      'audio/webm',              // Fallback webm
+      'audio/ogg;codecs=opus',   // Alternative
+      'audio/mp4',               // Last resort
     ];
 
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
+        console.log('📼 Selected MIME type:', type);
         return type;
       }
     }
 
-    // Fallback to default
+    console.warn('⚠️ No supported MIME type found, using default');
     return '';
   }
 

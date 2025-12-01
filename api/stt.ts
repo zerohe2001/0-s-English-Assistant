@@ -49,6 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Initialize Deepgram client
     const deepgram = createClient(apiKey);
 
+    // Get MIME type from Content-Type header
+    const contentType = req.headers['content-type'] || 'audio/webm';
+    console.log('🎵 Using MIME type:', contentType);
+
     // Transcribe audio using Nova-3 model (batch/pre-recorded)
     const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
       audioBuffer,
@@ -57,6 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         smart_format: true,
         punctuate: true,
         language: 'en-US',
+        // Explicitly specify the mimetype to help Deepgram process the audio
+        mimetype: contentType,
       }
     );
 
