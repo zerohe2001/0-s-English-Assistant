@@ -921,17 +921,17 @@ export const Learn = () => {
         )
     }
     return (
-      <>
-      <LiveSession
-        profile={profile}
-        context={learnState.dailyContext}
-        words={learnState.learningQueue.map(w => w.text)}
-        scene={learnState.generatedScene || "A casual conversation."}
-        onComplete={handleConversationComplete}
-        onCancel={resetSession}
-      />
-      <DictionaryModal />
-      </>
+      <div className="h-full w-full">
+        <LiveSession
+          profile={profile}
+          context={learnState.dailyContext}
+          words={learnState.learningQueue.map(w => w.text)}
+          scene={learnState.generatedScene || "A casual conversation."}
+          onComplete={handleConversationComplete}
+          onCancel={resetSession}
+        />
+        <DictionaryModal />
+      </div>
     );
   }
 

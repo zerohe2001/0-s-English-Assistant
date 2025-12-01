@@ -19,6 +19,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   const [micActive, setMicActive] = useState(true);
   const [transcriptDisplay, setTranscriptDisplay] = useState<{role: string, text: string} | null>(null);
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([]); // ✅ Show chat history in UI
+  const [connectionTimeout, setConnectionTimeout] = useState(false); // ✅ Show timeout warning
   
   // Refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -42,9 +43,18 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
     isComponentMounted.current = true;
     startSession();
 
+    // ✅ Timeout warning after 10 seconds
+    const timeoutId = setTimeout(() => {
+      if (status === 'connecting') {
+        console.warn('⚠️ Connection taking longer than expected...');
+        setConnectionTimeout(true);
+      }
+    }, 10000);
+
     return () => {
       isComponentMounted.current = false;
       cleanup();
+      clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -78,6 +88,9 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
 
   const startSession = async () => {
     try {
+      console.log('🚀 Starting LiveSession...');
+      setStatus('connecting');
+
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       audioContextRef.current = new AudioContextClass({ sampleRate: 24000 });
       inputContextRef.current = new AudioContextClass({ sampleRate: 16000 });
@@ -94,6 +107,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       streamRef.current = stream;
       console.log('✅ Microphone access granted');
 
+      console.log('🤖 Connecting to Gemini Live API...');
       aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const systemInstruction = `
@@ -310,7 +324,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-white rounded-xl relative overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-900 text-white relative overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 p-3 border-b border-slate-700">
         <h2 className="text-lg font-bold text-center">🎭 Roleplay</h2>
@@ -319,24 +333,44 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         </div>
       </div>
 
-      {/* Status Banner */}
-      {status === 'connecting' && (
-        <div className="flex-shrink-0 bg-yellow-600 text-white p-3 text-center flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          <span>Connecting to AI...</span>
-        </div>
-      )}
-      {status === 'connected' && (
-        <div className="flex-shrink-0 bg-green-600 text-white p-3 text-center font-semibold flex items-center justify-center gap-2">
-          <div className={`w-3 h-3 rounded-full bg-white ${micActive ? 'animate-pulse' : 'opacity-50'}`}></div>
-          <span>{micActive ? '🎤 Microphone Active - Start Speaking!' : '🔇 Microphone Muted'}</span>
-        </div>
-      )}
-      {status === 'error' && (
-        <div className="flex-shrink-0 bg-red-600 text-white p-3 text-center font-semibold">
-          ❌ Connection Failed - Please try again
-        </div>
-      )}
+      {/* Status Banner - Always visible for debugging */}
+      <div className="flex-shrink-0">
+        {status === 'connecting' && (
+          <div className="bg-yellow-600 text-white p-3 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm">Connecting to AI...</span>
+            </div>
+            {connectionTimeout && (
+              <p className="text-xs mt-2">
+                Taking longer than expected. Check console (F12) for errors.
+              </p>
+            )}
+          </div>
+        )}
+        {status === 'connected' && (
+          <div className="bg-green-600 text-white p-3 text-center font-semibold flex items-center justify-center gap-2">
+            <div className={`w-3 h-3 rounded-full bg-white ${micActive ? 'animate-pulse' : 'opacity-50'}`}></div>
+            <span className="text-sm">{micActive ? '🎤 Microphone Active!' : '🔇 Muted'}</span>
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="bg-red-600 text-white p-3 text-center font-semibold">
+            <p className="text-sm">❌ Connection Failed</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 text-xs underline"
+            >
+              Tap to Reload
+            </button>
+          </div>
+        )}
+        {status === 'ended' && (
+          <div className="bg-slate-600 text-white p-3 text-center font-semibold">
+            <p className="text-sm">Session Ended</p>
+          </div>
+        )}
+      </div>
 
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
