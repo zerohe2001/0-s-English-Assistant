@@ -357,11 +357,6 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
 
   return (
     <div className="flex flex-col h-full bg-slate-900 text-white relative">
-      {/* DEBUG: Always visible test element */}
-      <div className="bg-purple-600 text-white p-2 text-center text-sm font-bold">
-        🔍 LiveSession Loaded - Status: {status}
-      </div>
-
       {/* Header */}
       <div className="flex-shrink-0 p-3 border-b border-slate-700">
         <h2 className="text-lg font-bold text-center">🎭 Roleplay</h2>
