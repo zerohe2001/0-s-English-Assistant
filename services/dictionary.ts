@@ -1,26 +1,53 @@
 
+import { GoogleGenAI, Type } from "@google/genai";
 import { DictionaryEntry } from '../types';
 
-const API_URL = 'https://api.dictionaryapi.dev/api/v2/entries/en';
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const MODEL_NAME = "gemini-2.5-flash";
 
 export const fetchWordDefinition = async (word: string): Promise<DictionaryEntry | null> => {
   try {
-    // Clean the word (remove punctuation)
     const cleanWord = word.replace(/[^\w\s]|_/g, "").trim();
     if (!cleanWord) return null;
 
-    const response = await fetch(`${API_URL}/${cleanWord}`);
+    const prompt = `
+    Provide a dictionary definition for the English word: "${cleanWord}".
     
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null; // Word not found
-      }
-      throw new Error('Network response was not ok');
-    }
+    Output JSON format requirements:
+    1. phonetic: IPA pronunciation (e.g. /həˈləʊ/)
+    2. meanings: Array of objects with 'partOfSpeech' (noun/verb/adj), 'definitionEN' (Simple English definition), and 'definitionCN' (Chinese translation of the definition).
+    `;
 
-    const data = await response.json();
-    // API returns an array of entries, we usually want the first one
-    return data[0] as DictionaryEntry;
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            word: { type: Type.STRING },
+            phonetic: { type: Type.STRING },
+            meanings: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  partOfSpeech: { type: Type.STRING },
+                  definitionEN: { type: Type.STRING },
+                  definitionCN: { type: Type.STRING },
+                },
+                required: ["partOfSpeech", "definitionEN", "definitionCN"],
+              },
+            },
+          },
+          required: ["word", "phonetic", "meanings"],
+        },
+      },
+    });
+
+    const data = JSON.parse(response.text || "null");
+    return data as DictionaryEntry;
   } catch (error) {
     console.error("Dictionary fetch error:", error);
     return null;

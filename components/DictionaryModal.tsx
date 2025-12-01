@@ -8,14 +8,12 @@ const DictionaryModal = () => {
 
   if (!isOpen) return null;
 
-  const playAudio = (url?: string) => {
-    if (url) {
-      new Audio(url).play();
-    }
+  const playAudio = (text: string) => {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    window.speechSynthesis.speak(u);
   };
-
-  // Find first audio
-  const audioUrl = data?.phonetics.find(p => p.audio)?.audio;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
@@ -53,28 +51,26 @@ const DictionaryModal = () => {
            </div>
         ) : (
            <div className="space-y-4">
-              {audioUrl && (
-                  <button 
-                    onClick={() => playAudio(audioUrl)}
-                    className="flex items-center gap-2 text-primary font-medium hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors w-fit"
-                  >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                      </svg>
-                      Listen
-                  </button>
-              )}
+              <button 
+                onClick={() => playAudio(word || "")}
+                className="flex items-center gap-2 text-primary font-medium hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors w-fit"
+              >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  Listen
+              </button>
 
               {data?.meanings.map((m, i) => (
-                  <div key={i} className="space-y-2">
+                  <div key={i} className="space-y-2 border-b border-slate-100 pb-3 last:border-0">
                       <span className="inline-block bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">
                           {m.partOfSpeech}
                       </span>
-                      <ul className="space-y-2">
-                          {m.definitions.slice(0, 3).map((def, j) => (
-                              <li key={j} className="text-slate-700 text-sm leading-relaxed">
-                                  <span className="text-slate-400 mr-2">•</span>
-                                  {def.definition}
+                      <ul className="space-y-3 mt-1">
+                          {m.definitions.map((def, j) => (
+                              <li key={j} className="text-slate-800 text-sm leading-relaxed">
+                                  <div className="font-medium text-slate-900">{def.definitionCN}</div>
+                                  <div className="text-slate-500 text-xs mt-0.5">{def.definitionEN}</div>
                               </li>
                           ))}
                       </ul>

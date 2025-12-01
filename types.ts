@@ -1,10 +1,17 @@
 
+export interface SavedContext {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface UserProfile {
   name: string;
   city: string;
   occupation: string;
   hobbies: string;
   frequentPlaces: string;
+  savedContexts: SavedContext[]; // Added
 }
 
 export interface Word {
@@ -42,7 +49,7 @@ export interface LearnState {
 export interface WordExplanation {
   meaning: string;
   example: string;
-  exampleTranslation: string; // Added field
+  exampleTranslation: string;
 }
 
 export interface SentenceEvaluation {
@@ -56,14 +63,9 @@ export interface AudioConfig {
 }
 
 // Dictionary Types
-export interface DictionaryPhonetic {
-  text: string;
-  audio?: string;
-}
-
 export interface DictionaryDefinition {
-  definition: string;
-  example?: string;
+  definitionEN: string; // Renamed for clarity
+  definitionCN: string; // Added Chinese
 }
 
 export interface DictionaryMeaning {
@@ -73,8 +75,7 @@ export interface DictionaryMeaning {
 
 export interface DictionaryEntry {
   word: string;
-  phonetic?: string;
-  phonetics: DictionaryPhonetic[];
+  phonetic: string;
   meanings: DictionaryMeaning[];
 }
 
