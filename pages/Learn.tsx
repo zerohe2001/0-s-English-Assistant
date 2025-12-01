@@ -28,6 +28,7 @@ export const Learn = () => {
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedText, setCopiedText] = useState<string | null>(null); // ✅ Track copied text for feedback
 
   // ✅ Read explanation from store instead of local state
   const currentWord = learnState.learningQueue?.[learnState.currentWordIndex];
@@ -126,6 +127,22 @@ export const Learn = () => {
   };
 
   // speak function is now imported from services/tts.ts
+
+  // ✅ Copy text to clipboard with visual feedback
+  const handleCopyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(text);
+
+      // Clear "Copied!" message after 2 seconds
+      setTimeout(() => {
+        setCopiedText(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      alert('Failed to copy. Please try again.');
+    }
+  };
 
   const handleToggleRecording = async () => {
     if (!recorderRef.current) {
@@ -593,18 +610,38 @@ export const Learn = () => {
                             <div className="absolute top-2 right-2 text-xs text-slate-300 opacity-50">Tap words to define</div>
                         </div>
                         
-                        <div 
+                        <div
                           onClick={() => setShowTranslation(!showTranslation)}
                           className="bg-blue-50 p-6 rounded-2xl relative cursor-pointer active:scale-95 transition-all hover:bg-blue-100"
                         >
                             <div className="flex justify-between items-start mb-2">
                                 <span className="text-xs font-bold text-blue-500 uppercase">Example</span>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); speak(explanation.example); }} 
-                                  className="text-blue-600 hover:text-blue-800 p-1 bg-white/50 rounded-full"
-                                >
-                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-                                </button>
+                                <div className="flex gap-2">
+                                  {/* Copy Button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCopyText(explanation.example); }}
+                                    className={`${copiedText === explanation.example ? 'text-green-600' : 'text-blue-600 hover:text-blue-800'} p-1 bg-white/50 rounded-full transition-colors`}
+                                    title={copiedText === explanation.example ? "Copied!" : "Copy to ask AI"}
+                                  >
+                                     {copiedText === explanation.example ? (
+                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                       </svg>
+                                     ) : (
+                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                       </svg>
+                                     )}
+                                  </button>
+                                  {/* Play Button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); speak(explanation.example); }}
+                                    className="text-blue-600 hover:text-blue-800 p-1 bg-white/50 rounded-full"
+                                    title="Play audio"
+                                  >
+                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                                  </button>
+                                </div>
                             </div>
                             
                             <div className="text-lg text-slate-800 italic leading-relaxed">
@@ -616,10 +653,16 @@ export const Learn = () => {
                                     {explanation.exampleTranslation}
                                 </p>
                             ) : (
-                                <div className="mt-4 flex items-center justify-end">
+                                <div className="mt-4 flex items-center justify-between">
+                                    <span className="text-xs text-blue-400 flex items-center bg-white/50 px-2 py-1 rounded-full">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        Copy to ask AI
+                                    </span>
                                     <span className="text-xs text-blue-400 flex items-center bg-white/50 px-2 py-1 rounded-full">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
-                                        Tap card for Chinese
+                                        Tap for Chinese
                                     </span>
                                 </div>
                             )}
