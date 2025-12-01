@@ -459,7 +459,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
               <div className="text-xs opacity-70 mb-1">
                 {msg.role === 'user' ? 'You' : 'AI'}
               </div>
-              <div className="text-sm">{msg.text}</div>
+              <div className="text-sm"><ClickableText text={msg.text} /></div>
             </div>
           </div>
         ))}
@@ -478,7 +478,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
                 <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.2s'}}></span>
                 <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.4s'}}></span>
               </div>
-              <div className="text-sm italic">{transcriptDisplay.text}</div>
+              <div className="text-sm italic"><ClickableText text={transcriptDisplay.text} /></div>
             </div>
           </div>
         )}

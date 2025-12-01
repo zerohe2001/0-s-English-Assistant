@@ -681,7 +681,7 @@ export const Learn = () => {
                             
                             {showTranslation ? (
                                 <p className="mt-3 pt-3 border-t border-blue-200 text-slate-600 animate-fade-in font-medium">
-                                    {explanation.exampleTranslation}
+                                    <ClickableText text={explanation.exampleTranslation} />
                                 </p>
                             ) : (
                                 <div className="mt-4 flex items-center justify-between">
@@ -802,12 +802,12 @@ export const Learn = () => {
                                      <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
                                          <div>
                                              <p className="text-xs font-bold text-slate-400 uppercase mb-1">Target</p>
-                                             <p className="text-slate-700 italic">"{explanation.example}"</p>
+                                             <p className="text-slate-700 italic">"<ClickableText text={explanation.example} />"</p>
                                          </div>
                                          <div className="border-t border-slate-100"></div>
                                          <div>
                                              <p className="text-xs font-bold text-slate-400 uppercase mb-1">You said</p>
-                                             <p className="text-slate-700 italic">"{transcript}"</p>
+                                             <p className="text-slate-700 italic">"<ClickableText text={transcript} />"</p>
                                          </div>
                                      </div>
 
@@ -917,7 +917,7 @@ export const Learn = () => {
                                      {evaluation.betterWay && (
                                         <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                                             <span className="text-xs font-bold text-indigo-400 uppercase">Better Way</span>
-                                            <p className="text-indigo-900 mt-1">{evaluation.betterWay}</p>
+                                            <p className="text-indigo-900 mt-1"><ClickableText text={evaluation.betterWay} /></p>
                                         </div>
                                      )}
 
