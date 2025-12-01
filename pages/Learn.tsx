@@ -7,6 +7,7 @@ import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
+import ReviewWord from '../components/ReviewWord';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 
@@ -19,6 +20,8 @@ export const Learn = () => {
     setWordSubStep,
     nextWord,
     completeLearningPhase,
+    nextReviewWord, // ✅ Move to next word in review
+    updateReviewStats, // ✅ Update review statistics
     setSessionSummary,
     resetSession,
     words,
@@ -932,6 +935,69 @@ export const Learn = () => {
         )}
       </div>
       <DictionaryModal />
+      </>
+    );
+  }
+
+  // ✅ Review Step - Practice sentences before conversation
+  if (learnState.currentStep === 'review') {
+    const currentWord = learnState.learningQueue[learnState.currentWordIndex];
+
+    if (!currentWord || !currentWord.userSentence || !currentWord.userSentenceTranslation) {
+      // Skip words without sentences
+      nextReviewWord(false);
+      return null;
+    }
+
+    const handleReviewComplete = async (stats: { retryCount: number, skipped: boolean }) => {
+      // Update review stats for this word
+      updateReviewStats(currentWord.id, stats);
+
+      // Check if all words reviewed
+      if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+        // All review done, generate scene and move to conversation
+        setIsLoading(true);
+        try {
+          const scene = await generateConversationScene(
+            profile,
+            learnState.dailyContext,
+            learnState.learningQueue.map(w => w.text),
+            learnState.userSentences
+          );
+          completeLearningPhase(scene);
+        } catch (error) {
+          console.error(error);
+          alert("Failed to generate conversation scene. Please try again.");
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // Move to next word
+        nextReviewWord(true);
+      }
+    };
+
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full space-y-4 animate-fade-in p-6">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-slate-800">准备对话场景</p>
+            <p className="text-slate-500 mt-2">正在生成个性化对话...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <ReviewWord
+          word={currentWord.text}
+          originalSentence={currentWord.userSentence}
+          chineseTranslation={currentWord.userSentenceTranslation}
+          onNext={handleReviewComplete}
+        />
+        <DictionaryModal />
       </>
     );
   }
