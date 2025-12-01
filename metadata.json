@@ -1,0 +1,7 @@
+{
+  "name": "ActiveVocab",
+  "description": "Personalized English speaking practice app helping you turn passive vocabulary into active usage through real-life scenarios.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
