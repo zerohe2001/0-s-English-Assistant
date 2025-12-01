@@ -593,12 +593,13 @@ export const Learn = () => {
                             {/* Phonetic + Play Button */}
                             <div className="flex items-center justify-center gap-3 mb-4">
                                 <span className="text-lg text-slate-500 font-mono">{explanation.phonetic}</span>
+                                {/* ✅ Larger, more visible play button */}
                                 <button
                                   onClick={() => speak(currentWord.text)}
-                                  className="p-2 hover:bg-indigo-50 rounded-full transition-colors group"
+                                  className="p-3 bg-indigo-100 hover:bg-indigo-200 rounded-full transition-all shadow-sm active:scale-95"
                                   title="Play pronunciation"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary group-hover:text-indigo-700" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" viewBox="0 0 20 20" fill="currentColor">
                                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                                     </svg>
                                 </button>

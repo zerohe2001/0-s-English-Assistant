@@ -213,13 +213,25 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
                 }
              }
           },
-          onclose: () => {
-            console.log("Gemini Live Closed");
-            if (isComponentMounted.current) setStatus('ended');
+          onclose: (event: any) => {
+            console.log("❌ Gemini Live Connection Closed", event);
+            console.log("Close reason:", event?.reason || 'No reason provided');
+            console.log("Close code:", event?.code || 'No code provided');
+            console.log("Was clean:", event?.wasClean || false);
+            if (isComponentMounted.current) {
+              console.log("Setting status to 'ended'");
+              setStatus('ended');
+            }
           },
-          onerror: (err) => {
-            console.error("Gemini Live Error", err);
-            if (isComponentMounted.current) setStatus('error');
+          onerror: (err: any) => {
+            console.error("❌ Gemini Live Error occurred!");
+            console.error("Error type:", err?.type || 'unknown');
+            console.error("Error message:", err?.message || 'No message');
+            console.error("Full error object:", JSON.stringify(err, null, 2));
+            if (isComponentMounted.current) {
+              console.log("Setting status to 'error'");
+              setStatus('error');
+            }
           }
         }
       });

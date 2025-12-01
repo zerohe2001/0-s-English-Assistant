@@ -28,6 +28,10 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
     return new Promise((resolve, reject) => {
       const audio = new Audio(audioUrl);
 
+      // ✅ Standardize volume to 0.85 (85%) for consistent playback
+      // This ensures both word pronunciation and example sentences sound similar
+      audio.volume = 0.85;
+
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         console.log('✅ Edge TTS playback completed');
