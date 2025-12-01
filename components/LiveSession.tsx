@@ -82,8 +82,17 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       audioContextRef.current = new AudioContextClass({ sampleRate: 24000 });
       inputContextRef.current = new AudioContextClass({ sampleRate: 16000 });
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('🎤 Requesting microphone access...');
+      // Request microphone permission (browser will remember this)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
       streamRef.current = stream;
+      console.log('✅ Microphone access granted');
 
       aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
@@ -100,14 +109,19 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       Help user practice these words: ${words.join(', ')}.
 
       CRITICAL RULES:
-      1. Keep EVERY response to EXACTLY 1 sentence (max 10-15 words).
-      2. Aim for 6-7 total exchanges, then naturally wrap up.
-      3. Roleplay the character in the scene.
-      4. If user struggles, give a SHORT hint.
-      5. Gently correct major errors but keep flow.
-      6. Keep it conversational and brief - like real quick chat.
+      1. START the conversation immediately with a greeting (1 sentence).
+      2. Keep EVERY response to EXACTLY 1 sentence (max 10-15 words).
+      3. Aim for 6-7 total exchanges, then naturally wrap up.
+      4. Roleplay the character in the scene.
+      5. If user struggles, give a SHORT hint.
+      6. Gently correct major errors but keep flow.
+      7. Keep it conversational and brief - like real quick chat.
 
-      Example good responses:
+      Example opening:
+      - "Hi! What can I get you today?"
+      - "Welcome! How can I help you?"
+
+      Example responses:
       - "Sure, what size would you like?"
       - "That sounds great, anything else?"
       - "No problem, have a nice day!"
@@ -125,11 +139,18 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
           outputAudioTranscription: { model: "gemini-2.5-flash-native-audio-preview-09-2025" },
         },
         callbacks: {
-          onopen: () => {
+          onopen: async () => {
             console.log("Gemini Live Connected");
             if (isComponentMounted.current) {
                 setStatus('connected');
                 setupAudioInput(stream, sessionPromise);
+
+                // ✅ Trigger AI to start conversation with a greeting
+                const session = await sessionPromise;
+                setTimeout(() => {
+                  // Send empty text to trigger AI's first response
+                  session.send({ text: "" });
+                }, 500);
             }
           },
           onmessage: async (message: LiveServerMessage) => {
@@ -192,8 +213,18 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         }
       });
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to start session:", e);
+
+      // Provide helpful error messages
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        alert('❌ Microphone access denied!\n\nPlease:\n1. Click the 🔒 lock icon in your browser address bar\n2. Allow microphone access\n3. Refresh the page');
+      } else if (e.name === 'NotFoundError') {
+        alert('❌ No microphone found!\n\nPlease connect a microphone and try again.');
+      } else {
+        alert(`❌ Failed to start conversation: ${e.message}\n\nPlease try again.`);
+      }
+
       setStatus('error');
     }
   };
