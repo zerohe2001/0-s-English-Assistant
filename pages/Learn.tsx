@@ -20,11 +20,17 @@ export const Learn = () => {
     completeLearningPhase,
     setSessionSummary,
     resetSession,
-    words
+    words,
+    addSavedContext
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
+  
+  // Input State
+  const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
+  const [manualContext, setManualContext] = useState('');
+  const [isListeningContext, setIsListeningContext] = useState(false);
   
   // Practice State
   const [isRecording, setIsRecording] = useState(false);
@@ -44,22 +50,35 @@ export const Learn = () => {
       
       recognition.onresult = (event: any) => {
         const text = event.results[0][0].transcript;
-        setTranscript(text);
-        handleSpeechResult(text);
+        
+        // If we are in context input step
+        if (learnState.currentStep === 'input-context') {
+             setManualContext(prev => {
+                 const spacer = prev ? ' ' : '';
+                 return prev + spacer + text;
+             });
+             setIsListeningContext(false);
+        } else {
+             // Normal practice flow
+             setTranscript(text);
+             handleSpeechResult(text);
+        }
       };
       
       recognition.onerror = (event: any) => {
         console.error("Speech rec error", event);
         setIsRecording(false);
+        setIsListeningContext(false);
       };
 
       recognition.onend = () => {
         setIsRecording(false);
+        setIsListeningContext(false);
       };
 
       recognitionRef.current = recognition;
     }
-  }, []);
+  }, [learnState.currentStep]); // Re-bind if step changes
 
   const currentWord = learnState.learningQueue[learnState.currentWordIndex];
 
@@ -120,6 +139,23 @@ export const Learn = () => {
       }
     }
   };
+
+  const handleToggleContextMic = () => {
+     if (!recognitionRef.current) {
+         alert("Speech recognition not supported.");
+         return;
+     }
+     if (isListeningContext) {
+         recognitionRef.current.stop();
+     } else {
+         setIsListeningContext(true);
+         try {
+             recognitionRef.current.start();
+         } catch(e) {
+             setIsListeningContext(false);
+         }
+     }
+  }
 
   const handleSpeechResult = async (text: string) => {
       setIsLoading(true);
@@ -187,23 +223,109 @@ export const Learn = () => {
       }
   };
 
+  const handleStartSession = () => {
+      // Combine manual text and selected cards
+      const selectedTexts = profile.savedContexts
+        .filter(c => selectedContextIds.includes(c.id))
+        .map(c => c.text);
+      
+      const combined = [manualContext, ...selectedTexts].join('. ').trim();
+      
+      if (!combined) {
+          alert("Please provide some context to start.");
+          return;
+      }
+      
+      setDailyContext(combined);
+      startLearning();
+  };
+
+  const handleSaveContext = () => {
+      if (!manualContext.trim()) return;
+      addSavedContext(manualContext);
+      setManualContext('');
+      alert("Context saved to Profile!");
+  };
+  
+  const toggleContextCard = (id: string) => {
+      if (selectedContextIds.includes(id)) {
+          setSelectedContextIds(selectedContextIds.filter(cid => cid !== id));
+      } else {
+          setSelectedContextIds([...selectedContextIds, id]);
+      }
+  }
+
   // --- Views ---
 
   if (learnState.currentStep === 'input-context') {
+    const hasContent = manualContext.trim().length > 0 || selectedContextIds.length > 0;
+
     return (
-      <div className="max-w-lg mx-auto p-6 flex flex-col h-full justify-center">
-        <h2 className="text-3xl font-bold mb-2 text-slate-900">What's on your mind?</h2>
-        <p className="text-slate-500 mb-6">Describe your day or a situation you want to practice.</p>
-        <textarea
-          className="w-full p-4 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none text-lg h-40"
-          placeholder="e.g. I'm preparing for a job interview at a tech company."
-          value={learnState.dailyContext}
-          onChange={(e) => setDailyContext(e.target.value)}
-        />
+      <div className="max-w-lg mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
+        <header className="mb-6">
+            <h2 className="text-3xl font-bold mb-2 text-slate-900">What's the plan?</h2>
+            <p className="text-slate-500">Describe your day or choose a saved scenario.</p>
+        </header>
+        
+        {/* Input Area */}
+        <div className="relative mb-6">
+            <textarea
+                className="w-full p-4 pr-12 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none text-lg h-32 resize-none"
+                placeholder="e.g. I'm going to Costco to buy groceries..."
+                value={manualContext}
+                onChange={(e) => setManualContext(e.target.value)}
+            />
+            <button 
+                onClick={handleToggleContextMic}
+                className={`absolute bottom-4 right-4 p-2 rounded-full transition-all ${isListeningContext ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                </svg>
+            </button>
+        </div>
+        
+        {manualContext.trim() && (
+            <button 
+                onClick={handleSaveContext}
+                className="text-sm text-primary font-medium flex items-center mb-6 hover:underline"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                Save this to Profile
+            </button>
+        )}
+
+        {/* Saved Cards */}
+        {profile.savedContexts && profile.savedContexts.length > 0 && (
+            <div className="mb-6">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Saved Contexts</h3>
+                <div className="grid grid-cols-1 gap-2">
+                    {profile.savedContexts.map(ctx => (
+                        <div 
+                            key={ctx.id}
+                            onClick={() => toggleContextCard(ctx.id)}
+                            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                selectedContextIds.includes(ctx.id) 
+                                ? 'bg-indigo-50 border-primary ring-1 ring-primary' 
+                                : 'bg-white border-slate-200 hover:border-indigo-300'
+                            }`}
+                        >
+                            <div className="flex items-start">
+                                <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center mr-3 ${selectedContextIds.includes(ctx.id) ? 'bg-primary border-primary' : 'border-slate-300'}`}>
+                                    {selectedContextIds.includes(ctx.id) && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                </div>
+                                <p className={`text-sm ${selectedContextIds.includes(ctx.id) ? 'text-indigo-900' : 'text-slate-700'}`}>{ctx.text}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
         <button
-          onClick={startLearning}
-          disabled={!learnState.dailyContext || words.length === 0}
-          className="mt-6 w-full bg-primary text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleStartSession}
+          disabled={!hasContent || words.length === 0}
+          className="mt-auto w-full bg-primary text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-200"
         >
           {words.length === 0 ? "Add Words First" : "Start Session"}
         </button>
@@ -483,4 +605,3 @@ export const Learn = () => {
 
   return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 };
-    

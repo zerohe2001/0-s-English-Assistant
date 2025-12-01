@@ -1,13 +1,15 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UserProfile, Word, LearnState, ChatMessage, SessionSummary, DictionaryState } from './types';
+import { UserProfile, Word, LearnState, ChatMessage, SessionSummary, DictionaryState, SavedContext } from './types';
 import { fetchWordDefinition } from './services/dictionary';
 
 interface AppState {
   // User Profile
   profile: UserProfile;
   updateProfile: (profile: UserProfile) => void;
+  addSavedContext: (text: string) => void;
+  removeSavedContext: (id: string) => void;
   isProfileSet: boolean;
 
   // Vocabulary
@@ -42,9 +44,28 @@ export const useStore = create<AppState>()(
         occupation: '',
         hobbies: '',
         frequentPlaces: '',
+        savedContexts: [],
       },
       isProfileSet: false,
-      updateProfile: (profile) => set({ profile, isProfileSet: true }),
+      updateProfile: (profile) => set((state) => ({ 
+        profile: { ...state.profile, ...profile }, 
+        isProfileSet: true 
+      })),
+      addSavedContext: (text) => set((state) => ({
+        profile: {
+            ...state.profile,
+            savedContexts: [
+                { id: crypto.randomUUID(), text, createdAt: new Date().toISOString() },
+                ...state.profile.savedContexts
+            ]
+        }
+      })),
+      removeSavedContext: (id) => set((state) => ({
+        profile: {
+            ...state.profile,
+            savedContexts: state.profile.savedContexts.filter(c => c.id !== id)
+        }
+      })),
 
       words: [],
       addWord: (text) => set((state) => ({
