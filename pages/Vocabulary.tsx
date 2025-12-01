@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
+import ClickableText from '../components/ClickableText';
+import DictionaryModal from '../components/DictionaryModal';
 
 export const Vocabulary = () => {
   const { words, addWord, removeWord, bulkAddWords } = useStore();
@@ -129,29 +131,76 @@ export const Vocabulary = () => {
               <p className="text-green-500 text-sm mt-2">Complete the learning flow and click "Next" to mark words as learned.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
               {learnedWords.map((word) => (
-                <div key={word.id} className="bg-green-50 p-3 rounded-lg border border-green-100 shadow-sm flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">✅</span>
-                    <span className="font-medium text-green-700">
-                      {word.text}
-                    </span>
+                <div key={word.id} className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200 shadow-sm">
+                  {/* Word Header */}
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">✅</span>
+                      <span className="font-bold text-green-800 text-lg">
+                        {word.text}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeWord(word.id)}
+                      className="text-green-300 hover:text-red-500 p-1 transition"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removeWord(word.id)}
-                    className="text-green-300 hover:text-red-500 p-1"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+
+                  {/* User's Sentence */}
+                  {word.userSentence && (
+                    <div className="space-y-2">
+                      <div className="bg-white p-3 rounded-lg border border-green-100">
+                        <div className="text-xs font-bold text-green-600 uppercase mb-1">Your Sentence</div>
+                        <div className="text-slate-800">
+                          <ClickableText text={word.userSentence} />
+                        </div>
+                      </div>
+
+                      {word.userSentenceTranslation && (
+                        <div className="bg-green-100/50 p-3 rounded-lg border border-green-100">
+                          <div className="text-xs font-bold text-green-700 uppercase mb-1">中文翻译</div>
+                          <div className="text-green-900">
+                            <ClickableText text={word.userSentenceTranslation} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Review Stats */}
+                      {word.reviewStats && (
+                        <div className="flex items-center gap-2 text-xs text-green-600">
+                          {word.reviewStats.skipped ? (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-600 rounded-full font-semibold">⏭️ Skipped</span>
+                          ) : word.reviewStats.retryCount >= 3 ? (
+                            <span className="px-2 py-1 bg-red-100 text-red-600 rounded-full font-semibold">🔄 Retry {word.reviewStats.retryCount}x</span>
+                          ) : word.reviewStats.retryCount > 0 ? (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-semibold">🔄 Retry {word.reviewStats.retryCount}x</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-semibold">✨ Perfect!</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* No Sentence */}
+                  {!word.userSentence && (
+                    <div className="text-sm text-green-600/60 italic">
+                      No practice sentence recorded
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )
         )}
       </div>
+      <DictionaryModal />
     </div>
   );
 };
