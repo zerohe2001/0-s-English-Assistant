@@ -38,10 +38,16 @@ export async function generateSpeech(text: string, voiceName: string = 'Kore'): 
     });
 
     const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    const mimeType = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType;
 
     if (!audioData) {
       throw new Error('No audio data received from Gemini TTS');
     }
+
+    console.log('🎵 Gemini TTS returned audio:');
+    console.log('  - MIME Type:', mimeType);
+    console.log('  - Data length:', audioData.length);
+    console.log('  - First 20 chars:', audioData.substring(0, 20));
 
     // Cache the result
     audioCache.set(cacheKey, audioData);

@@ -83,6 +83,11 @@ export const Learn = () => {
       let finalTranscript = '';
 
       recognition.onresult = (event: any) => {
+        console.log('🎤 Speech recognition result event:', {
+          resultIndex: event.resultIndex,
+          totalResults: event.results.length
+        });
+
         let interimTranscript = '';
 
         // Collect all results
@@ -90,6 +95,12 @@ export const Learn = () => {
           // ✅ Choose best alternative based on confidence
           let bestTranscript = event.results[i][0].transcript;
           let bestConfidence = event.results[i][0].confidence || 0;
+
+          console.log(`  Result[${i}]:`, {
+            isFinal: event.results[i].isFinal,
+            alternatives: event.results[i].length,
+            text: bestTranscript
+          });
 
           // Check all alternatives and pick the one with highest confidence
           for (let j = 1; j < event.results[i].length; j++) {
@@ -135,16 +146,21 @@ export const Learn = () => {
       };
 
       recognition.onend = () => {
-        console.log("Recognition ended, final transcript:", finalTranscript.trim());
+        console.log('🛑 Recognition onend fired:', {
+          finalTranscript: finalTranscript.trim(),
+          isRecording: isRecordingRef.current,
+          currentStep: learnState.currentStep
+        });
 
         // ✅ If still recording, restart immediately (handles auto-stop from silence)
         if (isRecordingRef.current) {
           console.log('⚠️ Recognition stopped but still recording, restarting...');
           try {
             recognition.start();
+            console.log('✅ Recognition restarted successfully');
             return; // Don't process yet, keep recording
           } catch (e) {
-            console.error('Failed to restart recognition:', e);
+            console.error('❌ Failed to restart recognition:', e);
             // Fall through to process what we have
           }
         }
