@@ -292,28 +292,48 @@ async function playWithWebAudio(base64Audio: string): Promise<void> {
 }
 
 /**
- * High-level function: Use browser TTS by default (to avoid API quota issues)
+ * High-level function: Use Edge TTS API for natural-sounding speech
+ * Falls back to browser TTS if API fails
  * @param text - Text to speak
- * @param voiceName - Unused (kept for API compatibility)
+ * @param voiceName - Voice name (default: 'en-US-AvaMultilingualNeural')
  */
-export async function speak(text: string, voiceName: string = 'Kore'): Promise<void> {
-  // ✅ Use browser TTS directly to avoid API 429 errors
-  // Browser TTS is instant, free, and works offline
-  console.log('🔊 Using browser TTS for instant playback...');
-  return fallbackToSpeechSynthesis(text);
-
-  // Note: Gemini TTS is disabled to avoid API quota issues
-  // If you have paid API quota, you can re-enable it by uncommenting below:
-  /*
+export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
   try {
-    console.log('🎙️ Using Gemini TTS for natural voice...');
-    const audioData = await generateSpeech(text, voiceName);
-    await playAudioFromBase64(audioData);
+    console.log('🎤 Using Edge TTS API for natural voice...');
+
+    // Call our Vercel serverless function
+    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      throw new Error(`TTS API failed: ${response.status}`);
+    }
+
+    // Get audio blob (MP3 format)
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Play using HTML5 Audio element (best mobile compatibility)
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        console.log('✅ Edge TTS playback completed');
+        resolve();
+      };
+
+      audio.onerror = (e) => {
+        URL.revokeObjectURL(audioUrl);
+        reject(new Error('Audio playback failed'));
+      };
+
+      audio.play().catch(reject);
+    });
   } catch (error) {
-    console.error('❌ Gemini TTS failed, using browser fallback:', error);
+    console.error('❌ Edge TTS failed, using browser fallback:', error);
     return fallbackToSpeechSynthesis(text);
   }
-  */
 }
 
 /**
@@ -331,12 +351,12 @@ function fallbackToSpeechSynthesis(text: string): void {
   }, 100);
 }
 
-// Available voice options
+// Available voice options (Microsoft Edge TTS)
 export const VOICE_OPTIONS = {
-  KORE: 'Kore',           // Firm and confident
-  PUCK: 'Puck',           // Cheerful
-  CHARON: 'Charon',       // Informative
-  ENCELADUS: 'Enceladus', // Breathy
-  GANYMEDE: 'Ganymede',   // Warm
-  TITAN: 'Titan',         // Energetic
+  AVA: 'en-US-AvaMultilingualNeural',       // Female, natural (default)
+  EMMA: 'en-US-EmmaMultilingualNeural',     // Female, warm
+  ANDREW: 'en-US-AndrewMultilingualNeural', // Male, natural
+  BRIAN: 'en-US-BrianMultilingualNeural',   // Male, firm
+  SONIA: 'en-GB-SoniaNeural',               // British Female
+  RYAN: 'en-GB-RyanNeural',                 // British Male
 } as const;
