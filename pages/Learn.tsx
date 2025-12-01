@@ -40,6 +40,7 @@ export const Learn = () => {
   
   // Practice State
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false); // ✅ Show "Processing..." state
   const [transcript, setTranscript] = useState('');
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
@@ -134,7 +135,7 @@ export const Learn = () => {
       // Stop recording and transcribe
       recorderRef.current.stop();
       setIsRecording(false);
-      setTranscript('Processing...');
+      setIsTranscribing(true); // ✅ Show "Processing..." state
     } else {
       // Start recording
       setTranscript('');
@@ -153,6 +154,7 @@ export const Learn = () => {
             // Transcript received from Deepgram
             console.log('✅ Deepgram transcript:', transcript);
             setTranscript(transcript);
+            setIsTranscribing(false); // ✅ Stop showing "Processing..."
 
             // Process the transcript based on current step
             if (learnState.currentStep === 'input-context') {
@@ -170,6 +172,7 @@ export const Learn = () => {
             console.error('❌ Deepgram error:', error);
             alert(`Speech recognition failed: ${error.message}`);
             setIsRecording(false);
+            setIsTranscribing(false); // ✅ Stop showing "Processing..."
           }
         );
       } catch (e) {
@@ -674,10 +677,15 @@ export const Learn = () => {
                                             )}
                                         </button>
                                         <p className="mt-4 text-slate-400 font-medium">
-                                            {isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Start Recording"}
+                                            {isRecording ? "🔴 Recording... Tap to Stop" : isTranscribing ? "⏳ Processing..." : "Tap to Start Recording"}
                                         </p>
                                     </div>
-                                    {transcript && !isRecording && (
+                                    {isTranscribing && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg max-w-md animate-pulse">
+                                            <p className="text-blue-600 text-sm">⏳ Transcribing your speech...</p>
+                                        </div>
+                                    )}
+                                    {transcript && !isRecording && !isTranscribing && (
                                         <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
                                             <p className="text-xs text-slate-500 mb-1">You said:</p>
                                             <p className="text-slate-700 italic">"{transcript}"</p>
@@ -765,9 +773,14 @@ export const Learn = () => {
                                                 </svg>
                                             )}
                                         </button>
-                                        <p className="mt-4 text-slate-400 font-medium">{isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Start Recording"}</p>
+                                        <p className="mt-4 text-slate-400 font-medium">{isRecording ? "🔴 Recording... Tap to Stop" : isTranscribing ? "⏳ Processing..." : "Tap to Start Recording"}</p>
                                     </div>
-                                    {transcript && !isRecording && (
+                                    {isTranscribing && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg max-w-md animate-pulse">
+                                            <p className="text-blue-600 text-sm">⏳ Transcribing your speech...</p>
+                                        </div>
+                                    )}
+                                    {transcript && !isRecording && !isTranscribing && (
                                         <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
                                             <p className="text-xs text-slate-500 mb-1">You said:</p>
                                             <p className="text-slate-700 italic">"{transcript}"</p>

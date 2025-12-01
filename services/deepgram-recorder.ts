@@ -79,16 +79,22 @@ export class DeepgramRecorder {
    * Process recorded audio and send to Deepgram API
    */
   private async processAudio(): Promise<void> {
+    const startTime = performance.now();
+
     try {
       if (this.audioChunks.length === 0) {
         throw new Error('No audio data recorded');
       }
 
       // Combine chunks into a single blob
+      const blobStart = performance.now();
       const audioBlob = new Blob(this.audioChunks, { type: this.audioChunks[0].type });
+      const blobTime = performance.now() - blobStart;
       console.log('📦 Audio blob size:', audioBlob.size, 'bytes');
+      console.log('⏱️ Blob creation took:', blobTime.toFixed(2), 'ms');
 
       // Send to Deepgram API
+      const fetchStart = performance.now();
       const response = await fetch('/api/stt', {
         method: 'POST',
         headers: {
@@ -96,6 +102,8 @@ export class DeepgramRecorder {
         },
         body: audioBlob,
       });
+      const fetchTime = performance.now() - fetchStart;
+      console.log('⏱️ API request took:', fetchTime.toFixed(2), 'ms');
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -104,7 +112,9 @@ export class DeepgramRecorder {
       }
 
       const { transcript } = await response.json();
+      const totalTime = performance.now() - startTime;
       console.log('✅ Deepgram transcript:', transcript);
+      console.log('⏱️ Total processing time:', totalTime.toFixed(2), 'ms');
 
       // Call transcript callback
       if (this.onTranscript && transcript) {
