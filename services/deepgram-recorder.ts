@@ -98,8 +98,9 @@ export class DeepgramRecorder {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Transcription failed');
+        const errorData = await response.json();
+        console.error('❌ STT API error response:', errorData);
+        throw new Error(errorData.message || errorData.error || 'Transcription failed');
       }
 
       const { transcript } = await response.json();

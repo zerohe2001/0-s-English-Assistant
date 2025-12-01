@@ -29,13 +29,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Get audio data from request body
-    const audioBuffer = req.body;
+    // Log API key info (first 10 chars only for security)
+    console.log('🔑 Using API key:', apiKey.substring(0, 10) + '...');
+
+    // Get audio data from raw request body (since bodyParser is disabled)
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of req as any) {
+      chunks.push(chunk);
+    }
+    const audioBuffer = Buffer.concat(chunks);
+
     if (!audioBuffer || audioBuffer.length === 0) {
       return res.status(400).json({ error: 'No audio data provided' });
     }
 
     console.log('🎙️ STT API: Received', audioBuffer.length, 'bytes of audio');
+    console.log('Content-Type:', req.headers['content-type']);
 
     // Initialize Deepgram client
     const deepgram = createClient(apiKey);
@@ -53,9 +62,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (error) {
       console.error('❌ Deepgram API error:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return res.status(500).json({
         error: 'Transcription failed',
-        message: error.message
+        message: error.message || 'Unknown Deepgram error',
+        details: error
       });
     }
 
@@ -78,8 +89,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 // Configure body parser to handle raw audio data
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: '10mb', // Allow up to 10MB audio files
-    },
+    bodyParser: false, // ✅ Disable default parser to get raw Buffer
   },
 };
