@@ -113,7 +113,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
 
       console.log('🤖 Connecting to Gemini Live API...');
       aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
+
       const systemInstruction = `
       You are a friendly conversation partner helping an English learner.
 
@@ -145,7 +145,8 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       - "No problem, have a nice day!"
       `;
 
-      const sessionPromise = aiRef.current.live.connect({
+      // ✅ Connect and await the session object directly
+      const session = await aiRef.current.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         config: {
           responseModalities: [Modality.AUDIO],
@@ -157,15 +158,14 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
           outputAudioTranscription: { model: "gemini-2.5-flash-native-audio-preview-09-2025" },
         },
         callbacks: {
-          onopen: async () => {
+          onopen: () => {
             console.log("✅ Gemini Live Connected - setting status to 'connected'");
             if (isComponentMounted.current) {
                 setStatus('connected');
                 console.log("✅ Status set to 'connected', component mounted:", isComponentMounted.current);
-                setupAudioInput(stream, sessionPromise);
+                setupAudioInput(stream, session);
 
                 // ✅ Trigger AI to start conversation with a greeting
-                const session = await sessionPromise;
                 setTimeout(() => {
                   console.log("🎤 Sending empty message to trigger AI greeting...");
                   // Send empty text to trigger AI's first response
@@ -235,15 +235,13 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
           }
         }
       });
-      
-      // Store resolved session for cleanup
-      sessionPromise.then(session => {
-        if (isComponentMounted.current) {
-            sessionRef.current = session;
-        } else {
-            session.close();
-        }
-      });
+
+      // ✅ Store session for cleanup (already resolved)
+      if (isComponentMounted.current) {
+        sessionRef.current = session;
+      } else {
+        session.close();
+      }
 
     } catch (e: any) {
       console.error("Failed to start session:", e);
@@ -261,12 +259,12 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
     }
   };
 
-  const setupAudioInput = (stream: MediaStream, sessionPromise: Promise<any>) => {
+  const setupAudioInput = (stream: MediaStream, session: any) => {
     if (!inputContextRef.current) return;
 
     const source = inputContextRef.current.createMediaStreamSource(stream);
     sourceRef.current = source;
-    
+
     const processor = inputContextRef.current.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
 
@@ -274,22 +272,21 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       if (!micActive) return;
 
       const inputData = e.inputBuffer.getChannelData(0);
-      
+
       const l = inputData.length;
       const int16 = new Int16Array(l);
       for (let i = 0; i < l; i++) {
         int16[i] = inputData[i] * 32768;
       }
-      
+
       const base64Data = arrayBufferToBase64(int16.buffer);
-      
-      sessionPromise.then(session => {
-         session.sendRealtimeInput({
-            media: {
-                mimeType: 'audio/pcm;rate=16000',
-                data: base64Data
-            }
-         });
+
+      // ✅ Directly use session object (already resolved)
+      session.sendRealtimeInput({
+        media: {
+          mimeType: 'audio/pcm;rate=16000',
+          data: base64Data
+        }
       });
     };
 
