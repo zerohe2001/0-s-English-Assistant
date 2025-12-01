@@ -47,6 +47,7 @@ export const Learn = () => {
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const isRecordingRef = useRef(false); // ✅ Track recording state in ref for closure access
   const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
   // Initialize Speech Rec
@@ -135,6 +136,18 @@ export const Learn = () => {
 
       recognition.onend = () => {
         console.log("Recognition ended, final transcript:", finalTranscript.trim());
+
+        // ✅ If still recording, restart immediately (handles auto-stop from silence)
+        if (isRecordingRef.current) {
+          console.log('⚠️ Recognition stopped but still recording, restarting...');
+          try {
+            recognition.start();
+            return; // Don't process yet, keep recording
+          } catch (e) {
+            console.error('Failed to restart recognition:', e);
+            // Fall through to process what we have
+          }
+        }
 
         // If we are in context input step
         if (learnState.currentStep === 'input-context') {
@@ -240,15 +253,19 @@ export const Learn = () => {
     }
 
     if (isRecording) {
+      isRecordingRef.current = false; // ✅ Update ref first
       recognitionRef.current.stop();
+      setIsRecording(false);
     } else {
       setTranscript('');
       setIsRecording(true);
+      isRecordingRef.current = true; // ✅ Update ref
       try {
         recognitionRef.current.start();
       } catch (e) {
         console.error("Failed to start recording:", e);
         setIsRecording(false);
+        isRecordingRef.current = false;
       }
     }
   };

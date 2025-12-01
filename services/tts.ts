@@ -73,44 +73,115 @@ export async function preloadAudio(text: string, voiceName: string = 'Kore'): Pr
 }
 
 /**
- * Play audio from base64 PCM data
- * Audio format: PCM, 24000 Hz, 16-bit, mono
- * ✅ Uses HTML5 Audio for better mobile compatibility
+ * Play audio from base64 data
+ * ✅ Try direct playback first (Gemini may return MP3/WAV), fallback to PCM conversion
  */
 export async function playAudioFromBase64(base64Audio: string): Promise<void> {
   try {
-    // Try HTML5 Audio first (better mobile support)
-    return await playWithHtmlAudio(base64Audio);
-  } catch (htmlError) {
-    console.warn('HTML5 Audio failed, trying Web Audio API:', htmlError);
-    // Fallback to Web Audio API
-    return await playWithWebAudio(base64Audio);
+    // Try direct playback first (Gemini might return MP3 or other formats)
+    return await playDirectAudio(base64Audio);
+  } catch (directError) {
+    console.warn('Direct playback failed, trying PCM conversion:', directError);
+    try {
+      // Fallback: treat as PCM and convert to WAV
+      return await playWithHtmlAudio(base64Audio);
+    } catch (wavError) {
+      console.warn('WAV conversion failed, trying Web Audio API:', wavError);
+      // Last resort: Web Audio API
+      return await playWithWebAudio(base64Audio);
+    }
   }
 }
 
 /**
- * Play audio using HTML5 Audio element (best mobile compatibility)
+ * Try to play audio directly (for MP3, OGG, or other encoded formats)
+ */
+async function playDirectAudio(base64Audio: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // Try common audio MIME types
+      const mimeTypes = [
+        'audio/mpeg',      // MP3
+        'audio/wav',       // WAV
+        'audio/ogg',       // OGG
+        'audio/webm',      // WebM
+        'audio/mp4',       // MP4/AAC
+      ];
+
+      let audioPlayed = false;
+
+      const tryNextFormat = (index: number) => {
+        if (index >= mimeTypes.length) {
+          reject(new Error('All direct audio formats failed'));
+          return;
+        }
+
+        const mimeType = mimeTypes[index];
+        try {
+          const binaryString = atob(base64Audio);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          const blob = new Blob([bytes], { type: mimeType });
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            if (!audioPlayed) {
+              audioPlayed = true;
+              console.log(`✅ Successfully played as ${mimeType}`);
+              resolve();
+            }
+          };
+
+          audio.onerror = () => {
+            URL.revokeObjectURL(audioUrl);
+            // Try next format
+            tryNextFormat(index + 1);
+          };
+
+          audio.play().catch(() => {
+            URL.revokeObjectURL(audioUrl);
+            tryNextFormat(index + 1);
+          });
+        } catch (e) {
+          tryNextFormat(index + 1);
+        }
+      };
+
+      tryNextFormat(0);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Play audio using HTML5 Audio element with PCM to WAV conversion
  */
 async function playWithHtmlAudio(base64Audio: string): Promise<void> {
   return new Promise((resolve, reject) => {
     try {
-      // Gemini TTS returns raw PCM, need to convert to WAV for HTML Audio
+      // Convert PCM to WAV
       const wavBlob = pcmToWav(base64Audio, 24000, 1, 16);
       const audioUrl = URL.createObjectURL(wavBlob);
 
       const audio = new Audio(audioUrl);
 
       audio.onended = () => {
-        URL.revokeObjectURL(audioUrl); // Clean up
+        URL.revokeObjectURL(audioUrl);
+        console.log('✅ Successfully played as PCM→WAV');
         resolve();
       };
 
       audio.onerror = (e) => {
         URL.revokeObjectURL(audioUrl);
-        reject(new Error('Audio playback failed'));
+        reject(new Error('WAV playback failed'));
       };
 
-      // ✅ Critical for mobile: play() returns a promise
       audio.play().catch(reject);
     } catch (error) {
       reject(error);
