@@ -733,24 +733,37 @@ export const Learn = () => {
                                 </div>
                             ) : !shadowingFeedback ? (
                                 <>
-                                    <button
-                                      onClick={handleToggleRecording}
-                                      disabled={isLoading}
-                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-primary shadow-indigo-200'} shadow-xl disabled:opacity-50`}
-                                    >
-                                        {isRecording ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                                <rect x="6" y="6" width="12" height="12" rx="2" />
-                                            </svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                    <p className="mt-4 text-slate-400 font-medium">
-                                        {isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Speak"}
-                                    </p>
+                                    <div className="flex flex-col items-center space-y-4 w-full">
+                                        {/* Target sentence hint */}
+                                        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 w-full max-w-md">
+                                            <p className="text-xs text-blue-600 font-semibold mb-2">📢 READ THIS ALOUD:</p>
+                                            <p className="text-blue-900 font-medium text-center">
+                                                "{currentWord.text}"
+                                            </p>
+                                            <p className="text-xs text-blue-500 mt-2 text-center">
+                                                Speak clearly and click Stop when done
+                                            </p>
+                                        </div>
+
+                                        <button
+                                          onClick={handleToggleRecording}
+                                          disabled={isLoading}
+                                          className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-primary shadow-indigo-200'} shadow-xl disabled:opacity-50`}
+                                        >
+                                            {isRecording ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                        <p className="mt-4 text-slate-400 font-medium">
+                                            {isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Start Recording"}
+                                        </p>
+                                    </div>
                                     {transcript && !isRecording && (
                                         <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
                                             <p className="text-xs text-slate-500 mb-1">You said:</p>
@@ -812,22 +825,35 @@ export const Learn = () => {
                                 </div>
                             ) : !evaluation ? (
                                 <>
-                                    <button
-                                      onClick={handleToggleRecording}
-                                      disabled={isLoading}
-                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-secondary shadow-emerald-200'} shadow-xl disabled:opacity-50 disabled:cursor-not-allowed`}
-                                    >
-                                        {isRecording ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                                <rect x="6" y="6" width="12" height="12" rx="2" />
-                                            </svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                    <p className="mt-4 text-slate-400 font-medium">{isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Create Sentence"}</p>
+                                    <div className="flex flex-col items-center space-y-4 w-full">
+                                        {/* Prompt hint */}
+                                        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4 w-full max-w-md">
+                                            <p className="text-xs text-emerald-600 font-semibold mb-2">💡 TASK:</p>
+                                            <p className="text-emerald-900 font-medium text-center">
+                                                Create a sentence using <span className="font-bold">"{currentWord.text}"</span>
+                                            </p>
+                                            <p className="text-xs text-emerald-500 mt-2 text-center">
+                                                Speak your sentence clearly, then tap Stop
+                                            </p>
+                                        </div>
+
+                                        <button
+                                          onClick={handleToggleRecording}
+                                          disabled={isLoading}
+                                          className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-secondary shadow-emerald-200'} shadow-xl disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            {isRecording ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                        <p className="mt-4 text-slate-400 font-medium">{isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Start Recording"}</p>
+                                    </div>
                                     {transcript && !isRecording && (
                                         <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
                                             <p className="text-xs text-slate-500 mb-1">You said:</p>

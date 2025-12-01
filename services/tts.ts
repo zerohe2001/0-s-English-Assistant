@@ -292,20 +292,28 @@ async function playWithWebAudio(base64Audio: string): Promise<void> {
 }
 
 /**
- * High-level function: Generate and play speech with Gemini TTS (natural human-like voice)
+ * High-level function: Use browser TTS by default (to avoid API quota issues)
  * @param text - Text to speak
- * @param voiceName - Voice option (default: 'Kore' - firm and confident)
+ * @param voiceName - Unused (kept for API compatibility)
  */
 export async function speak(text: string, voiceName: string = 'Kore'): Promise<void> {
+  // ✅ Use browser TTS directly to avoid API 429 errors
+  // Browser TTS is instant, free, and works offline
+  console.log('🔊 Using browser TTS for instant playback...');
+  return fallbackToSpeechSynthesis(text);
+
+  // Note: Gemini TTS is disabled to avoid API quota issues
+  // If you have paid API quota, you can re-enable it by uncommenting below:
+  /*
   try {
     console.log('🎙️ Using Gemini TTS for natural voice...');
     const audioData = await generateSpeech(text, voiceName);
     await playAudioFromBase64(audioData);
   } catch (error) {
     console.error('❌ Gemini TTS failed, using browser fallback:', error);
-    // Fallback to browser TTS if Gemini fails
-    fallbackToSpeechSynthesis(text);
+    return fallbackToSpeechSynthesis(text);
   }
+  */
 }
 
 /**
