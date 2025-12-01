@@ -30,6 +30,7 @@ interface AppState {
   setSessionSummary: (summary: SessionSummary) => void;
   resetSession: () => void;
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
+  saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence
 
   // Dictionary
   dictionary: DictionaryState;
@@ -132,6 +133,7 @@ export const useStore = create<AppState>()(
         wordSubStep: 'explanation',
         conversationHistory: [],
         wordExplanations: {}, // ✅ Initialize empty explanations map
+        userSentences: {}, // ✅ Initialize empty user sentences map
       },
       setDailyContext: (context) => set((state) => ({
         learnState: { ...state.learnState, dailyContext: context }
@@ -204,7 +206,8 @@ export const useStore = create<AppState>()(
           generatedScene: undefined,
           conversationHistory: [],
           sessionSummary: undefined,
-          wordExplanations: {} // ✅ Clear explanations on reset
+          wordExplanations: {}, // ✅ Clear explanations on reset
+          userSentences: {} // ✅ Clear user sentences on reset
         }
       }),
       setWordExplanation: (wordId, explanation) => set((state) => ({
@@ -213,6 +216,15 @@ export const useStore = create<AppState>()(
           wordExplanations: {
             ...state.learnState.wordExplanations,
             [wordId]: explanation
+          }
+        }
+      })),
+      saveUserSentence: (wordId, sentence) => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          userSentences: {
+            ...state.learnState.userSentences,
+            [wordId]: sentence
           }
         }
       })),
@@ -253,10 +265,11 @@ export const useStore = create<AppState>()(
         profile: state.profile,
         isProfileSet: state.isProfileSet,
         words: state.words,
-        // Persist learning state with explanations
+        // Persist learning state with explanations and user sentences
         learnState: {
             ...state.learnState,
-            wordExplanations: state.learnState.wordExplanations || {} // ✅ Ensure always defined
+            wordExplanations: state.learnState.wordExplanations || {}, // ✅ Ensure always defined
+            userSentences: state.learnState.userSentences || {} // ✅ Ensure always defined
         }
       }),
       // ✅ Merge function to handle old data without wordExplanations
@@ -266,7 +279,8 @@ export const useStore = create<AppState>()(
         learnState: {
           ...currentState.learnState,
           ...(persistedState.learnState || {}),
-          wordExplanations: persistedState.learnState?.wordExplanations || {} // ✅ Default to empty object
+          wordExplanations: persistedState.learnState?.wordExplanations || {}, // ✅ Default to empty object
+          userSentences: persistedState.learnState?.userSentences || {} // ✅ Default to empty object
         }
       }),
     }

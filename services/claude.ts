@@ -176,19 +176,26 @@ Respond ONLY with valid JSON in this exact format:
 }
 
 /**
- * Generate conversation scene description
+ * Generate conversation scene description based on user's created sentences
  */
 export async function generateConversationScene(
   profile: UserProfile,
   context: string,
-  words: string[]
+  words: string[],
+  userSentences?: { [wordId: string]: string }
 ) {
+  // Extract user sentences if available
+  const sentencesList = userSentences ? Object.values(userSentences).filter(Boolean) : [];
+  const hasSentences = sentencesList.length > 0;
+
   const prompt = `
 Create a roleplay scenario in EXACTLY 2 short sentences:
 
 User: ${profile.name} (${profile.occupation} in ${profile.city})
 Activity: ${context}
 Target Words: ${words.join(', ')}
+
+${hasSentences ? `User's Example Sentences:\n${sentencesList.map((s, i) => `${i + 1}. "${s}"`).join('\n')}\n\nIMPORTANT: Base the scenario on the topics/situations mentioned in the user's sentences above.` : ''}
 
 Format (MUST follow):
 Sentence 1: Describe the situation (max 15 words)

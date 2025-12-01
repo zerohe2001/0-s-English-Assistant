@@ -25,7 +25,8 @@ export const Learn = () => {
     addSavedContext,
     setWordExplanation, // ✅ Add method to store explanations
     markWordAsLearned, // ✅ Mark word as learned
-    openDictionary // ✅ Open dictionary modal for word lookup
+    openDictionary, // ✅ Open dictionary modal for word lookup
+    saveUserSentence // ✅ Save user's created sentence
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -303,16 +304,24 @@ export const Learn = () => {
       if (currentWord) {
           markWordAsLearned(currentWord.id);
           console.log('✅ Word marked as learned:', currentWord.text);
+
+          // ✅ Save user's sentence if they created one
+          if (transcript && transcript.trim()) {
+              saveUserSentence(currentWord.id, transcript.trim());
+              console.log('✅ Saved user sentence:', transcript.trim());
+          }
       }
 
       // Move to next word or conversation
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
           setIsLoading(true);
           try {
+              // ✅ Pass user sentences to scene generation
               const scene = await generateConversationScene(
                   profile,
                   learnState.dailyContext,
-                  learnState.learningQueue.map(w => w.text)
+                  learnState.learningQueue.map(w => w.text),
+                  learnState.userSentences // ✅ Include user's created sentences
               );
               completeLearningPhase(scene);
           } catch (error) {
@@ -336,10 +345,12 @@ export const Learn = () => {
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
           setIsLoading(true);
           try {
+              // ✅ Pass user sentences to scene generation
               const scene = await generateConversationScene(
                   profile,
                   learnState.dailyContext,
-                  learnState.learningQueue.map(w => w.text)
+                  learnState.learningQueue.map(w => w.text),
+                  learnState.userSentences // ✅ Include user's created sentences
               );
               completeLearningPhase(scene);
           } catch (error) {

@@ -45,6 +45,7 @@ export interface LearnState {
   conversationHistory: ChatMessage[];
   sessionSummary?: SessionSummary;
   wordExplanations: { [wordId: string]: WordExplanation }; // ✅ Store explanations to avoid regeneration
+  userSentences: { [wordId: string]: string }; // ✅ Store user's created sentences for better scene generation
 }
 
 export interface WordExplanation {

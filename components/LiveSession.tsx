@@ -115,7 +115,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
       const systemInstruction = `
-      You are a friendly conversation partner helping an English learner.
+      You are a friendly conversation partner helping an English learner practice specific vocabulary.
 
       USER PROFILE:
       Name: ${profile.name}, Job: ${profile.occupation}
@@ -123,26 +123,32 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       SCENE:
       ${scene}
 
-      GOAL:
-      Help user practice these words: ${words.join(', ')}.
+      TARGET WORDS TO PRACTICE:
+      ${words.join(', ')}
 
       CRITICAL RULES:
       1. START the conversation immediately with a greeting (1 sentence).
       2. Keep EVERY response to EXACTLY 1 sentence (max 10-15 words).
-      3. Aim for 6-7 total exchanges, then naturally wrap up.
+      3. Aim for 6-8 total exchanges, then naturally wrap up.
       4. Roleplay the character in the scene.
-      5. If user struggles, give a SHORT hint.
-      6. Gently correct major errors but keep flow.
-      7. Keep it conversational and brief - like real quick chat.
+
+      ERROR CORRECTION (VERY IMPORTANT):
+      5. If the user makes a grammar error, pronunciation mistake, or uses a word incorrectly:
+         - Gently correct it by naturally repeating the correct version
+         - Example: User says "I want buy coffee" → You say "Sure! So you want TO buy coffee. What size?"
+      6. If the user successfully uses one of the target words correctly, acknowledge it briefly
+         - Example: "Great use of 'campaign'! Tell me more."
+
+      7. Encourage the user to use the target words in their responses
+      8. Keep it conversational and natural - like a real quick chat
 
       Example opening:
-      - "Hi! What can I get you today?"
-      - "Welcome! How can I help you?"
+      - "Hi! What can I help you with today?"
+      - "Welcome! How are you doing?"
 
-      Example responses:
-      - "Sure, what size would you like?"
-      - "That sounds great, anything else?"
-      - "No problem, have a nice day!"
+      Example error correction:
+      - User: "I go to store yesterday" → "Oh, you WENT to the store yesterday? Nice!"
+      - User: "This is very expensively" → "It IS quite expensive, yes. What's your budget?"
       `;
 
       // ✅ Start connection with correct Gemini Live API format
@@ -449,23 +455,31 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       </div>
 
       {/* Control Buttons */}
-      <div className="flex-shrink-0 p-4 border-t border-slate-700 flex gap-3 justify-center">
+      <div className="flex-shrink-0 p-4 border-t border-slate-700 space-y-2">
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={toggleMic}
+            className={`flex-1 px-4 py-3 rounded-lg transition-all font-semibold ${
+              micActive
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-slate-600 hover:bg-slate-700 text-slate-300'
+            }`}
+            disabled={status !== 'connected'}
+          >
+            {micActive ? '🎤 Mute' : '🔇 Unmute'}
+          </button>
+          <button
+            onClick={handleEnd}
+            className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all font-semibold"
+          >
+            ✅ Finish & Review
+          </button>
+        </div>
         <button
-          onClick={toggleMic}
-          className={`px-6 py-3 rounded-lg transition-all font-semibold ${
-            micActive
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : 'bg-slate-600 hover:bg-slate-700 text-slate-300'
-          }`}
-          disabled={status !== 'connected'}
+          onClick={onCancel}
+          className="w-full px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all text-sm"
         >
-          {micActive ? '🎤 Mute' : '🔇 Unmute'}
-        </button>
-        <button
-          onClick={handleEnd}
-          className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all font-semibold"
-        >
-          🛑 End & Get Feedback
+          ❌ Close Without Review
         </button>
       </div>
     </div>
