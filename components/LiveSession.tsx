@@ -24,7 +24,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   const [connectionTimeout, setConnectionTimeout] = useState(false); // ✅ Show timeout warning
 
   console.log('🎬 LiveSession current status:', status);
-  
+
   // Refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -33,6 +33,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const isComponentMounted = useRef(true);
+  const wakeLockRef = useRef<any>(null); // ✅ Wake Lock to prevent screen sleep
 
   // Gemini & State
   const aiRef = useRef<GoogleGenAI | null>(null);
@@ -63,7 +64,38 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ Request Wake Lock to prevent screen sleep
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        console.log('✅ Wake Lock acquired - screen will stay on');
+
+        // Re-acquire wake lock if it's released (e.g., user switches tabs)
+        wakeLockRef.current.addEventListener('release', () => {
+          console.log('⚠️ Wake Lock released');
+        });
+      } else {
+        console.log('⚠️ Wake Lock API not supported on this device');
+      }
+    } catch (err) {
+      console.error('Failed to acquire Wake Lock:', err);
+    }
+  };
+
+  // ✅ Release Wake Lock
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
+      console.log('🔓 Wake Lock released');
+    }
+  };
+
   const cleanup = () => {
+    // ✅ Release Wake Lock
+    releaseWakeLock();
+
     // Close Gemini Session
     if (sessionRef.current) {
         try {
@@ -168,6 +200,9 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
             if (isComponentMounted.current) {
                 setStatus('connected');
                 console.log("✅ Status set to 'connected', component mounted:", isComponentMounted.current);
+
+                // ✅ Request Wake Lock to keep screen on
+                requestWakeLock();
 
                 // ✅ Wait for session to be stored, then initialize
                 setTimeout(() => {
@@ -449,33 +484,40 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         )}
       </div>
 
-      {/* Control Buttons */}
-      <div className="flex-shrink-0 p-4 border-t border-slate-700 space-y-2">
-        <div className="flex gap-3 justify-center">
+      {/* Control Buttons - Fixed positioning with safe area */}
+      <div className="flex-shrink-0 border-t border-slate-700 bg-slate-900 pb-safe">
+        <div className="p-3 space-y-2">
+          {/* Main action buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={toggleMic}
+              className={`flex-1 px-3 py-3 rounded-xl transition-all font-bold text-sm shadow-lg ${
+                micActive
+                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white active:scale-95'
+                  : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300 active:scale-95'
+              }`}
+              disabled={status !== 'connected'}
+            >
+              {micActive ? '🎤 Mute' : '🔇 Unmute'}
+            </button>
+            <button
+              onClick={handleEnd}
+              className="flex-1 px-3 py-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white transition-all font-bold text-sm shadow-lg active:scale-95"
+            >
+              ✅ Finish
+            </button>
+          </div>
+
+          {/* Secondary action */}
           <button
-            onClick={toggleMic}
-            className={`flex-1 px-4 py-3 rounded-lg transition-all font-semibold ${
-              micActive
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-slate-600 hover:bg-slate-700 text-slate-300'
-            }`}
-            disabled={status !== 'connected'}
+            onClick={onCancel}
+            className="w-full px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-all text-xs font-medium active:scale-95"
           >
-            {micActive ? '🎤 Mute' : '🔇 Unmute'}
-          </button>
-          <button
-            onClick={handleEnd}
-            className="flex-1 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all font-semibold"
-          >
-            ✅ Finish & Review
+            ❌ Close
           </button>
         </div>
-        <button
-          onClick={onCancel}
-          className="w-full px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all text-sm"
-        >
-          ❌ Close Without Review
-        </button>
+        {/* Extra safe area padding for mobile bottom nav */}
+        <div className="h-4 bg-slate-900"></div>
       </div>
     </div>
   );
