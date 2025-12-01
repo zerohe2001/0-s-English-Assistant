@@ -21,10 +21,10 @@ const NavLink = ({ to, icon, label }: { to: string; icon: React.ReactNode; label
 const Layout = ({ children }: PropsWithChildren) => {
   return (
     <div className="h-full flex flex-col bg-slate-50 relative">
-      <main className="flex-1 overflow-y-auto no-scrollbar">
+      <main className="flex-1 overflow-y-auto no-scrollbar content-with-nav">
         {children}
       </main>
-      <nav className="h-16 bg-white border-t border-slate-200 flex justify-around items-center px-4 shrink-0 z-40 safe-area-pb">
+      <nav className="bg-white border-t border-slate-200 flex justify-around items-center px-4 shrink-0 z-40 safe-bottom-nav">
         <NavLink 
           to="/" 
           label="Learn" 

@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
     <title>ActiveVocab</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -35,6 +35,26 @@
       ::-webkit-scrollbar-thumb {
         background: #CBD5E1;
         border-radius: 3px;
+      }
+
+      /* Safe area support for mobile devices */
+      :root {
+        --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      /* Utility classes for safe area */
+      .safe-area-pb {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+      }
+
+      .safe-bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        height: calc(4rem + env(safe-area-inset-bottom, 0px));
+      }
+
+      /* Ensure content has space for bottom nav + safe area */
+      .content-with-nav {
+        padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 1rem);
       }
     </style>
   <script type="importmap">

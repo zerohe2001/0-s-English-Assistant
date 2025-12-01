@@ -56,7 +56,28 @@ export const Learn = () => {
       recognition.continuous = true; // Keep listening until manually stopped
       recognition.lang = 'en-US';
       recognition.interimResults = true; // Show interim results
-      recognition.maxAlternatives = 1;
+      recognition.maxAlternatives = 3; // ✅ Increased for better accuracy
+
+      // ✅ Add grammar hints when practicing specific words/sentences
+      if (learnState.currentStep === 'learning' && currentWord && learnState.wordExplanations[currentWord.id]) {
+        const explanation = learnState.wordExplanations[currentWord.id];
+        try {
+          const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
+          if (SpeechGrammarList) {
+            const grammarList = new SpeechGrammarList();
+            // Create grammar rules for current word and example sentence
+            const words = [currentWord.text];
+            if (explanation.example) {
+              words.push(...explanation.example.split(' '));
+            }
+            const grammar = '#JSGF V1.0; grammar words; public <word> = ' + words.join(' | ') + ' ;';
+            grammarList.addFromString(grammar, 1); // weight of 1
+            recognition.grammars = grammarList;
+          }
+        } catch (e) {
+          console.log('Grammar hints not supported:', e);
+        }
+      }
 
       let finalTranscript = '';
 
@@ -65,11 +86,24 @@ export const Learn = () => {
 
         // Collect all results
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
+          // ✅ Choose best alternative based on confidence
+          let bestTranscript = event.results[i][0].transcript;
+          let bestConfidence = event.results[i][0].confidence || 0;
+
+          // Check all alternatives and pick the one with highest confidence
+          for (let j = 1; j < event.results[i].length; j++) {
+            const alt = event.results[i][j];
+            if (alt.confidence > bestConfidence) {
+              bestTranscript = alt.transcript;
+              bestConfidence = alt.confidence;
+            }
+          }
+
           if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
+            console.log(`✅ Final result (confidence: ${bestConfidence.toFixed(2)}):`, bestTranscript);
+            finalTranscript += bestTranscript + ' ';
           } else {
-            interimTranscript += transcript;
+            interimTranscript += bestTranscript;
           }
         }
 
@@ -82,8 +116,21 @@ export const Learn = () => {
 
       recognition.onerror = (event: any) => {
         console.error("Speech rec error", event.error, event);
-        setIsRecording(false);
-        setIsListeningContext(false);
+
+        // ✅ Auto-retry for recoverable errors
+        if (event.error === 'no-speech' || event.error === 'audio-capture') {
+          console.log('⚠️ Recoverable error, prompting retry...');
+          // Don't stop recording state, user can manually retry
+        } else if (event.error === 'network') {
+          console.log('❌ Network error, stopping...');
+          alert('Network error. Please check your connection and try again.');
+          setIsRecording(false);
+          setIsListeningContext(false);
+        } else {
+          // Other errors: stop recording
+          setIsRecording(false);
+          setIsListeningContext(false);
+        }
       };
 
       recognition.onend = () => {
