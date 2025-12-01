@@ -75,8 +75,96 @@ export async function preloadAudio(text: string, voiceName: string = 'Kore'): Pr
 /**
  * Play audio from base64 PCM data
  * Audio format: PCM, 24000 Hz, 16-bit, mono
+ * ✅ Uses HTML5 Audio for better mobile compatibility
  */
 export async function playAudioFromBase64(base64Audio: string): Promise<void> {
+  try {
+    // Try HTML5 Audio first (better mobile support)
+    return await playWithHtmlAudio(base64Audio);
+  } catch (htmlError) {
+    console.warn('HTML5 Audio failed, trying Web Audio API:', htmlError);
+    // Fallback to Web Audio API
+    return await playWithWebAudio(base64Audio);
+  }
+}
+
+/**
+ * Play audio using HTML5 Audio element (best mobile compatibility)
+ */
+async function playWithHtmlAudio(base64Audio: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // Gemini TTS returns raw PCM, need to convert to WAV for HTML Audio
+      const wavBlob = pcmToWav(base64Audio, 24000, 1, 16);
+      const audioUrl = URL.createObjectURL(wavBlob);
+
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl); // Clean up
+        resolve();
+      };
+
+      audio.onerror = (e) => {
+        URL.revokeObjectURL(audioUrl);
+        reject(new Error('Audio playback failed'));
+      };
+
+      // ✅ Critical for mobile: play() returns a promise
+      audio.play().catch(reject);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Convert PCM to WAV format
+ */
+function pcmToWav(base64Pcm: string, sampleRate: number, numChannels: number, bitsPerSample: number): Blob {
+  // Decode base64 PCM data
+  const binaryString = atob(base64Pcm);
+  const pcmData = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    pcmData[i] = binaryString.charCodeAt(i);
+  }
+
+  const dataLength = pcmData.length;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  // WAV header
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // fmt chunk size
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true); // byte rate
+  view.setUint16(32, numChannels * bitsPerSample / 8, true); // block align
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  // Copy PCM data
+  const uint8 = new Uint8Array(buffer);
+  uint8.set(pcmData, 44);
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+/**
+ * Fallback: Play audio using Web Audio API
+ */
+async function playWithWebAudio(base64Audio: string): Promise<void> {
   try {
     // Decode base64 to ArrayBuffer
     const binaryString = atob(base64Audio);
@@ -94,10 +182,15 @@ export async function playAudioFromBase64(base64Audio: string): Promise<void> {
       float32Array[i] = int16Array[i] / 32768.0; // Normalize to -1.0 to 1.0
     }
 
-    // ✅ Reuse singleton AudioContext instead of creating new one each time
+    // ✅ Reuse singleton AudioContext
     if (!globalAudioContext || globalAudioContext.state === 'closed') {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       globalAudioContext = new AudioContextClass();
+    }
+
+    // ✅ Resume context if suspended (required on mobile)
+    if (globalAudioContext.state === 'suspended') {
+      await globalAudioContext.resume();
     }
 
     const audioBuffer = globalAudioContext.createBuffer(1, float32Array.length, 24000);
@@ -110,14 +203,13 @@ export async function playAudioFromBase64(base64Audio: string): Promise<void> {
     source.start(0);
 
     // Return a promise that resolves when audio finishes
-    // ✅ Don't close the context - reuse it for next playback
     return new Promise((resolve) => {
       source.onended = () => {
         resolve();
       };
     });
   } catch (error) {
-    console.error('Error playing audio:', error);
+    console.error('Web Audio API playback error:', error);
     throw error;
   }
 }
