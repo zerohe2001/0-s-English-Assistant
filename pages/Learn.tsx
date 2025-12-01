@@ -6,9 +6,7 @@ import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
 import { WordExplanation, SentenceEvaluation } from '../types';
-
-// Helper for Speech Recognition
-const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+import { DeepgramRecorder } from '../services/deepgram-recorder';
 
 export const Learn = () => {
   const {
@@ -46,164 +44,28 @@ export const Learn = () => {
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isRecordingRef = useRef(false); // ✅ Track recording state in ref for closure access
+  const recorderRef = useRef<DeepgramRecorder | null>(null);
   const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
-  // Initialize Speech Rec
+  // Initialize Deepgram Recorder
   useEffect(() => {
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true; // Keep listening until manually stopped
-      recognition.lang = 'en-US';
-      recognition.interimResults = true; // Show interim results
-      recognition.maxAlternatives = 3; // ✅ Increased for better accuracy
+    const recorder = new DeepgramRecorder();
+    recorderRef.current = recorder;
 
-      // ✅ Add grammar hints when practicing specific words/sentences
-      if (learnState.currentStep === 'learning' && currentWord && learnState.wordExplanations[currentWord.id]) {
-        const explanation = learnState.wordExplanations[currentWord.id];
-        try {
-          const SpeechGrammarList = (window as any).SpeechGrammarList || (window as any).webkitSpeechGrammarList;
-          if (SpeechGrammarList) {
-            const grammarList = new SpeechGrammarList();
-            // Create grammar rules for current word and example sentence
-            const words = [currentWord.text];
-            if (explanation.example) {
-              words.push(...explanation.example.split(' '));
-            }
-            const grammar = '#JSGF V1.0; grammar words; public <word> = ' + words.join(' | ') + ' ;';
-            grammarList.addFromString(grammar, 1); // weight of 1
-            recognition.grammars = grammarList;
-          }
-        } catch (e) {
-          console.log('Grammar hints not supported:', e);
-        }
+    // Initialize microphone access
+    recorder.initialize().catch((error) => {
+      console.error('❌ Failed to initialize recorder:', error);
+      // Microphone access will be requested on first recording attempt
+    });
+
+    // ✅ Cleanup: Stop recorder when component unmounts or step changes
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.cleanup();
+        recorderRef.current = null;
       }
-
-      let finalTranscript = '';
-
-      recognition.onresult = (event: any) => {
-        console.log('🎤 Speech recognition result event:', {
-          resultIndex: event.resultIndex,
-          totalResults: event.results.length
-        });
-
-        let interimTranscript = '';
-
-        // Collect all results
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          // ✅ Choose best alternative based on confidence
-          let bestTranscript = event.results[i][0].transcript;
-          let bestConfidence = event.results[i][0].confidence || 0;
-
-          console.log(`  Result[${i}]:`, {
-            isFinal: event.results[i].isFinal,
-            alternatives: event.results[i].length,
-            text: bestTranscript
-          });
-
-          // Check all alternatives and pick the one with highest confidence
-          for (let j = 1; j < event.results[i].length; j++) {
-            const alt = event.results[i][j];
-            if (alt.confidence > bestConfidence) {
-              bestTranscript = alt.transcript;
-              bestConfidence = alt.confidence;
-            }
-          }
-
-          if (event.results[i].isFinal) {
-            console.log(`✅ Final result (confidence: ${bestConfidence.toFixed(2)}):`, bestTranscript);
-            finalTranscript += bestTranscript + ' ';
-          } else {
-            interimTranscript += bestTranscript;
-          }
-        }
-
-        // Show interim results in real-time
-        const displayText = (finalTranscript + interimTranscript).trim();
-        if (displayText) {
-          setTranscript(displayText);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Speech rec error", event.error, event);
-
-        // ✅ Auto-retry for recoverable errors
-        if (event.error === 'no-speech' || event.error === 'audio-capture') {
-          console.log('⚠️ Recoverable error, prompting retry...');
-          // Don't stop recording state, user can manually retry
-        } else if (event.error === 'network') {
-          console.log('❌ Network error, stopping...');
-          alert('Network error. Please check your connection and try again.');
-          setIsRecording(false);
-          setIsListeningContext(false);
-        } else {
-          // Other errors: stop recording
-          setIsRecording(false);
-          setIsListeningContext(false);
-        }
-      };
-
-      recognition.onend = () => {
-        console.log('🛑 Recognition onend fired:', {
-          finalTranscript: finalTranscript.trim(),
-          isRecording: isRecordingRef.current,
-          currentStep: learnState.currentStep
-        });
-
-        // ✅ If still recording, restart immediately (handles auto-stop from silence)
-        if (isRecordingRef.current) {
-          console.log('⚠️ Recognition stopped but still recording, restarting...');
-          try {
-            recognition.start();
-            console.log('✅ Recognition restarted successfully');
-            return; // Don't process yet, keep recording
-          } catch (e) {
-            console.error('❌ Failed to restart recognition:', e);
-            // Fall through to process what we have
-          }
-        }
-
-        // If we are in context input step
-        if (learnState.currentStep === 'input-context') {
-             const text = finalTranscript.trim();
-             if (text) {
-                 setManualContext(prev => {
-                     const spacer = prev ? ' ' : '';
-                     return prev + spacer + text;
-                 });
-             }
-             setIsListeningContext(false);
-        } else {
-             // Normal practice flow - evaluate when stopped
-             const text = finalTranscript.trim();
-             if (text) {
-                 handleSpeechResult(text);
-             }
-        }
-
-        // Reset for next use
-        finalTranscript = '';
-        setIsRecording(false);
-        setIsListeningContext(false);
-      };
-
-      recognitionRef.current = recognition;
-
-      // ✅ Cleanup: Stop recognition when component unmounts or step changes
-      return () => {
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.abort();
-            recognitionRef.current = null;
-          } catch (e) {
-            console.error("Speech recognition cleanup error:", e);
-          }
-        }
-      };
-    }
-  }, [learnState.currentStep]); // Re-bind if step changes
+    };
+  }, [learnState.currentStep]); // Re-initialize if step changes
 
   // Fetch word content when currentWord changes
   useEffect(() => {
@@ -262,43 +124,94 @@ export const Learn = () => {
 
   // speak function is now imported from services/tts.ts
 
-  const handleToggleRecording = () => {
-    if (!recognitionRef.current) {
-      alert("Speech recognition not supported in this browser. Please use Chrome or Safari.");
+  const handleToggleRecording = async () => {
+    if (!recorderRef.current) {
+      alert("Speech recognition not available. Please check your microphone permissions.");
       return;
     }
 
     if (isRecording) {
-      isRecordingRef.current = false; // ✅ Update ref first
-      recognitionRef.current.stop();
+      // Stop recording and transcribe
+      recorderRef.current.stop();
       setIsRecording(false);
+      setTranscript('Processing...');
     } else {
+      // Start recording
       setTranscript('');
       setIsRecording(true);
-      isRecordingRef.current = true; // ✅ Update ref
+
       try {
-        recognitionRef.current.start();
+        // Ensure recorder is initialized
+        if (!recorderRef.current.recording) {
+          await recorderRef.current.initialize().catch(() => {
+            // Already initialized, ignore
+          });
+        }
+
+        recorderRef.current.start(
+          (transcript: string) => {
+            // Transcript received from Deepgram
+            console.log('✅ Deepgram transcript:', transcript);
+            setTranscript(transcript);
+
+            // Process the transcript based on current step
+            if (learnState.currentStep === 'input-context') {
+              setManualContext(prev => {
+                const spacer = prev ? ' ' : '';
+                return prev + spacer + transcript;
+              });
+              setIsListeningContext(false);
+            } else {
+              // Normal practice flow - evaluate when stopped
+              handleSpeechResult(transcript);
+            }
+          },
+          (error: Error) => {
+            console.error('❌ Deepgram error:', error);
+            alert(`Speech recognition failed: ${error.message}`);
+            setIsRecording(false);
+          }
+        );
       } catch (e) {
         console.error("Failed to start recording:", e);
         setIsRecording(false);
-        isRecordingRef.current = false;
+        alert('Failed to access microphone. Please check your browser permissions.');
       }
     }
   };
 
-  const handleToggleContextMic = () => {
-     if (!recognitionRef.current) {
-         alert("Speech recognition not supported.");
+  const handleToggleContextMic = async () => {
+     // Use the same recorder for context input
+     if (!recorderRef.current) {
+         alert("Speech recognition not available.");
          return;
      }
      if (isListeningContext) {
-         recognitionRef.current.stop();
+         recorderRef.current.stop();
+         setIsListeningContext(false);
      } else {
          setIsListeningContext(true);
          try {
-             recognitionRef.current.start();
+             await recorderRef.current.initialize().catch(() => {
+               // Already initialized, ignore
+             });
+             recorderRef.current.start(
+               (transcript: string) => {
+                 setManualContext(prev => {
+                   const spacer = prev ? ' ' : '';
+                   return prev + spacer + transcript;
+                 });
+                 setIsListeningContext(false);
+               },
+               (error: Error) => {
+                 console.error('❌ Context mic error:', error);
+                 alert(`Speech recognition failed: ${error.message}`);
+                 setIsListeningContext(false);
+               }
+             );
          } catch(e) {
              setIsListeningContext(false);
+             alert('Failed to access microphone.');
          }
      }
   }
