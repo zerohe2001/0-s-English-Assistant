@@ -18,6 +18,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error' | 'ended'>('connecting');
   const [micActive, setMicActive] = useState(true);
   const [transcriptDisplay, setTranscriptDisplay] = useState<{role: string, text: string} | null>(null);
+  const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([]); // ✅ Show chat history in UI
   
   // Refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -158,11 +159,15 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
              // 3. Turn Complete
              if (message.serverContent?.turnComplete) {
                 if (currentInputTransRef.current.trim()) {
-                    historyRef.current.push({ role: 'user', text: currentInputTransRef.current.trim() });
+                    const userMessage = { role: 'user', text: currentInputTransRef.current.trim() };
+                    historyRef.current.push(userMessage);
+                    setDisplayHistory([...historyRef.current]); // ✅ Update UI
                     currentInputTransRef.current = '';
                 }
                 if (currentOutputTransRef.current.trim()) {
-                    historyRef.current.push({ role: 'model', text: currentOutputTransRef.current.trim() });
+                    const aiMessage = { role: 'model', text: currentOutputTransRef.current.trim() };
+                    historyRef.current.push(aiMessage);
+                    setDisplayHistory([...historyRef.current]); // ✅ Update UI
                     currentOutputTransRef.current = '';
                 }
              }
@@ -274,55 +279,96 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   };
 
   return (
-    <div className="flex flex-col items-center justify-start h-full space-y-8 p-6 bg-slate-900 text-white rounded-xl relative overflow-y-auto">
-      <div className={`absolute inset-0 bg-primary opacity-10 transition-opacity duration-1000 ${status === 'connected' ? 'animate-pulse' : ''} pointer-events-none`}></div>
-
-      <div className="z-10 text-center space-y-2 max-w-lg flex-shrink-0">
-        <h2 className="text-2xl font-bold">Roleplay Conversation</h2>
-        <div className="text-slate-300 text-sm leading-relaxed max-h-32 overflow-y-auto">
-            <ClickableText text={scene} />
+    <div className="flex flex-col h-full bg-slate-900 text-white rounded-xl relative overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 border-b border-slate-700">
+        <h2 className="text-xl font-bold text-center">🎭 Roleplay Conversation</h2>
+        <div className="text-slate-400 text-xs text-center mt-1 max-h-20 overflow-y-auto">
+          <ClickableText text={scene} />
         </div>
       </div>
 
-      <div className="relative z-10 w-48 h-48 flex items-center justify-center">
-         {status === 'connecting' && (
-             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-         )}
-         {status === 'connected' && (
-             <div className="relative w-32 h-32 bg-gradient-to-br from-primary to-purple-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.5)]">
-                 <div className={`absolute inset-0 bg-white rounded-full opacity-20 ${micActive ? 'animate-ping' : ''}`}></div>
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                 </svg>
-             </div>
-         )}
-         {status === 'error' && (
-             <div className="text-red-500 font-bold">Connection Failed</div>
-         )}
-      </div>
-      
-      {/* Live Transcript Snippet */}
-      <div className="z-10 h-16 w-full max-w-md text-center flex items-center justify-center">
+      {/* Status Banner */}
+      {status === 'connecting' && (
+        <div className="flex-shrink-0 bg-yellow-600 text-white p-3 text-center flex items-center justify-center gap-2">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Connecting to AI...</span>
+        </div>
+      )}
+      {status === 'connected' && (
+        <div className="flex-shrink-0 bg-green-600 text-white p-3 text-center font-semibold flex items-center justify-center gap-2">
+          <div className={`w-3 h-3 rounded-full bg-white ${micActive ? 'animate-pulse' : 'opacity-50'}`}></div>
+          <span>{micActive ? '🎤 Microphone Active - Start Speaking!' : '🔇 Microphone Muted'}</span>
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="flex-shrink-0 bg-red-600 text-white p-3 text-center font-semibold">
+          ❌ Connection Failed - Please try again
+        </div>
+      )}
+
+      {/* Chat History */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {displayHistory.length === 0 && status === 'connected' && (
+          <div className="text-center text-slate-400 py-8">
+            <p className="text-lg mb-2">👋 Ready to chat!</p>
+            <p className="text-sm">Just start speaking - I'm listening...</p>
+          </div>
+        )}
+
+        {displayHistory.map((msg, idx) => (
+          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-3 rounded-lg ${
+              msg.role === 'user'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-slate-100'
+            }`}>
+              <div className="text-xs opacity-70 mb-1">
+                {msg.role === 'user' ? 'You' : 'AI'}
+              </div>
+              <div className="text-sm">{msg.text}</div>
+            </div>
+          </div>
+        ))}
+
+        {/* Current speaking indicator */}
         {transcriptDisplay && (
-            <p className="text-slate-400 text-sm animate-fade-in">
-                <span className="font-bold text-slate-300">{transcriptDisplay.role}:</span> {transcriptDisplay.text.slice(-50)}...
-            </p>
+          <div className={`flex ${transcriptDisplay.role === 'You' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-3 rounded-lg opacity-60 ${
+              transcriptDisplay.role === 'You'
+                ? 'bg-blue-500 text-white'
+                : 'bg-slate-600 text-slate-100'
+            }`}>
+              <div className="text-xs mb-1 flex items-center gap-1">
+                {transcriptDisplay.role}
+                <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse"></span>
+                <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.2s'}}></span>
+                <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.4s'}}></span>
+              </div>
+              <div className="text-sm italic">{transcriptDisplay.text}</div>
+            </div>
+          </div>
         )}
       </div>
 
-      <div className="z-10 flex gap-4">
-        <button 
+      {/* Control Buttons */}
+      <div className="flex-shrink-0 p-4 border-t border-slate-700 flex gap-3 justify-center">
+        <button
           onClick={toggleMic}
-          className={`p-4 rounded-full transition-colors ${micActive ? 'bg-secondary text-white' : 'bg-gray-600 text-gray-300'}`}
+          className={`px-6 py-3 rounded-lg transition-all font-semibold ${
+            micActive
+              ? 'bg-green-600 hover:bg-green-700 text-white'
+              : 'bg-slate-600 hover:bg-slate-700 text-slate-300'
+          }`}
           disabled={status !== 'connected'}
         >
-          {micActive ? 'Mute' : 'Unmute'}
+          {micActive ? '🎤 Mute' : '🔇 Unmute'}
         </button>
-        <button 
+        <button
           onClick={handleEnd}
-          className="p-4 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors font-semibold px-8"
+          className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all font-semibold"
         >
-          End & Get Feedback
+          🛑 End & Get Feedback
         </button>
       </div>
     </div>
