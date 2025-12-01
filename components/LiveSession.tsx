@@ -145,17 +145,16 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       - "No problem, have a nice day!"
       `;
 
-      // ✅ Start connection (but don't await yet)
+      // ✅ Start connection with correct Gemini Live API format
       const sessionPromise = aiRef.current.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.0-flash-exp',
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: systemInstruction,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
           },
-          inputAudioTranscription: { model: "gemini-2.5-flash-native-audio-preview-09-2025" },
-          outputAudioTranscription: { model: "gemini-2.5-flash-native-audio-preview-09-2025" },
+          // ✅ Correct format: just enable transcription without specifying model
         },
         callbacks: {
           onopen: () => {
