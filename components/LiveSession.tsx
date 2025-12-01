@@ -88,21 +88,28 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       
       const systemInstruction = `
       You are a friendly conversation partner helping an English learner.
-      
+
       USER PROFILE:
       Name: ${profile.name}, Job: ${profile.occupation}
-      
+
       SCENE:
       ${scene}
-      
+
       GOAL:
       Help user practice these words: ${words.join(', ')}.
-      
-      BEHAVIOR:
-      1. Roleplay the character in the scene.
-      2. Speak naturally, keep turns short (1-3 sentences).
-      3. If user struggles, give a hint.
-      4. Gently correct major errors but keep flow.
+
+      CRITICAL RULES:
+      1. Keep EVERY response to EXACTLY 1 sentence (max 10-15 words).
+      2. Aim for 6-7 total exchanges, then naturally wrap up.
+      3. Roleplay the character in the scene.
+      4. If user struggles, give a SHORT hint.
+      5. Gently correct major errors but keep flow.
+      6. Keep it conversational and brief - like real quick chat.
+
+      Example good responses:
+      - "Sure, what size would you like?"
+      - "That sounds great, anything else?"
+      - "No problem, have a nice day!"
       `;
 
       const sessionPromise = aiRef.current.live.connect({
@@ -267,12 +274,12 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full space-y-8 p-6 bg-slate-900 text-white rounded-xl relative overflow-hidden">
-      <div className={`absolute inset-0 bg-primary opacity-10 transition-opacity duration-1000 ${status === 'connected' ? 'animate-pulse' : ''}`}></div>
-      
-      <div className="z-10 text-center space-y-2 max-w-lg">
+    <div className="flex flex-col items-center justify-start h-full space-y-8 p-6 bg-slate-900 text-white rounded-xl relative overflow-y-auto">
+      <div className={`absolute inset-0 bg-primary opacity-10 transition-opacity duration-1000 ${status === 'connected' ? 'animate-pulse' : ''} pointer-events-none`}></div>
+
+      <div className="z-10 text-center space-y-2 max-w-lg flex-shrink-0">
         <h2 className="text-2xl font-bold">Roleplay Conversation</h2>
-        <div className="text-slate-300 text-sm leading-relaxed">
+        <div className="text-slate-300 text-sm leading-relaxed max-h-32 overflow-y-auto">
             <ClickableText text={scene} />
         </div>
       </div>

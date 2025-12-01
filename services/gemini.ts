@@ -144,12 +144,17 @@ export const generateConversationScene = async (
   words: string[]
 ) => {
   const prompt = `
-  Create a roleplay scenario based on:
+  Create a VERY SHORT roleplay scenario (max 2 sentences) based on:
   User: ${profile.name} (${profile.occupation} in ${profile.city})
   Activity: ${context}
   Target Words: ${words.join(', ')}
 
-  Output a short paragraph describing the scene and who the AI should play.
+  Requirements:
+  1. Maximum 2 sentences
+  2. Clearly state who the AI will play
+  3. Keep it simple and clear
+
+  Example: "You're ordering coffee at a café. I'll be the barista."
   `;
 
   const response = await ai.models.generateContent({
