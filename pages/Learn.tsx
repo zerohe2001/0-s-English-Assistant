@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary } from '../services/gemini';
+// ✅ Use Claude for text generation (faster, more reliable, better quota)
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary } from '../services/claude';
 import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
