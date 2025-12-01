@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 // ✅ Use Claude for text generation (faster, more reliable, better quota)
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary } from '../services/claude';
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary, translateToChinese } from '../services/claude';
 import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
@@ -26,7 +26,8 @@ export const Learn = () => {
     setWordExplanation, // ✅ Add method to store explanations
     markWordAsLearned, // ✅ Mark word as learned
     openDictionary, // ✅ Open dictionary modal for word lookup
-    saveUserSentence // ✅ Save user's created sentence
+    saveUserSentence, // ✅ Save user's created sentence (for scene generation)
+    saveWordSentence // ✅ Save sentence to Word object (for review)
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -307,8 +308,22 @@ export const Learn = () => {
 
           // ✅ Save user's sentence if they created one
           if (transcript && transcript.trim()) {
-              saveUserSentence(currentWord.id, transcript.trim());
-              console.log('✅ Saved user sentence:', transcript.trim());
+              const userSentence = transcript.trim();
+
+              // Save to learnState for scene generation
+              saveUserSentence(currentWord.id, userSentence);
+              console.log('✅ Saved user sentence for scene:', userSentence);
+
+              // Generate and save translation to Word object for review
+              try {
+                  const translation = await translateToChinese(userSentence);
+                  saveWordSentence(currentWord.id, userSentence, translation);
+                  console.log('✅ Saved sentence to Word with translation:', translation);
+              } catch (error) {
+                  console.error('Failed to translate sentence:', error);
+                  // Save without translation as fallback
+                  saveWordSentence(currentWord.id, userSentence, '');
+              }
           }
       }
 

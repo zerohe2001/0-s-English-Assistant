@@ -267,3 +267,26 @@ Respond ONLY with valid JSON in this exact format:
 
   return data;
 }
+
+/**
+ * Translate English sentence to Chinese
+ */
+export async function translateToChinese(sentence: string): Promise<string> {
+  const prompt = `
+Translate this English sentence to natural Chinese:
+
+"${sentence}"
+
+Requirements:
+1. Translate naturally (not word-for-word)
+2. Use conversational Chinese
+3. Return ONLY the Chinese translation, nothing else
+
+Example:
+Input: "I need to buy some groceries today."
+Output: 我今天需要买些日用品。
+`;
+
+  const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
+  return responseText.trim();
+}

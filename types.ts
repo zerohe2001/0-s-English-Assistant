@@ -14,12 +14,20 @@ export interface UserProfile {
   savedContexts: SavedContext[]; // Added
 }
 
+export interface ReviewStats {
+  retryCount: number;
+  skipped: boolean;
+}
+
 export interface Word {
   id: string;
   text: string;
   addedAt: string; // ISO date string
   learned: boolean;
   lastPracticed?: string; // ISO date string
+  userSentence?: string; // ✅ User's created sentence for this word
+  userSentenceTranslation?: string; // ✅ Chinese translation of user's sentence
+  reviewStats?: ReviewStats; // ✅ Review statistics
 }
 
 export type WordStep = 'explanation' | 'shadowing' | 'creation';
@@ -35,12 +43,16 @@ export interface SessionSummary {
   feedback: string;
 }
 
+export type ReviewStep = 'speaking' | 'comparing';
+
 export interface LearnState {
-  currentStep: 'input-context' | 'learning' | 'conversation' | 'summary';
+  currentStep: 'input-context' | 'learning' | 'review' | 'conversation' | 'summary';
   dailyContext: string;
   learningQueue: Word[];
   currentWordIndex: number;
   wordSubStep: WordStep;
+  reviewSubStep?: ReviewStep; // ✅ Review substep
+  currentReviewAttempt?: string; // ✅ Current user's spoken sentence in review
   generatedScene?: string;
   conversationHistory: ChatMessage[];
   sessionSummary?: SessionSummary;

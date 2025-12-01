@@ -18,6 +18,8 @@ interface AppState {
   removeWord: (id: string) => void;
   bulkAddWords: (text: string) => void;
   markWordAsLearned: (wordId: string) => void; // ✅ Mark word as learned
+  saveWordSentence: (wordId: string, sentence: string, translation: string) => void; // ✅ Save sentence to Word object
+  updateReviewStats: (wordId: string, stats: import('./types').ReviewStats) => void; // ✅ Update review stats
 
   // Learning Session
   learnState: LearnState;
@@ -26,11 +28,15 @@ interface AppState {
   setWordSubStep: (step: LearnState['wordSubStep']) => void;
   nextWord: () => void;
   completeLearningPhase: (sceneDescription: string) => void;
+  startReviewPhase: () => void; // ✅ Start review phase
+  setReviewSubStep: (step: import('./types').ReviewStep) => void; // ✅ Set review substep
+  setReviewAttempt: (attempt: string) => void; // ✅ Store current review attempt
+  nextReviewWord: (completed: boolean) => void; // ✅ Move to next word in review
   addChatMessage: (message: ChatMessage) => void;
   setSessionSummary: (summary: SessionSummary) => void;
   resetSession: () => void;
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
-  saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence
+  saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence (for scene generation)
 
   // Dictionary
   dictionary: DictionaryState;
@@ -124,6 +130,20 @@ export const useStore = create<AppState>()(
             : w
         )
       })),
+      saveWordSentence: (wordId, sentence, translation) => set((state) => ({
+        words: state.words.map(w =>
+          w.id === wordId
+            ? { ...w, userSentence: sentence, userSentenceTranslation: translation }
+            : w
+        )
+      })),
+      updateReviewStats: (wordId, stats) => set((state) => ({
+        words: state.words.map(w =>
+          w.id === wordId
+            ? { ...w, reviewStats: stats, learned: !stats.skipped && stats.retryCount < 3 }
+            : w
+        )
+      })),
 
       learnState: {
         currentStep: 'input-context',
@@ -131,6 +151,8 @@ export const useStore = create<AppState>()(
         learningQueue: [],
         currentWordIndex: 0,
         wordSubStep: 'explanation',
+        reviewSubStep: undefined,
+        currentReviewAttempt: undefined,
         conversationHistory: [],
         wordExplanations: {}, // ✅ Initialize empty explanations map
         userSentences: {}, // ✅ Initialize empty user sentences map
@@ -161,20 +183,58 @@ export const useStore = create<AppState>()(
       nextWord: () => set((state) => {
         const nextIndex = state.learnState.currentWordIndex + 1;
         if (nextIndex >= state.learnState.learningQueue.length) {
-          // All words done, ready for conversation
-          return { learnState: { ...state.learnState, currentStep: 'conversation', wordSubStep: 'explanation' } };
+          // All words done, ready for review
+          return { learnState: { ...state.learnState, currentStep: 'review', currentWordIndex: 0, reviewSubStep: 'speaking' } };
         }
-        return { 
-          learnState: { 
-            ...state.learnState, 
-            currentWordIndex: nextIndex, 
-            wordSubStep: 'explanation' 
-          } 
+        return {
+          learnState: {
+            ...state.learnState,
+            currentWordIndex: nextIndex,
+            wordSubStep: 'explanation'
+          }
         };
       }),
       completeLearningPhase: (scene) => set((state) => ({
         learnState: { ...state.learnState, currentStep: 'conversation', generatedScene: scene }
       })),
+      startReviewPhase: () => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          currentStep: 'review',
+          currentWordIndex: 0,
+          reviewSubStep: 'speaking'
+        }
+      })),
+      setReviewSubStep: (step) => set((state) => ({
+        learnState: { ...state.learnState, reviewSubStep: step }
+      })),
+      setReviewAttempt: (attempt) => set((state) => ({
+        learnState: { ...state.learnState, currentReviewAttempt: attempt }
+      })),
+      nextReviewWord: (completed) => set((state) => {
+        const nextIndex = state.learnState.currentWordIndex + 1;
+
+        if (nextIndex >= state.learnState.learningQueue.length) {
+          // All review done, move to conversation
+          return {
+            learnState: {
+              ...state.learnState,
+              currentStep: 'conversation',
+              reviewSubStep: undefined,
+              currentReviewAttempt: undefined
+            }
+          };
+        }
+
+        return {
+          learnState: {
+            ...state.learnState,
+            currentWordIndex: nextIndex,
+            reviewSubStep: 'speaking',
+            currentReviewAttempt: undefined
+          }
+        };
+      }),
       addChatMessage: (message) => set((state) => ({
         learnState: { 
           ...state.learnState, 
@@ -203,6 +263,8 @@ export const useStore = create<AppState>()(
           learningQueue: [],
           currentWordIndex: 0,
           wordSubStep: 'explanation',
+          reviewSubStep: undefined, // ✅ Clear review substep
+          currentReviewAttempt: undefined, // ✅ Clear review attempt
           generatedScene: undefined,
           conversationHistory: [],
           sessionSummary: undefined,
