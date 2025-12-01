@@ -5,6 +5,11 @@ export const Vocabulary = () => {
   const { words, addWord, removeWord, bulkAddWords } = useStore();
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
+  const [activeTab, setActiveTab] = useState<'unlearned' | 'learned'>('unlearned'); // ✅ Tab state
+
+  // ✅ Filter words by learned status
+  const unlearnedWords = words.filter(w => !w.learned);
+  const learnedWords = words.filter(w => w.learned);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,30 +73,83 @@ export const Vocabulary = () => {
         </div>
       </form>
 
+      {/* ✅ Tabs */}
+      <div className="flex gap-2 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab('unlearned')}
+          className={`px-4 py-2 font-semibold transition ${
+            activeTab === 'unlearned'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          To Learn ({unlearnedWords.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('learned')}
+          className={`px-4 py-2 font-semibold transition ${
+            activeTab === 'learned'
+              ? 'border-b-2 border-green-500 text-green-600'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Learned ✅ ({learnedWords.length})
+        </button>
+      </div>
+
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-800">Your List ({words.length})</h2>
-        {words.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-            No words yet. Add some to start learning!
-          </div>
+        {activeTab === 'unlearned' ? (
+          unlearnedWords.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+              No words to learn. Add some above!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {unlearnedWords.map((word) => (
+                <div key={word.id} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
+                  <span className={`font-medium ${word.learned ? 'text-green-600' : 'text-slate-800'}`}>
+                    {word.text}
+                  </span>
+                  <button
+                    onClick={() => removeWord(word.id)}
+                    className="text-slate-400 hover:text-red-500 p-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {words.map((word) => (
-              <div key={word.id} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
-                <span className={`font-medium ${word.learned ? 'text-green-600' : 'text-slate-800'}`}>
-                  {word.text}
-                </span>
-                <button 
-                  onClick={() => removeWord(word.id)}
-                  className="text-slate-400 hover:text-red-500 p-1"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+          learnedWords.length === 0 ? (
+            <div className="text-center py-10 text-green-100 bg-green-50 rounded-xl border border-dashed border-green-200">
+              <p className="text-green-600 font-medium">No learned words yet!</p>
+              <p className="text-green-500 text-sm mt-2">Complete the learning flow and click "Next" to mark words as learned.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {learnedWords.map((word) => (
+                <div key={word.id} className="bg-green-50 p-3 rounded-lg border border-green-100 shadow-sm flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">✅</span>
+                    <span className="font-medium text-green-700">
+                      {word.text}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removeWord(word.id)}
+                    className="text-green-300 hover:text-red-500 p-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

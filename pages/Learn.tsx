@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary } from '../services/gemini';
+import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
 import { WordExplanation, SentenceEvaluation } from '../types';
@@ -10,22 +11,29 @@ import { WordExplanation, SentenceEvaluation } from '../types';
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 export const Learn = () => {
-  const { 
-    profile, 
-    learnState, 
-    setDailyContext, 
-    startLearning, 
+  const {
+    profile,
+    learnState,
+    setDailyContext,
+    startLearning,
     setWordSubStep,
-    nextWord, 
+    nextWord,
     completeLearningPhase,
     setSessionSummary,
     resetSession,
     words,
-    addSavedContext
+    addSavedContext,
+    setWordExplanation, // ✅ Add method to store explanations
+    markWordAsLearned // ✅ Mark word as learned
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [explanation, setExplanation] = useState<WordExplanation | null>(null);
+
+  // ✅ Read explanation from store instead of local state
+  const currentWord = learnState.learningQueue?.[learnState.currentWordIndex];
+  const explanation = currentWord && learnState.wordExplanations && currentWord.id in learnState.wordExplanations
+    ? learnState.wordExplanations[currentWord.id]
+    : null;
   
   // Input State
   const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
@@ -39,48 +47,87 @@ export const Learn = () => {
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
   // Initialize Speech Rec
   useEffect(() => {
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true; // Keep listening until manually stopped
       recognition.lang = 'en-US';
-      recognition.interimResults = false;
-      
+      recognition.interimResults = true; // Show interim results
+      recognition.maxAlternatives = 1;
+
+      let finalTranscript = '';
+
       recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        
-        // If we are in context input step
-        if (learnState.currentStep === 'input-context') {
-             setManualContext(prev => {
-                 const spacer = prev ? ' ' : '';
-                 return prev + spacer + text;
-             });
-             setIsListeningContext(false);
-        } else {
-             // Normal practice flow
-             setTranscript(text);
-             handleSpeechResult(text);
+        let interimTranscript = '';
+
+        // Collect all results
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Show interim results in real-time
+        const displayText = (finalTranscript + interimTranscript).trim();
+        if (displayText) {
+          setTranscript(displayText);
         }
       };
-      
+
       recognition.onerror = (event: any) => {
-        console.error("Speech rec error", event);
+        console.error("Speech rec error", event.error, event);
         setIsRecording(false);
         setIsListeningContext(false);
       };
 
       recognition.onend = () => {
+        console.log("Recognition ended, final transcript:", finalTranscript.trim());
+
+        // If we are in context input step
+        if (learnState.currentStep === 'input-context') {
+             const text = finalTranscript.trim();
+             if (text) {
+                 setManualContext(prev => {
+                     const spacer = prev ? ' ' : '';
+                     return prev + spacer + text;
+                 });
+             }
+             setIsListeningContext(false);
+        } else {
+             // Normal practice flow - evaluate when stopped
+             const text = finalTranscript.trim();
+             if (text) {
+                 handleSpeechResult(text);
+             }
+        }
+
+        // Reset for next use
+        finalTranscript = '';
         setIsRecording(false);
         setIsListeningContext(false);
       };
 
       recognitionRef.current = recognition;
+
+      // ✅ Cleanup: Stop recognition when component unmounts or step changes
+      return () => {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+            recognitionRef.current = null;
+          } catch (e) {
+            console.error("Speech recognition cleanup error:", e);
+          }
+        }
+      };
     }
   }, [learnState.currentStep]); // Re-bind if step changes
-
-  const currentWord = learnState.learningQueue[learnState.currentWordIndex];
 
   // Fetch word content when currentWord changes
   useEffect(() => {
@@ -99,12 +146,36 @@ export const Learn = () => {
   }, [learnState.wordSubStep, learnState.currentWordIndex]);
 
   const loadWordContent = async () => {
+    // ✅ Safety check: currentWord must exist
+    if (!currentWord) {
+      console.error('loadWordContent called but currentWord is undefined');
+      return;
+    }
+
+    // ✅ Check if explanation already exists in store
+    if (learnState.wordExplanations[currentWord.id]) {
+      console.log('✨ Using cached explanation for:', currentWord.text);
+      // Preload audio for cached explanation
+      const cached = learnState.wordExplanations[currentWord.id];
+      if (cached.example) {
+        preloadAudio(cached.example);
+      }
+      return; // Don't regenerate
+    }
+
+    // Generate new explanation if not cached
     setIsLoading(true);
-    setExplanation(null);
     try {
       const result = await generateWordExplanation(currentWord.text, profile, learnState.dailyContext);
-      setExplanation(result);
-      speak(result.example);
+
+      // ✅ Store in Zustand store instead of local state
+      setWordExplanation(currentWord.id, result);
+
+      // 🚀 Preload audio in background
+      if (result.example) {
+        console.log('⏳ Preloading audio for example sentence...');
+        preloadAudio(result.example);
+      }
     } catch (e) {
       console.error(e);
       alert("Failed to load word data. Check API Key or Connection.");
@@ -113,12 +184,7 @@ export const Learn = () => {
     }
   };
 
-  const speak = (text: string) => {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      window.speechSynthesis.speak(u);
-  };
+  // speak function is now imported from services/tts.ts
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
@@ -158,23 +224,118 @@ export const Learn = () => {
   }
 
   const handleSpeechResult = async (text: string) => {
+      // ✅ Prevent race conditions: Skip if already processing
+      if (processingRef.current) {
+          console.log("⚠️ Already processing speech, skipping duplicate call...");
+          return;
+      }
+
+      console.log("=== handleSpeechResult called ===");
+      console.log("Current step:", learnState.wordSubStep);
+      console.log("Transcript:", text);
+
+      processingRef.current = true;
       setIsLoading(true);
       try {
         if (learnState.wordSubStep === 'shadowing') {
             // Check shadowing
-            if (!explanation) return;
+            console.log("Evaluating shadowing...");
+            if (!explanation) {
+                console.error("No explanation available!");
+                alert("Error: No example sentence to compare against.");
+                return;
+            }
+            console.log("Target sentence:", explanation.example);
+            console.log("User said:", text);
+
             const result = await evaluateShadowing(explanation.example, text);
+            console.log("Shadowing result:", result);
             setShadowingFeedback(result);
         } else if (learnState.wordSubStep === 'creation') {
             // Check sentence creation
+            console.log("Evaluating user sentence...");
             const result = await evaluateUserSentence(currentWord.text, text, learnState.dailyContext);
+            console.log("Sentence evaluation result:", result);
             setEvaluation(result);
         }
       } catch (error) {
           console.error("Evaluation failed", error);
           alert("Failed to evaluate speech. Please try again.");
       } finally {
+          processingRef.current = false;
           setIsLoading(false);
+      }
+  };
+
+  // ✅ Handle Next from Shadowing - marks word as learned
+  const handleNextFromShadowing = () => {
+      if (currentWord) {
+          markWordAsLearned(currentWord.id);
+          console.log('✅ Word marked as learned:', currentWord.text);
+      }
+      setWordSubStep('creation');
+  };
+
+  // ✅ Handle Skip from Shadowing - does NOT mark as learned
+  const handleSkipShadowing = () => {
+      console.log('⏭️ Skipped shadowing, word NOT marked as learned');
+      setWordSubStep('creation');
+  };
+
+  // ✅ Handle Next from Creation - marks word as learned and moves to next
+  const handleNextFromCreation = async () => {
+      if (currentWord) {
+          markWordAsLearned(currentWord.id);
+          console.log('✅ Word marked as learned:', currentWord.text);
+      }
+
+      // Move to next word or conversation
+      if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+          setIsLoading(true);
+          try {
+              const scene = await generateConversationScene(
+                  profile,
+                  learnState.dailyContext,
+                  learnState.learningQueue.map(w => w.text)
+              );
+              completeLearningPhase(scene);
+          } catch (error) {
+              console.error(error);
+              alert("Failed to generate conversation scene. Please try again.");
+          } finally {
+              setIsLoading(false);
+          }
+      } else {
+          setEvaluation(null);
+          setTranscript('');
+          nextWord();
+      }
+  };
+
+  // ✅ Handle Skip from Creation - does NOT mark as learned, moves to next
+  const handleSkipCreation = async () => {
+      console.log('⏭️ Skipped creation, word NOT marked as learned');
+
+      // Move to next word or conversation (same logic as Next but without marking)
+      if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+          setIsLoading(true);
+          try {
+              const scene = await generateConversationScene(
+                  profile,
+                  learnState.dailyContext,
+                  learnState.learningQueue.map(w => w.text)
+              );
+              completeLearningPhase(scene);
+          } catch (error) {
+              console.error(error);
+              alert("Failed to generate conversation scene. Please try again.");
+          } finally {
+              setIsLoading(false);
+          }
+      } else {
+          setEvaluation(null);
+          setTranscript('');
+          nextWord();
       }
   };
 
@@ -182,6 +343,7 @@ export const Learn = () => {
       if (learnState.wordSubStep === 'explanation') {
           setWordSubStep('shadowing');
       } else if (learnState.wordSubStep === 'shadowing') {
+          // Default behavior for other callers
           setWordSubStep('creation');
       } else if (learnState.wordSubStep === 'creation') {
           // Move to next word or conversation
@@ -223,21 +385,57 @@ export const Learn = () => {
       }
   };
 
-  const handleStartSession = () => {
+  const handleStartSession = async () => {
       // Combine manual text and selected cards
-      const selectedTexts = profile.savedContexts
+      const savedContexts = profile.savedContexts || [];
+      const selectedTexts = savedContexts
         .filter(c => selectedContextIds.includes(c.id))
         .map(c => c.text);
-      
+
       const combined = [manualContext, ...selectedTexts].join('. ').trim();
-      
+
       if (!combined) {
           alert("Please provide some context to start.");
           return;
       }
-      
+
       setDailyContext(combined);
       startLearning();
+
+      // ✅ PERFORMANCE OPTIMIZATION: Preload ALL words immediately
+      // Get the learning queue that was just created by startLearning()
+      const queue = words.filter(w => !w.learned).slice(0, 5);
+      if (queue.length === 0 && words.length > 0) {
+          queue.push(...[...words].sort(() => 0.5 - Math.random()).slice(0, 5));
+      }
+
+      console.log(`🚀 Preloading ${queue.length} words in background...`);
+      setIsLoading(true);
+
+      // Preload all words concurrently
+      const preloadPromises = queue.map(async (word) => {
+          try {
+              const result = await generateWordExplanation(word.text, profile, combined);
+              setWordExplanation(word.id, result);
+
+              // Preload TTS audio
+              if (result.example) {
+                  preloadAudio(result.example);
+              }
+              if (word.text) {
+                  preloadAudio(word.text);
+              }
+
+              console.log(`✅ Preloaded: ${word.text}`);
+          } catch (e) {
+              console.error(`❌ Failed to preload ${word.text}:`, e);
+          }
+      });
+
+      // Wait for all to complete
+      await Promise.all(preloadPromises);
+      setIsLoading(false);
+      console.log('🎉 All words preloaded!');
   };
 
   const handleSaveContext = () => {
@@ -365,7 +563,22 @@ export const Learn = () => {
                 {learnState.wordSubStep === 'explanation' && (
                     <div className="animate-fade-in space-y-6">
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center relative group">
-                            <h1 className="text-5xl font-extrabold text-primary mb-4">{currentWord.text}</h1>
+                            <h1 className="text-5xl font-extrabold text-primary mb-2">{currentWord.text}</h1>
+
+                            {/* Phonetic + Play Button */}
+                            <div className="flex items-center justify-center gap-3 mb-4">
+                                <span className="text-lg text-slate-500 font-mono">{explanation.phonetic}</span>
+                                <button
+                                  onClick={() => speak(currentWord.text)}
+                                  className="p-2 hover:bg-indigo-50 rounded-full transition-colors group"
+                                  title="Play pronunciation"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary group-hover:text-indigo-700" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+
                             <div className="text-xl text-slate-700">
                                 <ClickableText text={explanation.meaning} />
                             </div>
@@ -404,7 +617,11 @@ export const Learn = () => {
                             )}
                         </div>
 
-                        <button onClick={handleNextStep} className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 transition">
+                        <button
+                          onClick={handleNextStep}
+                          disabled={isLoading}
+                          className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                             Practice Pronunciation &rarr;
                         </button>
                     </div>
@@ -429,11 +646,17 @@ export const Learn = () => {
                          </div>
 
                          <div className="flex flex-col items-center">
-                            {!shadowingFeedback ? (
+                            {isLoading ? (
+                                <div className="flex flex-col items-center space-y-4">
+                                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                    <p className="text-slate-500 font-medium">Evaluating your pronunciation...</p>
+                                </div>
+                            ) : !shadowingFeedback ? (
                                 <>
-                                    <button 
+                                    <button
                                       onClick={handleToggleRecording}
-                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-primary shadow-indigo-200'} shadow-xl`}
+                                      disabled={isLoading}
+                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-primary shadow-indigo-200'} shadow-xl disabled:opacity-50`}
                                     >
                                         {isRecording ? (
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -445,21 +668,47 @@ export const Learn = () => {
                                             </svg>
                                         )}
                                     </button>
-                                    <p className="mt-4 text-slate-400 font-medium">{isRecording ? "Tap to Stop" : "Tap to Speak"}</p>
+                                    <p className="mt-4 text-slate-400 font-medium">
+                                        {isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Speak"}
+                                    </p>
+                                    {transcript && !isRecording && (
+                                        <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
+                                            <p className="text-xs text-slate-500 mb-1">You said:</p>
+                                            <p className="text-slate-700 italic">"{transcript}"</p>
+                                        </div>
+                                    )}
+                                    {/* ✅ Skip button - allows skipping without recording */}
+                                    <button
+                                      onClick={handleSkipShadowing}
+                                      className="mt-6 px-6 py-2 text-slate-500 hover:text-primary font-medium text-sm underline transition"
+                                    >
+                                      Skip (Don't mark as learned) →
+                                    </button>
                                 </>
                             ) : (
                                 <div className="w-full space-y-4">
                                      <div className={`p-4 rounded-xl ${shadowingFeedback.isCorrect ? 'bg-green-100 border-green-200' : 'bg-orange-100 border-orange-200'} border`}>
-                                         <p className="font-bold text-lg mb-1">{shadowingFeedback.isCorrect ? "Good Job!" : "Try Again"}</p>
+                                         <p className="font-bold text-lg mb-1">{shadowingFeedback.isCorrect ? "✅ Good Job!" : "⚠️ Try Again"}</p>
                                          <p className="text-sm opacity-90">{shadowingFeedback.feedback}</p>
                                      </div>
-                                     <div className="text-center p-2 text-slate-500 text-sm">You said: "{transcript}"</div>
-                                     
+
+                                     {/* ✅ Sentence Comparison */}
+                                     <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                                         <div>
+                                             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Target</p>
+                                             <p className="text-slate-700 italic">"{explanation.example}"</p>
+                                         </div>
+                                         <div className="border-t border-slate-100"></div>
+                                         <div>
+                                             <p className="text-xs font-bold text-slate-400 uppercase mb-1">You said</p>
+                                             <p className="text-slate-700 italic">"{transcript}"</p>
+                                         </div>
+                                     </div>
+
                                      <div className="flex gap-3">
-                                         <button onClick={() => { setShadowingFeedback(null); setTranscript(''); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600">Retry</button>
-                                         {shadowingFeedback.isCorrect && (
-                                            <button onClick={handleNextStep} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold">Use It &rarr;</button>
-                                         )}
+                                         <button onClick={() => { setShadowingFeedback(null); setTranscript(''); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition">Retry</button>
+                                         <button onClick={handleSkipShadowing} className="flex-1 py-3 bg-slate-100 border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-200 transition">Skip</button>
+                                         <button onClick={handleNextFromShadowing} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-indigo-700 transition">Next &rarr;</button>
                                      </div>
                                 </div>
                             )}
@@ -476,11 +725,17 @@ export const Learn = () => {
                          </div>
 
                          <div className="flex flex-col items-center">
-                            {!evaluation ? (
+                            {isLoading ? (
+                                <div className="flex flex-col items-center space-y-4">
+                                    <div className="w-16 h-16 border-4 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                                    <p className="text-slate-500 font-medium">Evaluating your sentence...</p>
+                                </div>
+                            ) : !evaluation ? (
                                 <>
-                                    <button 
+                                    <button
                                       onClick={handleToggleRecording}
-                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-secondary shadow-emerald-200'} shadow-xl`}
+                                      disabled={isLoading}
+                                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-red-500 animate-pulse shadow-red-200' : 'bg-secondary shadow-emerald-200'} shadow-xl disabled:opacity-50 disabled:cursor-not-allowed`}
                                     >
                                         {isRecording ? (
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -492,7 +747,20 @@ export const Learn = () => {
                                             </svg>
                                         )}
                                     </button>
-                                    <p className="mt-4 text-slate-400 font-medium">{isRecording ? "Tap to Stop" : "Tap to Create Sentence"}</p>
+                                    <p className="mt-4 text-slate-400 font-medium">{isRecording ? "🔴 Recording... Tap to Stop" : "Tap to Create Sentence"}</p>
+                                    {transcript && !isRecording && (
+                                        <div className="mt-4 p-3 bg-slate-100 rounded-lg max-w-md">
+                                            <p className="text-xs text-slate-500 mb-1">You said:</p>
+                                            <p className="text-slate-700 italic">"{transcript}"</p>
+                                        </div>
+                                    )}
+                                    {/* ✅ Skip button - allows skipping without recording */}
+                                    <button
+                                      onClick={handleSkipCreation}
+                                      className="mt-6 px-6 py-2 text-slate-500 hover:text-secondary font-medium text-sm underline transition"
+                                    >
+                                      Skip (Don't mark as learned) →
+                                    </button>
                                 </>
                             ) : (
                                 <div className="w-full space-y-4">
@@ -512,12 +780,11 @@ export const Learn = () => {
                                             <p className="text-indigo-900 mt-1">{evaluation.betterWay}</p>
                                         </div>
                                      )}
-                                     
-                                     <div className="flex gap-3 mt-2">
-                                         <button onClick={() => { setEvaluation(null); setTranscript(''); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600">Try Again</button>
-                                         <button onClick={handleNextStep} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold">
-                                             {learnState.currentWordIndex < learnState.learningQueue.length - 1 ? 'Next Word' : 'Finish & Chat'} &rarr;
-                                         </button>
+
+                                     <div className="flex gap-3">
+                                         <button onClick={() => { setEvaluation(null); setTranscript(''); }} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition">Retry</button>
+                                         <button onClick={handleSkipCreation} className="flex-1 py-3 bg-slate-100 border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-200 transition">Skip</button>
+                                         <button onClick={handleNextFromCreation} className="flex-1 py-3 bg-secondary text-white rounded-xl font-bold hover:bg-emerald-700 transition">Next &rarr;</button>
                                      </div>
                                 </div>
                             )}

@@ -44,12 +44,14 @@ export interface LearnState {
   generatedScene?: string;
   conversationHistory: ChatMessage[];
   sessionSummary?: SessionSummary;
+  wordExplanations: { [wordId: string]: WordExplanation }; // ✅ Store explanations to avoid regeneration
 }
 
 export interface WordExplanation {
   meaning: string;
   example: string;
   exampleTranslation: string;
+  phonetic: string; // 美式音标
 }
 
 export interface SentenceEvaluation {

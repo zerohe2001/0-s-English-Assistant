@@ -137,11 +137,15 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
              if (message.serverContent?.outputTranscription) {
                 const text = message.serverContent.outputTranscription.text;
                 currentOutputTransRef.current += text;
-                setTranscriptDisplay({ role: 'AI', text: currentOutputTransRef.current });
+                if (isComponentMounted.current) {
+                    setTranscriptDisplay({ role: 'AI', text: currentOutputTransRef.current });
+                }
              } else if (message.serverContent?.inputTranscription) {
                 const text = message.serverContent.inputTranscription.text;
                 currentInputTransRef.current += text;
-                setTranscriptDisplay({ role: 'You', text: currentInputTransRef.current });
+                if (isComponentMounted.current) {
+                    setTranscriptDisplay({ role: 'You', text: currentInputTransRef.current });
+                }
              }
 
              // 3. Turn Complete

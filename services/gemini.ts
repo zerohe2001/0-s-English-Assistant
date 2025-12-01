@@ -13,21 +13,22 @@ export const generateWordExplanation = async (
 ) => {
   const prompt = `
   You are an expert English tutor.
-  
+
   User Profile:
   Name: ${profile.name}
   City: ${profile.city}
   Job: ${profile.occupation}
   Hobbies: ${profile.hobbies}
-  
+
   Today's Context: ${context}
-  
+
   Task: Explain the word "${word}" and create a personalized example sentence.
-  
+
   Requirements:
   1. "meaning": Simple English definition (CEFR B1 level).
-  2. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
-  3. "exampleTranslation": The Chinese translation of the example sentence.
+  2. "phonetic": American English phonetic transcription in IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
+  3. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
+  4. "exampleTranslation": The Chinese translation of the example sentence.
   `;
 
   const response = await ai.models.generateContent({
@@ -39,15 +40,21 @@ export const generateWordExplanation = async (
         type: Type.OBJECT,
         properties: {
           meaning: { type: Type.STRING },
+          phonetic: { type: Type.STRING },
           example: { type: Type.STRING },
           exampleTranslation: { type: Type.STRING },
         },
-        required: ["meaning", "example", "exampleTranslation"],
+        required: ["meaning", "phonetic", "example", "exampleTranslation"],
       },
     },
   });
 
-  return JSON.parse(response.text || "{}");
+  // ✅ FIX: Proper error handling for empty responses
+  const data = JSON.parse(response.text || "null");
+  if (!data || !data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
+    throw new Error('Invalid response from AI: missing required fields');
+  }
+  return data;
 };
 
 export const evaluateShadowing = async (
@@ -58,7 +65,7 @@ export const evaluateShadowing = async (
     Task: Evaluate if the student's pronunciation (transcribed text) matches the target sentence.
     Target: "${targetSentence}"
     User Said: "${userTranscript}"
-    
+
     Requirements:
     1. Ignore minor punctuation or casing.
     2. Allow for minor speech-to-text errors (e.g. homophones).
@@ -81,8 +88,13 @@ export const evaluateShadowing = async (
             }
         }
     });
-    
-    return JSON.parse(response.text || "{}");
+
+    // ✅ FIX: Proper error handling
+    const data = JSON.parse(response.text || "null");
+    if (!data || typeof data.isCorrect !== 'boolean' || !data.feedback) {
+      throw new Error('Invalid shadowing evaluation response');
+    }
+    return data;
 }
 
 export const evaluateUserSentence = async (
@@ -94,7 +106,7 @@ export const evaluateUserSentence = async (
   Task: Evaluate the student's sentence using the target word "${word}".
   Context: ${context}
   Student Sentence: "${userSentence}"
-  
+
   Requirements:
   1. Check if the word is used correctly.
   2. Check for major grammar errors.
@@ -118,7 +130,12 @@ export const evaluateUserSentence = async (
     },
   });
 
-  return JSON.parse(response.text || "{}");
+  // ✅ FIX: Proper error handling
+  const data = JSON.parse(response.text || "null");
+  if (!data || typeof data.isCorrect !== 'boolean' || !data.feedback || !data.betterWay) {
+    throw new Error('Invalid sentence evaluation response');
+  }
+  return data;
 };
 
 export const generateConversationScene = async (
@@ -131,7 +148,7 @@ export const generateConversationScene = async (
   User: ${profile.name} (${profile.occupation} in ${profile.city})
   Activity: ${context}
   Target Words: ${words.join(', ')}
-  
+
   Output a short paragraph describing the scene and who the AI should play.
   `;
 
@@ -140,6 +157,10 @@ export const generateConversationScene = async (
     contents: prompt,
   });
 
+  // ✅ FIX: Check for empty response
+  if (!response.text || response.text.trim().length === 0) {
+    throw new Error('No conversation scene generated');
+  }
   return response.text;
 };
 
@@ -148,20 +169,20 @@ export const generateSessionSummary = async (
     targetWords: string[]
 ) => {
     const transcript = history.map(h => `${h.role}: ${h.text}`).join('\n');
-    
+
     const prompt = `
     Analyze this roleplay conversation transcript.
     Target Words: ${targetWords.join(', ')}
-    
+
     Transcript:
     ${transcript}
-    
+
     Task:
     1. Identify which target words were used correctly by the user.
     2. Identify which words were missed or unused.
     3. Provide overall feedback on the conversation (fluency, vocabulary usage).
     `;
-    
+
     const response = await ai.models.generateContent({
         model: MODEL_NAME,
         contents: prompt,
@@ -179,5 +200,10 @@ export const generateSessionSummary = async (
         }
     });
 
-    return JSON.parse(response.text || "{}");
+    // ✅ FIX: Proper error handling
+    const data = JSON.parse(response.text || "null");
+    if (!data || !Array.isArray(data.usedWords) || !Array.isArray(data.missedWords) || !data.feedback) {
+      throw new Error('Invalid session summary response');
+    }
+    return data;
 }

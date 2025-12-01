@@ -1,11 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { UserProfile } from '../types';
 
 export const Settings = () => {
-  const { profile, updateProfile, removeSavedContext } = useStore();
+  const { profile, updateProfile, removeSavedContext, addSavedContext } = useStore();
   const [formData, setFormData] = useState<UserProfile>(profile);
+  const [newContext, setNewContext] = useState('');
+
+  // ✅ FIX: Sync formData when profile changes (especially savedContexts)
+  useEffect(() => {
+    setFormData(profile);
+  }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -13,8 +19,21 @@ export const Settings = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(formData);
+    // ✅ FIX: Preserve savedContexts when updating profile
+    updateProfile({
+      ...formData,
+      savedContexts: profile.savedContexts || []
+    });
     alert('Profile saved!');
+  };
+
+  const handleAddContext = () => {
+    if (!newContext.trim()) {
+      alert('Please enter a context scenario.');
+      return;
+    }
+    addSavedContext(newContext.trim());
+    setNewContext('');
   };
 
   return (
@@ -97,7 +116,28 @@ export const Settings = () => {
             <h2 className="text-xl font-bold text-slate-900">Saved Context Cards</h2>
             <p className="text-sm text-slate-500">Reusable scenarios for your daily practice.</p>
           </header>
-          
+
+          {/* Add New Context Input */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <label className="block text-sm font-medium text-slate-700">Add New Context</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newContext}
+                onChange={(e) => setNewContext(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddContext()}
+                placeholder="e.g. I'm heading to the gym after work"
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              />
+              <button
+                onClick={handleAddContext}
+                className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-indigo-700 transition whitespace-nowrap"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
           {profile.savedContexts && profile.savedContexts.length > 0 ? (
              <div className="grid grid-cols-1 gap-3">
                  {profile.savedContexts.map(ctx => (
@@ -118,7 +158,7 @@ export const Settings = () => {
              </div>
           ) : (
              <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-sm">
-                 No saved contexts yet. Save one from the Learn page!
+                 No saved contexts yet. Add one above or save from the Learn page!
              </div>
           )}
       </section>

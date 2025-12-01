@@ -17,6 +17,7 @@ interface AppState {
   addWord: (text: string) => void;
   removeWord: (id: string) => void;
   bulkAddWords: (text: string) => void;
+  markWordAsLearned: (wordId: string) => void; // ✅ Mark word as learned
 
   // Learning Session
   learnState: LearnState;
@@ -28,6 +29,7 @@ interface AppState {
   addChatMessage: (message: ChatMessage) => void;
   setSessionSummary: (summary: SessionSummary) => void;
   resetSession: () => void;
+  setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
 
   // Dictionary
   dictionary: DictionaryState;
@@ -56,14 +58,14 @@ export const useStore = create<AppState>()(
             ...state.profile,
             savedContexts: [
                 { id: crypto.randomUUID(), text, createdAt: new Date().toISOString() },
-                ...state.profile.savedContexts
+                ...(state.profile.savedContexts || [])
             ]
         }
       })),
       removeSavedContext: (id) => set((state) => ({
         profile: {
             ...state.profile,
-            savedContexts: state.profile.savedContexts.filter(c => c.id !== id)
+            savedContexts: (state.profile.savedContexts || []).filter(c => c.id !== id)
         }
       })),
 
@@ -78,15 +80,49 @@ export const useStore = create<AppState>()(
         words: state.words.filter((w) => w.id !== id)
       })),
       bulkAddWords: (text) => set((state) => {
-        const newWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
-        const wordObjects = newWords.map(w => ({
+        // ✅ Helper function to clean raw word input
+        const cleanWord = (rawText: string): string => {
+          let cleaned = rawText;
+
+          // 1. Remove phonetic notations: [...] and /.../
+          cleaned = cleaned.replace(/\[.*?\]/g, '');
+          cleaned = cleaned.replace(/\/.*?\//g, '');
+
+          // 2. Remove everything after = (Chinese translations)
+          cleaned = cleaned.split('=')[0];
+
+          // 3. Remove everything after + (grammar notes like "+ 从句")
+          cleaned = cleaned.split('+')[0];
+
+          // 4. Remove content in parentheses (notes)
+          cleaned = cleaned.replace(/\(.*?\)/g, '');
+          cleaned = cleaned.replace(/（.*?）/g, ''); // Chinese parentheses
+
+          // 5. Remove extra whitespace and trim
+          cleaned = cleaned.trim().replace(/\s+/g, ' ');
+
+          return cleaned;
+        };
+
+        const rawWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+        const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0 && /^[a-zA-Z\s-]+$/.test(w));
+
+        const wordObjects = cleanedWords.map(w => ({
           id: crypto.randomUUID(),
           text: w,
           addedAt: new Date().toISOString(),
           learned: false
         }));
+
         return { words: [...wordObjects, ...state.words] };
       }),
+      markWordAsLearned: (wordId) => set((state) => ({
+        words: state.words.map(w =>
+          w.id === wordId
+            ? { ...w, learned: true, lastPracticed: new Date().toISOString() }
+            : w
+        )
+      })),
 
       learnState: {
         currentStep: 'input-context',
@@ -95,6 +131,7 @@ export const useStore = create<AppState>()(
         currentWordIndex: 0,
         wordSubStep: 'explanation',
         conversationHistory: [],
+        wordExplanations: {}, // ✅ Initialize empty explanations map
       },
       setDailyContext: (context) => set((state) => ({
         learnState: { ...state.learnState, dailyContext: context }
@@ -166,9 +203,19 @@ export const useStore = create<AppState>()(
           wordSubStep: 'explanation',
           generatedScene: undefined,
           conversationHistory: [],
-          sessionSummary: undefined
+          sessionSummary: undefined,
+          wordExplanations: {} // ✅ Clear explanations on reset
         }
       }),
+      setWordExplanation: (wordId, explanation) => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          wordExplanations: {
+            ...state.learnState.wordExplanations,
+            [wordId]: explanation
+          }
+        }
+      })),
 
       // Dictionary
       dictionary: {
@@ -206,10 +253,20 @@ export const useStore = create<AppState>()(
         profile: state.profile,
         isProfileSet: state.isProfileSet,
         words: state.words,
-        // Don't persist UI states like dictionary or current session specifics indefinitely if reload
+        // Persist learning state with explanations
         learnState: {
             ...state.learnState,
-            // Keep critical session info
+            wordExplanations: state.learnState.wordExplanations || {} // ✅ Ensure always defined
+        }
+      }),
+      // ✅ Merge function to handle old data without wordExplanations
+      merge: (persistedState: any, currentState: any) => ({
+        ...currentState,
+        ...persistedState,
+        learnState: {
+          ...currentState.learnState,
+          ...(persistedState.learnState || {}),
+          wordExplanations: persistedState.learnState?.wordExplanations || {} // ✅ Default to empty object
         }
       }),
     }

@@ -1,53 +1,90 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
 import { DictionaryEntry } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const MODEL_NAME = "gemini-2.5-flash";
+// ✅ LocalStorage cache for instant lookups
+const CACHE_KEY = 'dictionary-cache';
+const CACHE_VERSION = 'v1';
 
+interface CacheData {
+  version: string;
+  entries: { [word: string]: DictionaryEntry };
+}
+
+// Load cache from localStorage
+const loadCache = (): CacheData => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return { version: CACHE_VERSION, entries: {} };
+
+    const data: CacheData = JSON.parse(cached);
+    if (data.version !== CACHE_VERSION) {
+      console.log('🔄 Cache version mismatch, clearing...');
+      return { version: CACHE_VERSION, entries: {} };
+    }
+    return data;
+  } catch {
+    return { version: CACHE_VERSION, entries: {} };
+  }
+};
+
+// Save cache to localStorage
+const saveCache = (cache: CacheData) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    console.warn('Failed to save dictionary cache:', e);
+  }
+};
+
+// ✅ Use Free Dictionary API with instant local cache!
 export const fetchWordDefinition = async (word: string): Promise<DictionaryEntry | null> => {
   try {
-    const cleanWord = word.replace(/[^\w\s]|_/g, "").trim();
+    const cleanWord = word.replace(/[^\w\s]|_/g, "").trim().toLowerCase();
     if (!cleanWord) return null;
 
-    const prompt = `
-    Provide a dictionary definition for the English word: "${cleanWord}".
-    
-    Output JSON format requirements:
-    1. phonetic: IPA pronunciation (e.g. /həˈləʊ/)
-    2. meanings: Array of objects with 'partOfSpeech' (noun/verb/adj), 'definitionEN' (Simple English definition), and 'definitionCN' (Chinese translation of the definition).
-    `;
+    // 🚀 Check cache first - INSTANT!
+    const cache = loadCache();
+    if (cache.entries[cleanWord]) {
+      console.log('⚡ Using cached definition for:', cleanWord);
+      return cache.entries[cleanWord];
+    }
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            word: { type: Type.STRING },
-            phonetic: { type: Type.STRING },
-            meanings: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  partOfSpeech: { type: Type.STRING },
-                  definitionEN: { type: Type.STRING },
-                  definitionCN: { type: Type.STRING },
-                },
-                required: ["partOfSpeech", "definitionEN", "definitionCN"],
-              },
-            },
-          },
-          required: ["word", "phonetic", "meanings"],
-        },
-      },
-    });
+    console.log('🔍 Fetching definition from API for:', cleanWord);
 
-    const data = JSON.parse(response.text || "null");
-    return data as DictionaryEntry;
+    // Free Dictionary API: https://dictionaryapi.dev/
+    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`);
+
+    if (!response.ok) {
+      console.log('❌ Word not found in dictionary');
+      return null;
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    const entry = data[0];
+
+    // Transform API response to our DictionaryEntry format
+    const meanings = entry.meanings?.map((meaning: any) => ({
+      partOfSpeech: meaning.partOfSpeech || 'unknown',
+      definitions: meaning.definitions?.slice(0, 3).map((def: any) => ({
+        definitionEN: def.definition || '',
+        definitionCN: '', // No Chinese translation from free API
+      })) || []
+    })) || [];
+
+    const result: DictionaryEntry = {
+      word: entry.word || cleanWord,
+      phonetic: entry.phonetic || entry.phonetics?.[0]?.text || '',
+      meanings: meanings
+    };
+
+    // 💾 Save to cache for next time
+    cache.entries[cleanWord] = result;
+    saveCache(cache);
+    console.log('✅ Definition fetched and cached');
+
+    return result;
+
   } catch (error) {
     console.error("Dictionary fetch error:", error);
     return null;
