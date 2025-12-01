@@ -290,3 +290,46 @@ Output: 我今天需要买些日用品。
   const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
   return responseText.trim();
 }
+
+/**
+ * Compare two sentences semantically and return similarity score with feedback
+ */
+export async function compareSentences(originalSentence: string, userSentence: string) {
+  const prompt = `
+Compare these two English sentences semantically:
+
+Original: "${originalSentence}"
+User said: "${userSentence}"
+
+Task:
+1. Calculate semantic similarity (0-100, where 100 = perfect match in meaning)
+2. Identify specific differences (word choice, grammar, meaning)
+3. Provide concise feedback (1-2 sentences max)
+
+Scoring guide:
+- 90-100: Perfect or near-perfect match
+- 70-89: Same meaning, minor differences in word choice
+- 50-69: Similar meaning but noticeable differences
+- 0-49: Different meaning or major errors
+
+Respond ONLY with valid JSON:
+{
+  "similarity": 85,
+  "feedback": "Great! You used 'purchase' instead of 'buy' - both are correct.",
+  "differences": ["buy → purchase"]
+}
+`;
+
+  const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
+  const data = parseJSON(responseText);
+
+  if (typeof data.similarity !== 'number' || !data.feedback) {
+    throw new Error('Invalid sentence comparison response');
+  }
+
+  return {
+    similarity: data.similarity,
+    feedback: data.feedback,
+    differences: data.differences || []
+  };
+}
