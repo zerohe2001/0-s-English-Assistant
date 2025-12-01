@@ -5,6 +5,7 @@ import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, gener
 import { speak, preloadAudio } from '../services/tts';
 import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
+import DictionaryModal from '../components/DictionaryModal';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 
@@ -22,7 +23,8 @@ export const Learn = () => {
     words,
     addSavedContext,
     setWordExplanation, // ✅ Add method to store explanations
-    markWordAsLearned // ✅ Mark word as learned
+    markWordAsLearned, // ✅ Mark word as learned
+    openDictionary // ✅ Open dictionary modal for word lookup
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -455,6 +457,7 @@ export const Learn = () => {
     const hasContent = manualContext.trim().length > 0 || selectedContextIds.length > 0;
 
     return (
+      <>
       <div className="max-w-lg mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
         <header className="mb-6">
             <h2 className="text-3xl font-bold mb-2 text-slate-900">What's the plan?</h2>
@@ -524,11 +527,14 @@ export const Learn = () => {
           {words.length === 0 ? "Add Words First" : "Start Session"}
         </button>
       </div>
+      <DictionaryModal />
+      </>
     );
   }
 
   if (learnState.currentStep === 'learning') {
     return (
+      <>
       <div className="max-w-xl mx-auto p-4 flex flex-col h-full">
         {/* Header Progress */}
         <div className="flex justify-between items-center mb-6">
@@ -559,7 +565,13 @@ export const Learn = () => {
                 {learnState.wordSubStep === 'explanation' && (
                     <div className="animate-fade-in space-y-6">
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center relative group">
-                            <h1 className="text-5xl font-extrabold text-primary mb-2">{currentWord.text}</h1>
+                            <h1
+                              className="text-5xl font-extrabold text-primary mb-2 cursor-pointer hover:text-indigo-700 transition-colors"
+                              onClick={() => openDictionary(currentWord.text)}
+                              title="Click to see full dictionary definition"
+                            >
+                              {currentWord.text}
+                            </h1>
 
                             {/* Phonetic + Play Button */}
                             <div className="flex items-center justify-center gap-3 mb-4">
@@ -654,7 +666,13 @@ export const Learn = () => {
                                         <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 w-full max-w-md">
                                             <p className="text-xs text-blue-600 font-semibold mb-2">📢 READ THIS ALOUD:</p>
                                             <p className="text-blue-900 font-medium text-center">
-                                                "{currentWord.text}"
+                                                "<span
+                                                  className="cursor-pointer hover:text-blue-600 transition-colors underline decoration-dotted"
+                                                  onClick={() => openDictionary(currentWord.text)}
+                                                  title="Click to see dictionary definition"
+                                                >
+                                                  {currentWord.text}
+                                                </span>"
                                             </p>
                                             <p className="text-xs text-blue-500 mt-2 text-center">
                                                 Speak clearly and click Stop when done
@@ -735,7 +753,16 @@ export const Learn = () => {
                     <div className="animate-fade-in space-y-6">
                          <div className="text-center">
                              <h2 className="text-2xl font-bold text-slate-900 mb-2">Active Usage</h2>
-                             <p className="text-slate-500">Make your own sentence using <strong className="text-primary">{currentWord.text}</strong>.</p>
+                             <p className="text-slate-500">
+                               Make your own sentence using{' '}
+                               <strong
+                                 className="text-primary cursor-pointer hover:text-indigo-700 transition-colors underline decoration-dotted"
+                                 onClick={() => openDictionary(currentWord.text)}
+                                 title="Click to see dictionary definition"
+                               >
+                                 {currentWord.text}
+                               </strong>.
+                             </p>
                          </div>
 
                          <div className="flex flex-col items-center">
@@ -751,7 +778,14 @@ export const Learn = () => {
                                         <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4 w-full max-w-md">
                                             <p className="text-xs text-emerald-600 font-semibold mb-2">💡 TASK:</p>
                                             <p className="text-emerald-900 font-medium text-center">
-                                                Create a sentence using <span className="font-bold">"{currentWord.text}"</span>
+                                                Create a sentence using{' '}
+                                                <span
+                                                  className="font-bold cursor-pointer hover:text-emerald-600 transition-colors underline decoration-dotted"
+                                                  onClick={() => openDictionary(currentWord.text)}
+                                                  title="Click to see dictionary definition"
+                                                >
+                                                  "{currentWord.text}"
+                                                </span>
                                             </p>
                                             <p className="text-xs text-emerald-500 mt-2 text-center">
                                                 Speak your sentence clearly, then tap Stop
@@ -826,6 +860,8 @@ export const Learn = () => {
             </div>
         )}
       </div>
+      <DictionaryModal />
+      </>
     );
   }
 
@@ -842,6 +878,7 @@ export const Learn = () => {
         )
     }
     return (
+      <>
       <LiveSession
         profile={profile}
         context={learnState.dailyContext}
@@ -850,11 +887,14 @@ export const Learn = () => {
         onComplete={handleConversationComplete}
         onCancel={resetSession}
       />
+      <DictionaryModal />
+      </>
     );
   }
 
   if (learnState.currentStep === 'summary' && learnState.sessionSummary) {
       return (
+          <>
           <div className="max-w-xl mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
               <div className="text-center mb-8">
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-green-600 rounded-full mb-4">
@@ -899,6 +939,8 @@ export const Learn = () => {
                   </button>
               </div>
           </div>
+          <DictionaryModal />
+          </>
       )
   }
 
