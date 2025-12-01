@@ -144,29 +144,49 @@ export const generateConversationScene = async (
   words: string[]
 ) => {
   const prompt = `
-  Create a VERY SHORT roleplay scenario (max 2 sentences) based on:
+  Create a roleplay scenario in EXACTLY 2 short sentences:
+
   User: ${profile.name} (${profile.occupation} in ${profile.city})
   Activity: ${context}
   Target Words: ${words.join(', ')}
 
-  Requirements:
-  1. Maximum 2 sentences
-  2. Clearly state who the AI will play
-  3. Keep it simple and clear
+  Format (MUST follow):
+  Sentence 1: Describe the situation (max 15 words)
+  Sentence 2: State who you are playing (max 10 words)
 
   Example: "You're ordering coffee at a café. I'll be the barista."
+  Example: "You're checking into a hotel. I'm the front desk staff."
+  Example: "You're at a job interview. I'll play the interviewer."
+
+  CRITICAL: Output ONLY 2 sentences, nothing else!
   `;
 
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: prompt,
+    config: {
+      responseMimeType: "text/plain",
+    }
   });
 
-  // ✅ FIX: Check for empty response
-  if (!response.text || response.text.trim().length === 0) {
+  // ✅ FIX: Check for empty response and truncate if too long
+  let scene = response.text?.trim() || '';
+  if (!scene) {
     throw new Error('No conversation scene generated');
   }
-  return response.text;
+
+  // ✅ Force truncate to first 2 sentences if AI ignores instructions
+  const sentences = scene.match(/[^.!?]+[.!?]+/g) || [scene];
+  if (sentences.length > 2) {
+    scene = sentences.slice(0, 2).join(' ');
+  }
+
+  // ✅ Enforce max length (200 chars)
+  if (scene.length > 200) {
+    scene = scene.substring(0, 197) + '...';
+  }
+
+  return scene;
 };
 
 export const generateSessionSummary = async (

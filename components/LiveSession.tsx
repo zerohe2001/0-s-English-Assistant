@@ -312,9 +312,9 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   return (
     <div className="flex flex-col h-full bg-slate-900 text-white rounded-xl relative overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-slate-700">
-        <h2 className="text-xl font-bold text-center">🎭 Roleplay Conversation</h2>
-        <div className="text-slate-400 text-xs text-center mt-1 max-h-20 overflow-y-auto">
+      <div className="flex-shrink-0 p-3 border-b border-slate-700">
+        <h2 className="text-lg font-bold text-center">🎭 Roleplay</h2>
+        <div className="text-slate-400 text-xs text-center mt-1 max-h-12 overflow-y-auto line-clamp-2">
           <ClickableText text={scene} />
         </div>
       </div>
@@ -339,11 +339,12 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       )}
 
       {/* Chat History */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {displayHistory.length === 0 && status === 'connected' && (
-          <div className="text-center text-slate-400 py-8">
-            <p className="text-lg mb-2">👋 Ready to chat!</p>
-            <p className="text-sm">Just start speaking - I'm listening...</p>
+          <div className="text-center text-slate-300 py-4">
+            <p className="text-xl mb-2">👋 Ready!</p>
+            <p className="text-sm font-semibold">AI will speak first...</p>
+            <p className="text-xs text-slate-500 mt-1">Then you reply</p>
           </div>
         )}
 
