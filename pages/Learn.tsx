@@ -921,7 +921,7 @@ export const Learn = () => {
         )
     }
     return (
-      <div className="h-full w-full">
+      <>
         <LiveSession
           profile={profile}
           context={learnState.dailyContext}
@@ -931,7 +931,7 @@ export const Learn = () => {
           onCancel={resetSession}
         />
         <DictionaryModal />
-      </div>
+      </>
     );
   }
 

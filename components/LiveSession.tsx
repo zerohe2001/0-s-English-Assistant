@@ -15,11 +15,15 @@ interface LiveSessionProps {
 }
 
 const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scene, onComplete, onCancel }) => {
+  console.log('🎬 LiveSession component rendering. Scene:', scene);
+
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error' | 'ended'>('connecting');
   const [micActive, setMicActive] = useState(true);
   const [transcriptDisplay, setTranscriptDisplay] = useState<{role: string, text: string} | null>(null);
   const [displayHistory, setDisplayHistory] = useState<ChatMessage[]>([]); // ✅ Show chat history in UI
   const [connectionTimeout, setConnectionTimeout] = useState(false); // ✅ Show timeout warning
+
+  console.log('🎬 LiveSession current status:', status);
   
   // Refs
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -154,14 +158,16 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         },
         callbacks: {
           onopen: async () => {
-            console.log("Gemini Live Connected");
+            console.log("✅ Gemini Live Connected - setting status to 'connected'");
             if (isComponentMounted.current) {
                 setStatus('connected');
+                console.log("✅ Status set to 'connected', component mounted:", isComponentMounted.current);
                 setupAudioInput(stream, sessionPromise);
 
                 // ✅ Trigger AI to start conversation with a greeting
                 const session = await sessionPromise;
                 setTimeout(() => {
+                  console.log("🎤 Sending empty message to trigger AI greeting...");
                   // Send empty text to trigger AI's first response
                   session.send({ text: "" });
                 }, 500);
@@ -324,7 +330,12 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-white relative overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-900 text-white relative">
+      {/* DEBUG: Always visible test element */}
+      <div className="bg-purple-600 text-white p-2 text-center text-sm font-bold">
+        🔍 LiveSession Loaded - Status: {status}
+      </div>
+
       {/* Header */}
       <div className="flex-shrink-0 p-3 border-b border-slate-700">
         <h2 className="text-lg font-bold text-center">🎭 Roleplay</h2>
