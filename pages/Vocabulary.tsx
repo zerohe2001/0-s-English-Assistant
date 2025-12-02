@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 
 export const Vocabulary = () => {
-  const { words, addWord, removeWord, bulkAddWords } = useStore();
+  const { words, addWord, removeWord, bulkAddWords, startLearningWithWords, setDailyContext } = useStore();
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [activeTab, setActiveTab] = useState<'unlearned' | 'learned'>('unlearned'); // ✅ Tab state
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]); // ✅ Selected words for learning
+  const navigate = useNavigate();
 
   // ✅ Filter words by learned status
   const unlearnedWords = words.filter(w => !w.learned);
@@ -24,6 +27,32 @@ export const Vocabulary = () => {
     }
     setNewWord('');
     setIsBulk(false);
+  };
+
+  // ✅ Toggle word selection
+  const toggleWordSelection = (wordId: string) => {
+    if (selectedWordIds.includes(wordId)) {
+      setSelectedWordIds(selectedWordIds.filter(id => id !== wordId));
+    } else {
+      setSelectedWordIds([...selectedWordIds, wordId]);
+    }
+  };
+
+  // ✅ Start learning with selected words
+  const handleStartLearningSelected = () => {
+    if (selectedWordIds.length === 0) {
+      alert('Please select at least one word to learn.');
+      return;
+    }
+
+    // Set empty context (user will be prompted in Learn page)
+    setDailyContext('');
+    // Start learning with selected words
+    startLearningWithWords(selectedWordIds);
+    // Clear selection
+    setSelectedWordIds([]);
+    // Navigate to Learn page
+    navigate('/');
   };
 
   return (
@@ -107,21 +136,51 @@ export const Vocabulary = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {unlearnedWords.map((word) => (
-                <div key={word.id} className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center">
-                  <span className={`font-medium ${word.learned ? 'text-green-600' : 'text-slate-800'}`}>
-                    {word.text}
-                  </span>
-                  <button
-                    onClick={() => removeWord(word.id)}
-                    className="text-slate-400 hover:text-red-500 p-1"
+              {unlearnedWords.map((word) => {
+                const isSelected = selectedWordIds.includes(word.id);
+                return (
+                  <div
+                    key={word.id}
+                    onClick={() => toggleWordSelection(word.id)}
+                    className={`bg-white p-3 rounded-lg border shadow-sm flex items-center gap-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-primary ring-2 ring-primary/20 bg-indigo-50'
+                        : 'border-slate-100 hover:border-indigo-200'
+                    }`}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                    {/* Checkbox */}
+                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                      isSelected
+                        ? 'bg-primary border-primary'
+                        : 'border-slate-300'
+                    }`}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Word text */}
+                    <span className={`flex-1 font-medium ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
+                      {word.text}
+                    </span>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeWord(word.id);
+                      }}
+                      className="flex-shrink-0 text-slate-400 hover:text-red-500 p-1 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )
         ) : (
@@ -200,6 +259,24 @@ export const Vocabulary = () => {
           )
         )}
       </div>
+
+      {/* ✅ Floating action button - appears when words are selected */}
+      {selectedWordIds.length > 0 && (
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
+          <div className="max-w-2xl mx-auto pointer-events-auto">
+            <button
+              onClick={handleStartLearningSelected}
+              className="w-full bg-primary hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>Start Learning ({selectedWordIds.length} {selectedWordIds.length === 1 ? 'word' : 'words'})</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <DictionaryModal />
     </div>
   );

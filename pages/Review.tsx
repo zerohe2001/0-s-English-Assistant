@@ -8,14 +8,35 @@ export const Review = () => {
   const { words, updateReviewStats } = useStore();
   const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
 
-  // Get words that need review (have sentences but not mastered)
+  // ✅ Helper: Check if word should be reviewed today
+  const isDueForReview = (word: typeof words[0]): boolean => {
+    // Must have sentence
+    if (!word.userSentence || !word.userSentenceTranslation) return false;
+
+    // No review date set → needs first review
+    if (!word.nextReviewDate) return true;
+
+    // Check if today >= nextReviewDate
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const reviewDate = new Date(word.nextReviewDate);
+    reviewDate.setHours(0, 0, 0, 0);
+
+    return today >= reviewDate;
+  };
+
+  // Get words due for review today
   const reviewWords = useMemo(() => {
-    return words.filter(w =>
-      w.userSentence &&
-      w.userSentenceTranslation &&
-      (!w.reviewStats || w.reviewStats.skipped || w.reviewStats.retryCount >= 2)
-    );
+    return words.filter(isDueForReview);
   }, [words]);
+
+  // Stats
+  const totalWithSentences = words.filter(w => w.userSentence).length;
+  const masteredWords = words.filter(w =>
+    w.userSentence &&
+    w.nextReviewDate &&
+    new Date(w.nextReviewDate) > new Date()
+  ).length;
 
   const handleReviewComplete = (stats: { retryCount: number, skipped: boolean }) => {
     if (currentWordIndex === null) return;
@@ -68,19 +89,43 @@ export const Review = () => {
               <span className="text-3xl">✨</span>
             </div>
             <h2 className="text-xl font-semibold text-slate-900 mb-2">All caught up!</h2>
-            <p className="text-slate-500 max-w-sm">
-              No words to review right now. Come back later or create more sentences in the Learn section.
+            <p className="text-slate-500 max-w-sm mb-4">
+              No words to review today. Come back tomorrow!
             </p>
+            {/* Stats when all caught up */}
+            {totalWithSentences > 0 && (
+              <div className="flex gap-4 text-sm text-slate-400 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>{masteredWords} mastered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-slate-300 rounded-full"></div>
+                  <span>{totalWithSentences} total</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           // Word list
           <div className="max-w-2xl mx-auto space-y-3">
-            {/* Stats */}
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-sm text-slate-500">{reviewWords.length} words to review</span>
+            {/* Stats Bar */}
+            <div className="flex items-center justify-between mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-2xl font-bold text-slate-900">{reviewWords.length}</div>
+                  <div className="text-xs text-slate-500">due today</div>
+                </div>
+                {masteredWords > 0 && (
+                  <div className="pl-6 border-l border-slate-300">
+                    <div className="text-lg font-semibold text-green-600">{masteredWords}</div>
+                    <div className="text-xs text-slate-500">mastered</div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setCurrentWordIndex(0)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 Start Review
               </button>

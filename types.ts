@@ -28,6 +28,7 @@ export interface Word {
   userSentence?: string; // ✅ User's created sentence for this word
   userSentenceTranslation?: string; // ✅ Chinese translation of user's sentence
   reviewStats?: ReviewStats; // ✅ Review statistics
+  nextReviewDate?: string; // ✅ Next review date (ISO string) - for spaced repetition
 }
 
 export type WordStep = 'explanation' | 'shadowing' | 'creation';
@@ -100,4 +101,11 @@ export interface DictionaryState {
   word: string | null;
   data: DictionaryEntry | null;
   error: string | null;
+}
+
+// Token Usage Tracking
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number; // in USD
 }

@@ -4,9 +4,75 @@ import { useStore } from '../store';
 import { UserProfile } from '../types';
 
 export const Settings = () => {
-  const { profile, updateProfile, removeSavedContext, addSavedContext } = useStore();
+  const { profile, updateProfile, removeSavedContext, addSavedContext, tokenUsage, resetTokenUsage } = useStore();
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [newContext, setNewContext] = useState('');
+
+  // ✅ Export data to JSON file
+  const handleExportData = () => {
+    try {
+      // Get data from localStorage
+      const data = localStorage.getItem('active-vocab-storage');
+      if (!data) {
+        alert('没有数据可以导出');
+        return;
+      }
+
+      // Create blob and download
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `active-vocab-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert('✅ 数据已导出！');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('导出失败，请重试');
+    }
+  };
+
+  // ✅ Import data from JSON file
+  const handleImportData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+
+    input.onchange = async (e) => {
+      try {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        // Basic validation
+        if (!data.state || !data.state.profile) {
+          throw new Error('Invalid data format');
+        }
+
+        // Confirm before overwriting
+        if (!confirm('⚠️ 导入数据会覆盖当前所有数据，确定继续吗？')) {
+          return;
+        }
+
+        // Save to localStorage
+        localStorage.setItem('active-vocab-storage', text);
+
+        alert('✅ 数据导入成功！页面即将刷新...');
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (error) {
+        console.error('Import failed:', error);
+        alert('❌ 导入失败：文件格式不正确或数据损坏');
+      }
+    };
+
+    input.click();
+  };
 
   // ✅ FIX: Sync formData when profile changes (especially savedContexts)
   useEffect(() => {
@@ -161,6 +227,103 @@ export const Settings = () => {
                  No saved contexts yet. Add one above or save from the Learn page!
              </div>
           )}
+      </section>
+
+      {/* Token Usage & Cost Section */}
+      <section className="space-y-4">
+        <header>
+          <h2 className="text-xl font-bold text-slate-900">API Usage & Cost</h2>
+          <p className="text-sm text-slate-500">Claude Haiku 3.5 token consumption tracking</p>
+        </header>
+
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl border-2 border-indigo-100 shadow-sm">
+          {/* Total Cost - Big Display */}
+          <div className="text-center mb-6">
+            <div className="text-sm font-semibold text-indigo-600 uppercase tracking-wide mb-2">Total Cost</div>
+            <div className="text-5xl font-bold text-indigo-900">
+              ${tokenUsage.totalCost.toFixed(4)}
+            </div>
+            <div className="text-xs text-indigo-500 mt-2">USD</div>
+          </div>
+
+          {/* Token Breakdown */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white/70 backdrop-blur p-4 rounded-lg border border-indigo-100">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Input Tokens</div>
+              <div className="text-2xl font-bold text-slate-900">{tokenUsage.inputTokens.toLocaleString()}</div>
+              <div className="text-xs text-slate-500 mt-1">
+                ${((tokenUsage.inputTokens / 1000000) * 0.80).toFixed(4)}
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur p-4 rounded-lg border border-indigo-100">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Output Tokens</div>
+              <div className="text-2xl font-bold text-slate-900">{tokenUsage.outputTokens.toLocaleString()}</div>
+              <div className="text-xs text-slate-500 mt-1">
+                ${((tokenUsage.outputTokens / 1000000) * 4.00).toFixed(4)}
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Info */}
+          <div className="bg-white/50 backdrop-blur p-3 rounded-lg border border-indigo-100 text-xs text-slate-600">
+            <div className="font-semibold mb-1">Claude Haiku 3.5 Pricing:</div>
+            <div>• Input: $0.80 per million tokens</div>
+            <div>• Output: $4.00 per million tokens</div>
+          </div>
+
+          {/* Reset Button */}
+          <button
+            onClick={() => {
+              if (confirm('确定要重置token使用统计吗？此操作无法撤销。')) {
+                resetTokenUsage();
+              }
+            }}
+            className="mt-4 w-full py-2 bg-white/70 hover:bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium transition-colors"
+          >
+            Reset Statistics
+          </button>
+        </div>
+      </section>
+
+      {/* Data Management Section */}
+      <section className="space-y-4">
+        <header>
+          <h2 className="text-xl font-bold text-slate-900">数据管理</h2>
+          <p className="text-sm text-slate-500">备份和恢复你的学习数据</p>
+        </header>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          {/* Export Button */}
+          <button
+            onClick={handleExportData}
+            className="w-full py-3 bg-primary hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            导出数据备份
+          </button>
+
+          {/* Import Button */}
+          <button
+            onClick={handleImportData}
+            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            从备份导入数据
+          </button>
+
+          {/* Info text */}
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600">
+            <div className="font-semibold mb-1">💡 使用说明：</div>
+            <div>• 导出：下载包含所有单词、学习记录的JSON文件</div>
+            <div>• 导入：从备份文件恢复数据（会覆盖当前数据）</div>
+            <div>• 建议定期备份，换设备时可快速恢复</div>
+          </div>
+        </div>
       </section>
     </div>
   );

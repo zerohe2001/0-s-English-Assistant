@@ -5,6 +5,7 @@
  */
 
 import { UserProfile, ChatMessage } from '../types';
+import { useStore } from '../store';
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -13,6 +14,7 @@ interface ClaudeMessage {
 
 /**
  * Call Claude API via our serverless function (keeps API key secure)
+ * Automatically tracks token usage and cost
  */
 async function callClaude(
   messages: ClaudeMessage[],
@@ -38,6 +40,17 @@ async function callClaude(
   }
 
   const data = await response.json();
+
+  // ✅ Track token usage
+  if (data.usage) {
+    const { input_tokens, output_tokens } = data.usage;
+    console.log(`📊 Token usage: ${input_tokens} input, ${output_tokens} output`);
+
+    // Save to store
+    const addTokenUsage = useStore.getState().addTokenUsage;
+    addTokenUsage(input_tokens, output_tokens);
+  }
+
   return data.content[0].text;
 }
 

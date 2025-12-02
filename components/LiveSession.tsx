@@ -192,7 +192,10 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
           },
-          // ✅ Correct format: just enable transcription without specifying model
+          // ✅ Enable transcription for both input and output
+          enableServerVadOptions: {
+            enableSpeechBeginEndDetection: true
+          },
         },
         callbacks: {
           onopen: () => {
@@ -353,7 +356,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       const uint8Array = base64ToUint8Array(base64Audio);
       const int16Data = new Int16Array(uint8Array.buffer);
       const float32Data = new Float32Array(int16Data.length);
-      
+
       for(let i=0; i<int16Data.length; i++) {
           float32Data[i] = int16Data[i] / 32768.0;
       }
@@ -364,11 +367,14 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioContextRef.current.destination);
-      
+
       const currentTime = audioContextRef.current.currentTime;
       const startTime = Math.max(currentTime, nextStartTimeRef.current);
+
+      // ✅ Add small buffer (10ms) between chunks to prevent gaps
+      const bufferGap = 0.01;
       source.start(startTime);
-      nextStartTimeRef.current = startTime + audioBuffer.duration;
+      nextStartTimeRef.current = startTime + audioBuffer.duration + bufferGap;
 
     } catch (e) {
       console.error("Error playing audio chunk", e);
