@@ -503,6 +503,13 @@ export const Learn = () => {
   if (learnState.currentStep === 'input-context') {
     const hasContent = manualContext.trim().length > 0 || selectedContextIds.length > 0;
 
+    // ✅ Calculate which words will be learned
+    const previewWords = learnState.learningQueue && learnState.learningQueue.length > 0
+      ? learnState.learningQueue  // Already selected (from Vocabulary page)
+      : words.filter(w => !w.learned).slice(0, 5).length > 0
+        ? words.filter(w => !w.learned).slice(0, 5)  // Default: first 5 unlearned
+        : [...words].sort(() => 0.5 - Math.random()).slice(0, 5);  // Fallback: random 5
+
     return (
       <>
       <div className="max-w-lg mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
@@ -510,7 +517,37 @@ export const Learn = () => {
             <h2 className="text-3xl font-bold mb-2 text-slate-900">What's the plan?</h2>
             <p className="text-slate-500">Describe your day or choose a saved scenario.</p>
         </header>
-        
+
+        {/* ✅ Words Preview - Show which words will be learned */}
+        {previewWords && previewWords.length > 0 && (
+            <div className="mb-6 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-200">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-indigo-900 uppercase tracking-wider">
+                        📚 Words for this session
+                    </h3>
+                    <span className="text-xs bg-white px-2 py-1 rounded-full text-indigo-600 font-semibold">
+                        {previewWords.length} {previewWords.length === 1 ? 'word' : 'words'}
+                    </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {previewWords.map((word, index) => (
+                        <span
+                            key={word.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-indigo-900 rounded-lg font-medium text-sm shadow-sm border border-indigo-100 hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => openDictionary(word.text)}
+                            title="Click to see dictionary definition"
+                        >
+                            <span className="text-xs text-indigo-400 font-bold">{index + 1}.</span>
+                            {word.text}
+                        </span>
+                    ))}
+                </div>
+                <p className="text-xs text-indigo-600/70 mt-3 italic">
+                    💡 Tip: Select specific words in the Vocabulary page
+                </p>
+            </div>
+        )}
+
         {/* Input Area */}
         <div className="relative mb-6">
             <textarea
