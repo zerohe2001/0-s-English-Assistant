@@ -95,7 +95,7 @@ Requirements:
 1. "meaning": Simple English definition (CEFR B1 level).
 2. "phonetic": American English phonetic transcription in IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
 3. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
-4. "exampleTranslation": The Chinese translation of the example sentence.
+4. "exampleTranslation": The Chinese translation of the example sentence. MUST contain Chinese characters. Do NOT return punctuation marks only.
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -111,6 +111,21 @@ Respond ONLY with valid JSON in this exact format:
 
   if (!data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
     throw new Error('Invalid response from Claude: missing required fields');
+  }
+
+  // ✅ Validate translation quality (same logic as translateToChinese)
+  const translation = data.exampleTranslation.trim();
+
+  // Check if translation is just punctuation
+  if (/^[?.!,;:，。！？；：]+$/.test(translation)) {
+    console.warn('⚠️ Example translation is only punctuation:', translation);
+    data.exampleTranslation = '（翻译失败）';
+  }
+
+  // Check if translation contains Chinese characters
+  else if (!/[\u4e00-\u9fa5]/.test(translation)) {
+    console.warn('⚠️ Example translation contains no Chinese characters:', translation);
+    data.exampleTranslation = '（翻译失败）';
   }
 
   return data;
