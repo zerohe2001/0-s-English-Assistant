@@ -61,10 +61,8 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       setIsRecording(true);
       setUserSentence(''); // Clear previous attempt
 
-      // Ensure recorder is initialized
-      await recorderRef.current.initialize().catch(() => {
-        // Already initialized, ignore
-      });
+      // Re-initialize recorder (in case stream was cleaned up)
+      await recorderRef.current.initialize();
 
       recorderRef.current.start(
         (transcript: string) => {

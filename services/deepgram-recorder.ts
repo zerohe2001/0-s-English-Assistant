@@ -15,6 +15,12 @@ export class DeepgramRecorder {
    * Initialize the recorder with microphone access
    */
   async initialize(): Promise<void> {
+    // Skip if already initialized with active stream
+    if (this.stream && this.stream.active) {
+      console.log('✅ Microphone already initialized');
+      return;
+    }
+
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       console.log('✅ Microphone access granted');
