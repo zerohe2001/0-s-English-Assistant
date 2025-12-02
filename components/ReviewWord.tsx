@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 import { speak } from '../services/tts';
 import { compareSentences } from '../services/claude';
@@ -31,36 +31,68 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const recorderRef = useRef<DeepgramRecorder | null>(null);
 
+  // Initialize Deepgram Recorder
+  useEffect(() => {
+    const recorder = new DeepgramRecorder();
+    recorderRef.current = recorder;
+
+    // Initialize microphone access
+    recorder.initialize().catch((error) => {
+      console.error('❌ Failed to initialize recorder:', error);
+      // Microphone access will be requested on first recording attempt
+    });
+
+    // Cleanup: Stop recorder when component unmounts
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.cleanup();
+        recorderRef.current = null;
+      }
+    };
+  }, []);
+
   const startRecording = async () => {
+    if (!recorderRef.current) {
+      alert('Speech recognition not available. Please check your microphone permissions.');
+      return;
+    }
+
     try {
       setIsRecording(true);
       setUserSentence(''); // Clear previous attempt
 
-      recorderRef.current = new DeepgramRecorder({
-        onTranscript: (text: string) => {
-          setUserSentence(text);
-        },
-        onError: (error: string) => {
-          console.error('Recording error:', error);
-          alert('录音失败，请重试');
-          setIsRecording(false);
-        }
+      // Ensure recorder is initialized
+      await recorderRef.current.initialize().catch(() => {
+        // Already initialized, ignore
       });
 
-      await recorderRef.current.start();
+      recorderRef.current.start(
+        (transcript: string) => {
+          // Transcript received from Deepgram
+          console.log('✅ Deepgram transcript:', transcript);
+          setUserSentence(transcript);
+        },
+        (error: Error) => {
+          console.error('❌ Deepgram error:', error);
+          alert(`Speech recognition failed: ${error.message}`);
+          setIsRecording(false);
+        }
+      );
     } catch (error) {
       console.error('Failed to start recording:', error);
-      alert('无法启动录音');
+      alert('Failed to access microphone. Please check your browser permissions.');
       setIsRecording(false);
     }
   };
 
   const stopRecording = async () => {
     if (recorderRef.current) {
-      await recorderRef.current.stop();
-      recorderRef.current = null;
+      recorderRef.current.stop();
     }
     setIsRecording(false);
+
+    // Wait a moment for transcript to arrive
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Analyze sentence with Claude
     if (userSentence.trim()) {
