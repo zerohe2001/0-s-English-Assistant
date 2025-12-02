@@ -95,7 +95,11 @@ Requirements:
 1. "meaning": Simple English definition (CEFR B1 level).
 2. "phonetic": American English phonetic transcription in IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
 3. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
-4. "exampleTranslation": The Chinese translation of the example sentence. MUST contain Chinese characters. Do NOT return punctuation marks only.
+4. "exampleTranslation": The Chinese (中文) translation of the example sentence.
+   - MUST be in Chinese (中文), not English
+   - MUST contain at least 2 Chinese characters (汉字)
+   - Do NOT return: punctuation only, symbols (°, ?, .), or English text
+   - Example: "我需要买些日用品。" ✓   "." ✗   "°" ✗
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -113,18 +117,18 @@ Respond ONLY with valid JSON in this exact format:
     throw new Error('Invalid response from Claude: missing required fields');
   }
 
-  // ✅ Validate translation quality (same logic as translateToChinese)
+  // ✅ Validate translation quality - must contain Chinese characters
   const translation = data.exampleTranslation.trim();
 
-  // Check if translation is just punctuation
-  if (/^[?.!,;:，。！？；：]+$/.test(translation)) {
-    console.warn('⚠️ Example translation is only punctuation:', translation);
+  // Primary check: MUST contain Chinese characters
+  if (!/[\u4e00-\u9fa5]/.test(translation)) {
+    console.warn('⚠️ Example translation invalid (no Chinese):', translation);
     data.exampleTranslation = '（翻译失败）';
   }
 
-  // Check if translation contains Chinese characters
-  else if (!/[\u4e00-\u9fa5]/.test(translation)) {
-    console.warn('⚠️ Example translation contains no Chinese characters:', translation);
+  // Secondary check: If it's too short (< 2 chars), likely invalid
+  else if (translation.length < 2) {
+    console.warn('⚠️ Example translation too short:', translation);
     data.exampleTranslation = '（翻译失败）';
   }
 
@@ -317,41 +321,45 @@ export async function translateToChinese(sentence: string): Promise<string> {
   }
 
   const prompt = `
-Translate this English sentence to natural Chinese:
+Translate this English sentence to natural Chinese (中文):
 
 "${sentence}"
 
-Requirements:
-1. Translate naturally (not word-for-word)
-2. Use conversational Chinese
-3. Return ONLY the Chinese translation, nothing else
-4. Do NOT return punctuation marks only
-5. Do NOT return the original English
+CRITICAL Requirements:
+1. Output MUST be in Chinese (中文), not English
+2. Output MUST contain at least 2 Chinese characters (汉字)
+3. Translate naturally and conversationally
+4. Return ONLY the Chinese translation
 
-Example:
+FORBIDDEN outputs (will be rejected):
+- Punctuation only: "." "?" "°" "！" ✗
+- Symbols or numbers only ✗
+- English text ✗
+- Empty responses ✗
+
+Correct example:
 Input: "I need to buy some groceries today."
-Output: 我今天需要买些日用品。
+Output: 我今天需要买些日用品。 ✓
 `;
 
   try {
     const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
     const translation = responseText.trim();
 
-    // ✅ Validate translation quality
+    // ✅ Primary validation: MUST contain Chinese characters
     if (!translation || translation.length === 0) {
       console.warn('⚠️ Empty translation received');
       return '（翻译失败）';
     }
 
-    // ✅ Check if translation is just punctuation
-    if (/^[?.!,;:，。！？；：]+$/.test(translation)) {
-      console.warn('⚠️ Translation is only punctuation:', translation);
+    if (!/[\u4e00-\u9fa5]/.test(translation)) {
+      console.warn('⚠️ Translation invalid (no Chinese):', translation);
       return '（翻译失败）';
     }
 
-    // ✅ Check if translation contains Chinese characters
-    if (!/[\u4e00-\u9fa5]/.test(translation)) {
-      console.warn('⚠️ Translation contains no Chinese characters:', translation);
+    // ✅ Secondary validation: Must be at least 2 characters
+    if (translation.length < 2) {
+      console.warn('⚠️ Translation too short:', translation);
       return '（翻译失败）';
     }
 
