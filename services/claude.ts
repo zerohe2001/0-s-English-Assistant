@@ -296,6 +296,11 @@ Format:
  * Translate English sentence to Chinese
  */
 export async function translateToChinese(sentence: string): Promise<string> {
+  // ✅ Validate input
+  if (!sentence || sentence.trim().length === 0) {
+    return '（无句子）';
+  }
+
   const prompt = `
 Translate this English sentence to natural Chinese:
 
@@ -305,14 +310,41 @@ Requirements:
 1. Translate naturally (not word-for-word)
 2. Use conversational Chinese
 3. Return ONLY the Chinese translation, nothing else
+4. Do NOT return punctuation marks only
+5. Do NOT return the original English
 
 Example:
 Input: "I need to buy some groceries today."
 Output: 我今天需要买些日用品。
 `;
 
-  const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
-  return responseText.trim();
+  try {
+    const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
+    const translation = responseText.trim();
+
+    // ✅ Validate translation quality
+    if (!translation || translation.length === 0) {
+      console.warn('⚠️ Empty translation received');
+      return '（翻译失败）';
+    }
+
+    // ✅ Check if translation is just punctuation
+    if (/^[?.!,;:，。！？；：]+$/.test(translation)) {
+      console.warn('⚠️ Translation is only punctuation:', translation);
+      return '（翻译失败）';
+    }
+
+    // ✅ Check if translation contains Chinese characters
+    if (!/[\u4e00-\u9fa5]/.test(translation)) {
+      console.warn('⚠️ Translation contains no Chinese characters:', translation);
+      return '（翻译失败）';
+    }
+
+    return translation;
+  } catch (error) {
+    console.error('❌ Translation error:', error);
+    return '（翻译失败）';
+  }
 }
 
 /**

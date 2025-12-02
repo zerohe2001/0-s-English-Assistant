@@ -245,12 +245,12 @@ export const useStore = create<AppState>()(
         };
       }),
       startLearningWithWords: (wordIds) => set((state) => {
-        // ✅ Start learning with specific word IDs
+        // ✅ Prepare learning with specific word IDs (stay in input-context to let user enter context)
         const queue = state.words.filter(w => wordIds.includes(w.id));
         return {
           learnState: {
             ...state.learnState,
-            currentStep: 'learning',
+            currentStep: 'input-context', // ✅ Stay in context input stage
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',

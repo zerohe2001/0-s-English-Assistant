@@ -318,15 +318,9 @@ export const Learn = () => {
               console.log('✅ Saved user sentence for scene:', userSentence);
 
               // Generate and save translation to Word object for review
-              try {
-                  const translation = await translateToChinese(userSentence);
-                  saveWordSentence(currentWord.id, userSentence, translation);
-                  console.log('✅ Saved sentence to Word with translation:', translation);
-              } catch (error) {
-                  console.error('Failed to translate sentence:', error);
-                  // Save without translation as fallback
-                  saveWordSentence(currentWord.id, userSentence, '');
-              }
+              const translation = await translateToChinese(userSentence);
+              saveWordSentence(currentWord.id, userSentence, translation);
+              console.log('✅ Saved sentence to Word with translation:', translation);
           }
       }
 
