@@ -111,27 +111,35 @@ Respond ONLY with valid JSON in this exact format:
 `;
 
   const responseText = await callClaude([{ role: 'user', content: prompt }]);
+  console.log('🔍 [generateWordExplanation] Raw Claude response:', responseText);
+
   const data = parseJSON(responseText);
+  console.log('🔍 [generateWordExplanation] Parsed JSON:', JSON.stringify(data, null, 2));
 
   if (!data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
+    console.error('❌ [generateWordExplanation] Missing required fields:', data);
     throw new Error('Invalid response from Claude: missing required fields');
   }
 
   // ✅ Validate translation quality - must contain Chinese characters
   const translation = data.exampleTranslation.trim();
+  console.log('🔍 [generateWordExplanation] Translation before validation:', JSON.stringify(translation));
+  console.log('🔍 [generateWordExplanation] Translation length:', translation.length);
+  console.log('🔍 [generateWordExplanation] Contains Chinese?', /[\u4e00-\u9fa5]/.test(translation));
 
   // Primary check: MUST contain Chinese characters
   if (!/[\u4e00-\u9fa5]/.test(translation)) {
-    console.warn('⚠️ Example translation invalid (no Chinese):', translation);
+    console.warn('⚠️ [generateWordExplanation] Translation invalid (no Chinese):', JSON.stringify(translation));
     data.exampleTranslation = '（翻译失败）';
   }
 
   // Secondary check: If it's too short (< 2 chars), likely invalid
   else if (translation.length < 2) {
-    console.warn('⚠️ Example translation too short:', translation);
+    console.warn('⚠️ [generateWordExplanation] Translation too short:', JSON.stringify(translation));
     data.exampleTranslation = '（翻译失败）';
   }
 
+  console.log('🔍 [generateWordExplanation] Final translation:', JSON.stringify(data.exampleTranslation));
   return data;
 }
 
@@ -344,28 +352,34 @@ Output: 我今天需要买些日用品。 ✓
 
   try {
     const responseText = await callClaude([{ role: 'user', content: prompt }], undefined, 0.3);
+    console.log('🔍 [translateToChinese] Raw Claude response:', responseText);
+
     const translation = responseText.trim();
+    console.log('🔍 [translateToChinese] Translation before validation:', JSON.stringify(translation));
+    console.log('🔍 [translateToChinese] Translation length:', translation.length);
+    console.log('🔍 [translateToChinese] Contains Chinese?', /[\u4e00-\u9fa5]/.test(translation));
 
     // ✅ Primary validation: MUST contain Chinese characters
     if (!translation || translation.length === 0) {
-      console.warn('⚠️ Empty translation received');
+      console.warn('⚠️ [translateToChinese] Empty translation received');
       return '（翻译失败）';
     }
 
     if (!/[\u4e00-\u9fa5]/.test(translation)) {
-      console.warn('⚠️ Translation invalid (no Chinese):', translation);
+      console.warn('⚠️ [translateToChinese] Translation invalid (no Chinese):', JSON.stringify(translation));
       return '（翻译失败）';
     }
 
     // ✅ Secondary validation: Must be at least 2 characters
     if (translation.length < 2) {
-      console.warn('⚠️ Translation too short:', translation);
+      console.warn('⚠️ [translateToChinese] Translation too short:', JSON.stringify(translation));
       return '（翻译失败）';
     }
 
+    console.log('🔍 [translateToChinese] Final translation:', JSON.stringify(translation));
     return translation;
   } catch (error) {
-    console.error('❌ Translation error:', error);
+    console.error('❌ [translateToChinese] Translation error:', error);
     return '（翻译失败）';
   }
 }
