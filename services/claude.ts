@@ -249,25 +249,36 @@ export async function generateSessionSummary(
   history: ChatMessage[],
   targetWords: string[]
 ) {
+  // ✅ Validate input first
+  if (!history || history.length === 0) {
+    console.warn('⚠️ Empty conversation history, returning default summary');
+    return {
+      usedWords: [],
+      missedWords: targetWords,
+      feedback: 'No conversation was recorded. Please try again and make sure to speak during the session.'
+    };
+  }
+
   const transcript = history.map(h => `${h.role}: ${h.text}`).join('\n');
 
   const prompt = `
-Analyze this roleplay conversation transcript.
-Target Words: ${targetWords.join(', ')}
+You are analyzing a language learning conversation. The user practiced these target words: ${targetWords.join(', ')}
 
-Transcript:
+CONVERSATION TRANSCRIPT:
 ${transcript}
 
-Task:
-1. Identify which target words were used correctly by the user.
-2. Identify which words were missed or unused.
-3. Provide overall feedback on the conversation (fluency, vocabulary usage).
+TASK:
+1. Find which target words the USER (not the AI) used correctly in their responses
+2. List which target words were NOT used by the user
+3. Give brief encouraging feedback (2-3 sentences)
 
-Respond ONLY with valid JSON in this exact format:
+CRITICAL: You MUST respond with ONLY valid JSON. No explanations, no markdown, just raw JSON.
+
+Format:
 {
   "usedWords": ["word1", "word2"],
-  "missedWords": ["word3"],
-  "feedback": "..."
+  "missedWords": ["word3", "word4"],
+  "feedback": "Great job using word1 and word2! Try to use word3 next time."
 }
 `;
 

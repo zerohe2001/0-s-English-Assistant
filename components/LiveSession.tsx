@@ -212,11 +212,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
                   if (sessionRef.current) {
                     console.log("🎙️ Setting up audio input...");
                     setupAudioInput(stream, sessionRef.current);
-
-                    // ✅ Trigger AI to start conversation
-                    console.log("🎤 Sending empty message to trigger AI greeting...");
-                    sessionRef.current.send({ text: "" });
-                    console.log("✅ Empty message sent successfully");
+                    console.log("✅ Audio input setup complete. AI will start conversation automatically.");
                   } else {
                     console.error("❌ sessionRef.current is null in onopen!");
                   }
