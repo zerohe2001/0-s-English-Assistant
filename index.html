@@ -13,14 +13,32 @@
         theme: {
           extend: {
             colors: {
-              primary: '#4F46E5', // Indigo 600
-              secondary: '#10B981', // Emerald 500
-              accent: '#F59E0B', // Amber 500
-              background: '#F9FAFB', // Gray 50
+              // Notion-style minimal colors
+              primary: '#37352F',      // Dark gray for text
+              accent: '#2383E2',       // Blue for links/active states
+
+              // Grayscale system
+              'gray-950': '#1A1A1A',
+              'gray-900': '#2F2F2F',
+              'gray-700': '#6B6B6B',
+              'gray-500': '#9B9B9B',
+              'gray-300': '#E3E3E3',
+              'gray-100': '#F7F7F7',
+
+              background: '#FFFFFF',
               surface: '#FFFFFF',
             },
             fontFamily: {
-              sans: ['Inter', 'system-ui', 'sans-serif'],
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'sans-serif'],
+            },
+            fontSize: {
+              'display': ['2.5rem', { lineHeight: '1.2', fontWeight: '600' }],
+              'h1': ['2rem', { lineHeight: '1.3', fontWeight: '600' }],
+              'h2': ['1.5rem', { lineHeight: '1.4', fontWeight: '600' }],
+              'h3': ['1.25rem', { lineHeight: '1.5', fontWeight: '600' }],
+              'body': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
+              'small': ['0.875rem', { lineHeight: '1.5', fontWeight: '400' }],
+              'tiny': ['0.75rem', { lineHeight: '1.5', fontWeight: '400' }],
             }
           },
         },
@@ -58,6 +76,46 @@
       /* Ensure content has space for bottom nav + safe area */
       .content-with-nav {
         padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 1rem);
+      }
+
+      /* Toast animations */
+      @keyframes slide-down {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -100%);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+      }
+
+      @keyframes slide-up {
+        from {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-slide-down {
+        animation: slide-down 0.3s ease-out;
+      }
+
+      .animate-slide-up {
+        animation: slide-up 0.3s ease-out;
+      }
+
+      /* Hide scrollbar but keep functionality */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     </style>
   <script type="importmap">

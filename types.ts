@@ -109,3 +109,35 @@ export interface TokenUsage {
   outputTokens: number;
   totalCost: number; // in USD
 }
+
+// Reading Types
+export interface ReadingArticle {
+  id: string;
+  title: string;
+  content: string;
+  sentences: string[];           // Split sentences for highlighting
+  createdAt: number;
+  lastPlayedAt?: number;
+
+  // Audio related
+  audioStatus: 'pending' | 'generating' | 'ready' | 'failed';
+  audioBlobKey?: string;        // IndexedDB key
+  audioDuration?: number;       // Total duration in seconds
+
+  // Estimated sentence timeline
+  sentenceTimes?: Array<{
+    start: number;  // Start time in seconds
+    end: number;    // End time in seconds
+  }>;
+}
+
+export interface ReadingState {
+  articles: ReadingArticle[];
+  currentArticleId: string | null;
+
+  // Playback state
+  isPlaying: boolean;
+  currentTime: number;          // Current position in seconds
+  currentSentenceIndex: number; // Current highlighted sentence index
+  playbackRate: number;         // Playback speed
+}

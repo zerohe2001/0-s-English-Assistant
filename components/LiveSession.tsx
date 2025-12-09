@@ -4,6 +4,7 @@ import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { UserProfile, ChatMessage } from '../types';
 import { arrayBufferToBase64, base64ToUint8Array } from '../services/audioUtils';
 import ClickableText from './ClickableText';
+import { useStore } from '../store';
 
 interface LiveSessionProps {
   profile: UserProfile;
@@ -17,6 +18,7 @@ interface LiveSessionProps {
 const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scene, onComplete, onCancel }) => {
   console.log('🎬 LiveSession component rendering. Scene:', scene);
 
+  const { showToast } = useStore();
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error' | 'ended'>('connecting');
   const [micActive, setMicActive] = useState(true);
   const [transcriptDisplay, setTranscriptDisplay] = useState<{role: string, text: string} | null>(null);
@@ -38,7 +40,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   // Gemini & State
   const aiRef = useRef<GoogleGenAI | null>(null);
   const sessionRef = useRef<any>(null); // To store the actual session object
-  
+
   // Chat History Management
   const historyRef = useRef<ChatMessage[]>([]);
   const currentInputTransRef = useRef('');
@@ -65,6 +67,8 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   }, []);
 
   // ✅ Request Wake Lock to prevent screen sleep
+  const wakeLockReleaseHandlerRef = useRef<(() => void) | null>(null);
+
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) {
@@ -72,9 +76,11 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         console.log('✅ Wake Lock acquired - screen will stay on');
 
         // Re-acquire wake lock if it's released (e.g., user switches tabs)
-        wakeLockRef.current.addEventListener('release', () => {
+        const releaseHandler = () => {
           console.log('⚠️ Wake Lock released');
-        });
+        };
+        wakeLockReleaseHandlerRef.current = releaseHandler;
+        wakeLockRef.current.addEventListener('release', releaseHandler);
       } else {
         console.log('⚠️ Wake Lock API not supported on this device');
       }
@@ -86,6 +92,11 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   // ✅ Release Wake Lock
   const releaseWakeLock = () => {
     if (wakeLockRef.current) {
+      // Remove event listener to prevent memory leak
+      if (wakeLockReleaseHandlerRef.current) {
+        wakeLockRef.current.removeEventListener('release', wakeLockReleaseHandlerRef.current);
+        wakeLockReleaseHandlerRef.current = null;
+      }
       wakeLockRef.current.release();
       wakeLockRef.current = null;
       console.log('🔓 Wake Lock released');
@@ -221,7 +232,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
           },
           onmessage: async (message: LiveServerMessage) => {
              if (!isComponentMounted.current) return;
-             
+
              // 1. Audio Output
              const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
              if (audioData && audioContextRef.current) {
@@ -299,11 +310,11 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
 
       // Provide helpful error messages
       if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-        alert('❌ Microphone access denied!\n\nPlease:\n1. Click the 🔒 lock icon in your browser address bar\n2. Allow microphone access\n3. Refresh the page');
+        showToast('Microphone access denied! Please allow microphone access in browser settings.', 'error');
       } else if (e.name === 'NotFoundError') {
-        alert('❌ No microphone found!\n\nPlease connect a microphone and try again.');
+        showToast('No microphone found! Please connect a microphone and try again.', 'error');
       } else {
-        alert(`❌ Failed to start conversation: ${e.message}\n\nPlease try again.`);
+        showToast(`Failed to start conversation: ${e.message}`, 'error');
       }
 
       setStatus('error');
@@ -380,7 +391,7 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   const toggleMic = () => {
     setMicActive(!micActive);
   };
-  
+
   const handleEnd = () => {
       // Flush remaining transcripts
       if (currentInputTransRef.current.trim()) {
@@ -393,11 +404,11 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-white relative">
+    <div className="flex flex-col h-full bg-gray-900 text-white relative">
       {/* Header */}
-      <div className="flex-shrink-0 p-3 border-b border-slate-700">
-        <h2 className="text-lg font-bold text-center">🎭 Roleplay</h2>
-        <div className="text-slate-400 text-xs text-center mt-1 max-h-12 overflow-y-auto line-clamp-2">
+      <div className="flex-shrink-0 p-3 border-b border-gray-700">
+        <h2 className="text-body font-medium text-center">Roleplay</h2>
+        <div className="text-gray-500 text-tiny text-center mt-1 max-h-12 overflow-y-auto line-clamp-2">
           <ClickableText text={scene} />
         </div>
       </div>
@@ -405,38 +416,38 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       {/* Status Banner - Always visible for debugging */}
       <div className="flex-shrink-0">
         {status === 'connecting' && (
-          <div className="bg-yellow-600 text-white p-3 text-center">
+          <div className="bg-gray-700 text-white p-3 text-center border-b border-gray-700">
             <div className="flex items-center justify-center gap-2">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm">Connecting to AI...</span>
+              <span className="text-small">Connecting to AI...</span>
             </div>
             {connectionTimeout && (
-              <p className="text-xs mt-2">
+              <p className="text-tiny mt-2">
                 Taking longer than expected. Check console (F12) for errors.
               </p>
             )}
           </div>
         )}
         {status === 'connected' && (
-          <div className="bg-green-600 text-white p-3 text-center font-semibold flex items-center justify-center gap-2">
+          <div className="bg-gray-700 text-white p-3 text-center font-medium flex items-center justify-center gap-2 border-b border-gray-700">
             <div className={`w-3 h-3 rounded-full bg-white ${micActive ? 'animate-pulse' : 'opacity-50'}`}></div>
-            <span className="text-sm">{micActive ? '🎤 Microphone Active!' : '🔇 Muted'}</span>
+            <span className="text-small">{micActive ? 'Microphone Active' : 'Muted'}</span>
           </div>
         )}
         {status === 'error' && (
-          <div className="bg-red-600 text-white p-3 text-center font-semibold">
-            <p className="text-sm">❌ Connection Failed</p>
+          <div className="bg-gray-700 text-white p-3 text-center font-medium border-b border-gray-700">
+            <p className="text-small">Connection Failed</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-2 text-xs underline"
+              className="mt-2 text-tiny underline"
             >
               Tap to Reload
             </button>
           </div>
         )}
         {status === 'ended' && (
-          <div className="bg-slate-600 text-white p-3 text-center font-semibold">
-            <p className="text-sm">Session Ended</p>
+          <div className="bg-gray-700 text-white p-3 text-center font-medium border-b border-gray-700">
+            <p className="text-small">Session Ended</p>
           </div>
         )}
       </div>
@@ -444,24 +455,24 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
       {/* Chat History */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {displayHistory.length === 0 && status === 'connected' && (
-          <div className="text-center text-slate-300 py-4">
-            <p className="text-xl mb-2">👋 Ready!</p>
-            <p className="text-sm font-semibold">AI will speak first...</p>
-            <p className="text-xs text-slate-500 mt-1">Then you reply</p>
+          <div className="text-center text-gray-500 py-4">
+            <p className="text-body mb-2">Ready</p>
+            <p className="text-small font-medium">AI will speak first...</p>
+            <p className="text-tiny text-gray-500 mt-1">Then you reply</p>
           </div>
         )}
 
         {displayHistory.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-lg ${
+            <div className={`max-w-[80%] p-3 rounded ${
               msg.role === 'user'
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-slate-100'
+                ? 'bg-gray-700 text-white'
+                : 'bg-gray-700 text-gray-100 border border-gray-700'
             }`}>
-              <div className="text-xs opacity-70 mb-1">
+              <div className="text-tiny text-gray-500 mb-1">
                 {msg.role === 'user' ? 'You' : 'AI'}
               </div>
-              <div className="text-sm"><ClickableText text={msg.text} /></div>
+              <div className="text-small"><ClickableText text={msg.text} /></div>
             </div>
           </div>
         ))}
@@ -469,57 +480,57 @@ const LiveSession: React.FC<LiveSessionProps> = ({ profile, context, words, scen
         {/* Current speaking indicator */}
         {transcriptDisplay && (
           <div className={`flex ${transcriptDisplay.role === 'You' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-lg opacity-60 ${
+            <div className={`max-w-[80%] p-3 rounded opacity-60 ${
               transcriptDisplay.role === 'You'
-                ? 'bg-blue-500 text-white'
-                : 'bg-slate-600 text-slate-100'
+                ? 'bg-gray-700 text-white'
+                : 'bg-gray-700 text-gray-100 border border-gray-700'
             }`}>
-              <div className="text-xs mb-1 flex items-center gap-1">
+              <div className="text-tiny mb-1 flex items-center gap-1">
                 {transcriptDisplay.role}
                 <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse"></span>
                 <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.2s'}}></span>
                 <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" style={{animationDelay: '0.4s'}}></span>
               </div>
-              <div className="text-sm italic"><ClickableText text={transcriptDisplay.text} /></div>
+              <div className="text-small italic"><ClickableText text={transcriptDisplay.text} /></div>
             </div>
           </div>
         )}
       </div>
 
       {/* Control Buttons - Fixed positioning with safe area */}
-      <div className="flex-shrink-0 border-t border-slate-700 bg-slate-900 pb-safe">
+      <div className="flex-shrink-0 border-t border-gray-700 bg-gray-900 pb-safe">
         <div className="p-3 space-y-2">
           {/* Main action buttons */}
           <div className="flex gap-2">
             <button
               onClick={toggleMic}
-              className={`flex-1 px-3 py-3 rounded-xl transition-all font-bold text-sm shadow-lg ${
+              className={`flex-1 px-3 py-3 rounded transition-all font-medium text-small ${
                 micActive
-                  ? 'bg-gradient-to-br from-green-500 to-green-600 text-white active:scale-95'
-                  : 'bg-gradient-to-br from-slate-600 to-slate-700 text-slate-300 active:scale-95'
+                  ? 'bg-gray-700 text-white hover:bg-gray-600'
+                  : 'bg-gray-700 text-gray-500 hover:bg-gray-600'
               }`}
               disabled={status !== 'connected'}
             >
-              {micActive ? '🎤 Mute' : '🔇 Unmute'}
+              {micActive ? 'Mute' : 'Unmute'}
             </button>
             <button
               onClick={handleEnd}
-              className="flex-1 px-3 py-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white transition-all font-bold text-sm shadow-lg active:scale-95"
+              className="flex-1 px-3 py-3 rounded bg-gray-700 text-white hover:bg-gray-600 transition-all font-medium text-small"
             >
-              ✅ Finish
+              Finish
             </button>
           </div>
 
           {/* Secondary action */}
           <button
             onClick={onCancel}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-all text-xs font-medium active:scale-95"
+            className="w-full px-3 py-2.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-500 hover:text-gray-300 transition-all text-tiny font-medium"
           >
-            ❌ Close
+            Close
           </button>
         </div>
         {/* Extra safe area padding for mobile bottom nav */}
-        <div className="h-4 bg-slate-900"></div>
+        <div className="h-4 bg-gray-900"></div>
       </div>
     </div>
   );

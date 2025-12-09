@@ -232,3 +232,32 @@ export const generateSessionSummary = async (
     }
     return data;
 }
+
+export const translateToChinese = async (sentence: string): Promise<string> => {
+  const prompt = `Translate the following English sentence to Chinese:
+"${sentence}"
+
+Requirements:
+1. Provide a natural, accurate Chinese translation
+2. Output ONLY the Chinese translation, nothing else`;
+
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: prompt,
+    config: {
+      responseMimeType: "text/plain",
+    }
+  });
+
+  const translation = response.text?.trim() || '';
+  if (!translation) {
+    throw new Error('Empty translation received');
+  }
+
+  // Validate it contains Chinese characters
+  if (!/[\u4e00-\u9fa5]/.test(translation)) {
+    throw new Error('Translation does not contain Chinese characters');
+  }
+
+  return translation;
+};

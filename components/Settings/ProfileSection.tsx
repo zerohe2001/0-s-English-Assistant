@@ -3,7 +3,7 @@ import { useStore } from '../../store';
 import { UserProfile } from '../../types';
 
 export const ProfileSection: React.FC = () => {
-  const { profile, updateProfile } = useStore();
+  const { profile, updateProfile, showToast } = useStore();
   const [formData, setFormData] = useState<UserProfile>(profile);
 
   useEffect(() => {
@@ -20,79 +20,79 @@ export const ProfileSection: React.FC = () => {
       ...formData,
       savedContexts: profile.savedContexts || []
     });
-    alert('Profile saved!');
+    showToast('Profile saved!', 'success');
   };
 
   return (
     <section className="space-y-4">
       <header>
-        <h2 className="text-xl font-bold text-slate-900">Basic Information</h2>
-        <p className="text-sm text-slate-500">Personalize your learning experience</p>
+        <h2 className="text-h2 text-gray-900">Basic Information</h2>
+        <p className="text-small text-gray-500">Personalize your learning experience</p>
       </header>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded border border-gray-300 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <label className="block text-small font-medium text-gray-700 mb-1">Name</label>
           <input
             name="name"
             value={formData.name}
             onChange={handleChange}
             placeholder="e.g. Alex"
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500"
             required
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+            <label className="block text-small font-medium text-gray-700 mb-1">City</label>
             <input
               name="city"
               value={formData.city}
               onChange={handleChange}
               placeholder="e.g. Shanghai"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Occupation</label>
+            <label className="block text-small font-medium text-gray-700 mb-1">Occupation</label>
             <input
               name="occupation"
               value={formData.occupation}
               onChange={handleChange}
               placeholder="e.g. Marketing Manager"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500"
               required
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Hobbies / Interests</label>
+          <label className="block text-small font-medium text-gray-700 mb-1">Hobbies / Interests</label>
           <textarea
             name="hobbies"
             value={formData.hobbies}
             onChange={handleChange}
             placeholder="e.g. Photography, Hiking, Coffee"
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none h-24 resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500 h-24 resize-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Frequent Places</label>
+          <label className="block text-small font-medium text-gray-700 mb-1">Frequent Places</label>
           <input
             name="frequentPlaces"
             value={formData.frequentPlaces}
             onChange={handleChange}
             placeholder="e.g. Gym, Library, Costco"
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500"
           />
         </div>
 
         <button
           type="submit"
-          className="w-full bg-primary hover:bg-indigo-700 text-white py-3 rounded-lg font-semibold transition-colors"
+          className="w-full bg-gray-900 hover:bg-gray-700 text-white py-2 rounded text-small font-medium transition-colors"
         >
           Save Profile
         </button>

@@ -7,19 +7,19 @@ import { APIUsage } from '../components/Settings/APIUsage';
 
 export const Settings = () => {
   return (
-    <div className="max-w-2xl mx-auto p-4 pb-24">
+    <div className="max-w-2xl mx-auto px-6 py-8 pb-24">
       {/* Header */}
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-600 mt-2">Manage your profile, data, and usage</p>
+        <h1 className="text-h1 text-gray-900">Settings</h1>
+        <p className="text-body text-gray-500 mt-2">Manage your profile, data, and usage</p>
       </header>
 
       {/* Tab Navigation */}
       <Tabs defaultTab="profile">
         <TabList>
-          <Tab id="profile">👤 Profile</Tab>
-          <Tab id="system">⚙️ System</Tab>
-          <Tab id="usage">📊 Usage</Tab>
+          <Tab id="profile">Profile</Tab>
+          <Tab id="system">System</Tab>
+          <Tab id="usage">Usage</Tab>
         </TabList>
 
         {/* Profile Tab */}

@@ -2,28 +2,29 @@ import React, { useState } from 'react';
 import { useStore } from '../../store';
 
 export const ContextLibrary: React.FC = () => {
-  const { profile, addSavedContext, removeSavedContext } = useStore();
+  const { profile, addSavedContext, removeSavedContext, showToast } = useStore();
   const [newContext, setNewContext] = useState('');
 
   const handleAddContext = () => {
     if (!newContext.trim()) {
-      alert('Please enter a context scenario.');
+      showToast('Please enter a context scenario.', 'warning');
       return;
     }
     addSavedContext(newContext.trim());
     setNewContext('');
+    showToast('Context added successfully', 'success');
   };
 
   return (
     <section className="space-y-4">
       <header>
-        <h2 className="text-xl font-bold text-slate-900">Context Library</h2>
-        <p className="text-sm text-slate-500">Reusable scenarios for your daily practice</p>
+        <h2 className="text-h2 text-gray-900">Context Library</h2>
+        <p className="text-small text-gray-500">Reusable scenarios for your daily practice</p>
       </header>
 
       {/* Add New Context Input */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <label className="block text-sm font-medium text-slate-700 mb-2">Add New Context</label>
+      <div className="bg-white p-4 rounded border border-gray-300">
+        <label className="block text-small font-medium text-gray-700 mb-2">Add New Context</label>
         <div className="flex gap-2">
           <input
             type="text"
@@ -31,11 +32,11 @@ export const ContextLibrary: React.FC = () => {
             onChange={(e) => setNewContext(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddContext()}
             placeholder="e.g. I'm heading to the gym after work"
-            className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary outline-none"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500"
           />
           <button
             onClick={handleAddContext}
-            className="px-6 py-2 bg-primary hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded text-small font-medium transition-colors whitespace-nowrap"
           >
             Add
           </button>
@@ -44,17 +45,17 @@ export const ContextLibrary: React.FC = () => {
 
       {/* Context Cards */}
       {profile.savedContexts && profile.savedContexts.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 gap-2">
           {profile.savedContexts.map((ctx) => (
             <div
               key={ctx.id}
-              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center group hover:border-slate-300 transition-colors"
+              className="bg-white p-4 rounded border border-gray-300 flex justify-between items-center hover:bg-gray-50 transition-colors"
             >
-              <p className="text-slate-700 line-clamp-2 flex-1">{ctx.text}</p>
+              <p className="text-small text-gray-700 line-clamp-2 flex-1">{ctx.text}</p>
               <button
                 type="button"
                 onClick={() => removeSavedContext(ctx.id)}
-                className="ml-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
                 aria-label="Delete context"
               >
                 <svg
@@ -74,8 +75,8 @@ export const ContextLibrary: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-          <p className="text-slate-400 text-sm">No saved contexts yet. Add one above!</p>
+        <div className="text-center py-8 bg-gray-100 rounded border border-gray-300">
+          <p className="text-gray-500 text-small">No saved contexts yet. Add one above!</p>
         </div>
       )}
     </section>

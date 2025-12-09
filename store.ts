@@ -1,10 +1,23 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UserProfile, Word, LearnState, ChatMessage, SessionSummary, DictionaryState, SavedContext, TokenUsage } from './types';
+import { UserProfile, Word, LearnState, ChatMessage, SessionSummary, DictionaryState, SavedContext, TokenUsage, ReadingArticle, ReadingState } from './types';
 import { fetchWordDefinition } from './services/dictionary';
 
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export interface ToastMessage {
+  id: string;
+  message: string;
+  type: ToastType;
+}
+
 interface AppState {
+  // Toast Notifications
+  toasts: ToastMessage[];
+  showToast: (message: string, type: ToastType) => void;
+  hideToast: (id: string) => void;
+
   // User Profile
   profile: UserProfile;
   updateProfile: (profile: UserProfile) => void;
@@ -48,11 +61,33 @@ interface AppState {
   dictionary: DictionaryState;
   openDictionary: (word: string) => Promise<void>;
   closeDictionary: () => void;
+
+  // Reading
+  readingState: ReadingState;
+  addArticle: (title: string, content: string) => void;
+  removeArticle: (id: string) => void;
+  setCurrentArticle: (id: string | null) => void;
+  updateArticleAudioStatus: (id: string, status: ReadingArticle['audioStatus'], audioBlobKey?: string, audioDuration?: number) => void;
+  setPlaybackState: (isPlaying: boolean, currentTime?: number, currentSentenceIndex?: number) => void;
+  setPlaybackRate: (rate: number) => void;
+  updateLastPlayed: (id: string) => void;
 }
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Toast Notifications
+      toasts: [],
+      showToast: (message, type) => {
+        const id = Date.now().toString();
+        set((state) => ({
+          toasts: [...state.toasts, { id, message, type }]
+        }));
+      },
+      hideToast: (id) => set((state) => ({
+        toasts: state.toasts.filter(toast => toast.id !== id)
+      })),
+
       profile: {
         name: '',
         city: '',
@@ -401,6 +436,99 @@ export const useStore = create<AppState>()(
       closeDictionary: () => set((state) => ({
          dictionary: { ...state.dictionary, isOpen: false, word: null, data: null }
       })),
+
+      // Reading
+      readingState: {
+        articles: [],
+        currentArticleId: null,
+        isPlaying: false,
+        currentTime: 0,
+        currentSentenceIndex: 0,
+        playbackRate: 1.0,
+      },
+      addArticle: (title, content) => set((state) => {
+        // Split content into sentences using .!? as delimiters
+        const sentences = content
+          .split(/(?<=[.!?])\s+/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        // Estimate sentence times (50ms per character + 300ms pause)
+        const sentenceTimes = [];
+        let currentTime = 0;
+        for (const sentence of sentences) {
+          const duration = sentence.length * 0.05;
+          sentenceTimes.push({ start: currentTime, end: currentTime + duration });
+          currentTime += duration + 0.3;
+        }
+
+        const newArticle: ReadingArticle = {
+          id: crypto.randomUUID(),
+          title,
+          content,
+          sentences,
+          sentenceTimes,
+          createdAt: Date.now(),
+          audioStatus: 'pending',
+        };
+
+        return {
+          readingState: {
+            ...state.readingState,
+            articles: [newArticle, ...state.readingState.articles],
+          }
+        };
+      }),
+      removeArticle: (id) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          articles: state.readingState.articles.filter(a => a.id !== id),
+          currentArticleId: state.readingState.currentArticleId === id ? null : state.readingState.currentArticleId,
+        }
+      })),
+      setCurrentArticle: (id) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          currentArticleId: id,
+          isPlaying: false,
+          currentTime: 0,
+          currentSentenceIndex: 0,
+        }
+      })),
+      updateArticleAudioStatus: (id, status, audioBlobKey, audioDuration) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          articles: state.readingState.articles.map(a =>
+            a.id === id
+              ? { ...a, audioStatus: status, audioBlobKey, audioDuration }
+              : a
+          ),
+        }
+      })),
+      setPlaybackState: (isPlaying, currentTime, currentSentenceIndex) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          isPlaying,
+          ...(currentTime !== undefined && { currentTime }),
+          ...(currentSentenceIndex !== undefined && { currentSentenceIndex }),
+        }
+      })),
+      setPlaybackRate: (rate) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          playbackRate: rate,
+        }
+      })),
+      updateLastPlayed: (id) => set((state) => ({
+        readingState: {
+          ...state.readingState,
+          articles: state.readingState.articles.map(a =>
+            a.id === id
+              ? { ...a, lastPlayedAt: Date.now() }
+              : a
+          ),
+        }
+      })),
     }),
     {
       name: 'active-vocab-storage',
@@ -414,6 +542,15 @@ export const useStore = create<AppState>()(
             ...state.learnState,
             wordExplanations: state.learnState.wordExplanations || {}, // ✅ Ensure always defined
             userSentences: state.learnState.userSentences || {} // ✅ Ensure always defined
+        },
+        // Persist reading state (articles and metadata, not playback state)
+        readingState: {
+          articles: state.readingState.articles,
+          currentArticleId: null, // Don't persist current article
+          isPlaying: false, // Don't persist playback state
+          currentTime: 0,
+          currentSentenceIndex: 0,
+          playbackRate: state.readingState.playbackRate, // Persist playback speed preference
         }
       }),
       // ✅ Merge function to handle old data without wordExplanations and tokenUsage

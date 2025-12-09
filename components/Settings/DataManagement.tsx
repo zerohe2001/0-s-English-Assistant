@@ -1,12 +1,15 @@
 import React from 'react';
+import { useStore } from '../../store';
 
 export const DataManagement: React.FC = () => {
+  const { showToast } = useStore();
+
   // ✅ Export data to JSON file
   const handleExportData = () => {
     try {
       const data = localStorage.getItem('active-vocab-storage');
       if (!data) {
-        alert('没有数据可以导出');
+        showToast('没有数据可以导出', 'warning');
         return;
       }
 
@@ -20,10 +23,10 @@ export const DataManagement: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      alert('✅ 数据已导出！');
+      showToast('数据已导出！', 'success');
     } catch (error) {
       console.error('Export failed:', error);
-      alert('导出失败，请重试');
+      showToast('导出失败，请重试', 'error');
     }
   };
 
@@ -50,11 +53,11 @@ export const DataManagement: React.FC = () => {
         }
 
         localStorage.setItem('active-vocab-storage', text);
-        alert('✅ 数据导入成功！页面即将刷新...');
+        showToast('数据导入成功！页面即将刷新...', 'success');
         setTimeout(() => window.location.reload(), 1000);
       } catch (error) {
         console.error('Import failed:', error);
-        alert('❌ 导入失败：文件格式不正确或数据损坏');
+        showToast('导入失败：文件格式不正确或数据损坏', 'error');
       }
     };
 
@@ -72,7 +75,7 @@ export const DataManagement: React.FC = () => {
     }
 
     localStorage.clear();
-    alert('✅ 所有数据已清空，页面即将刷新...');
+    showToast('所有数据已清空，页面即将刷新...', 'success');
     setTimeout(() => window.location.reload(), 500);
   };
 
@@ -81,14 +84,14 @@ export const DataManagement: React.FC = () => {
       {/* Data Backup */}
       <div className="space-y-4">
         <header>
-          <h2 className="text-xl font-bold text-slate-900">Data Backup</h2>
-          <p className="text-sm text-slate-500">Export and import your learning data</p>
+          <h2 className="text-h2 text-gray-900">Data Backup</h2>
+          <p className="text-small text-gray-500">Export and import your learning data</p>
         </header>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div className="bg-white p-6 rounded border border-gray-300 space-y-3">
           <button
             onClick={handleExportData}
-            className="w-full py-3 bg-primary hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 bg-gray-900 hover:bg-gray-700 text-white rounded text-small font-medium transition-colors flex items-center justify-center gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +112,7 @@ export const DataManagement: React.FC = () => {
 
           <button
             onClick={handleImportData}
-            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-small font-medium transition-colors flex items-center justify-center gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -128,8 +131,8 @@ export const DataManagement: React.FC = () => {
             Import Backup
           </button>
 
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600">
-            <div className="font-semibold mb-1">💡 Backup includes:</div>
+          <div className="bg-gray-100 p-3 rounded border border-gray-300 text-tiny text-gray-700">
+            <div className="font-semibold mb-1">Backup includes:</div>
             <div>• All vocabulary & learning progress</div>
             <div>• Review history & statistics</div>
             <div>• Profile & saved contexts</div>
@@ -140,14 +143,14 @@ export const DataManagement: React.FC = () => {
       {/* Danger Zone */}
       <div className="space-y-4">
         <header>
-          <h2 className="text-xl font-bold text-red-600">Danger Zone</h2>
-          <p className="text-sm text-slate-500">Irreversible actions</p>
+          <h2 className="text-h2 text-red-600">Danger Zone</h2>
+          <p className="text-small text-gray-500">Irreversible actions</p>
         </header>
 
-        <div className="bg-red-50 p-6 rounded-xl border-2 border-red-200">
+        <div className="bg-red-50 p-6 rounded border border-red-300">
           <button
             onClick={handleClearAllData}
-            className="w-full py-3 bg-white hover:bg-red-50 text-red-600 border-2 border-red-300 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2 bg-white hover:bg-red-50 text-red-600 border border-red-300 rounded text-small font-medium transition-colors flex items-center justify-center gap-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -165,8 +168,8 @@ export const DataManagement: React.FC = () => {
             </svg>
             Clear All Data
           </button>
-          <p className="text-xs text-red-600 mt-2 text-center">
-            ⚠️ This will permanently delete all your data
+          <p className="text-tiny text-red-600 mt-2 text-center">
+            This will permanently delete all your data
           </p>
         </div>
       </div>

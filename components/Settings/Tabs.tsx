@@ -37,7 +37,7 @@ export const Tabs: React.FC<TabsProps> = ({ children, defaultTab = '' }) => {
 
 export const TabList: React.FC<TabListProps> = ({ children }) => {
   return (
-    <div className="flex gap-2 border-b border-slate-200 mb-6">
+    <div className="flex gap-2 border-b border-gray-300 mb-6">
       {children}
     </div>
   );
@@ -50,16 +50,13 @@ export const Tab: React.FC<TabProps> = ({ id, children }) => {
   return (
     <button
       onClick={() => setActiveTab(id)}
-      className={`px-4 py-3 font-semibold text-sm transition-all relative ${
+      className={`px-4 py-2 text-small font-medium border-b transition-colors ${
         isActive
-          ? 'text-primary'
-          : 'text-slate-500 hover:text-slate-700'
+          ? 'border-gray-900 text-gray-900'
+          : 'border-transparent text-gray-500 hover:text-gray-700'
       }`}
     >
       {children}
-      {isActive && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
-      )}
     </button>
   );
 };
