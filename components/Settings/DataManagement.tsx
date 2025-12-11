@@ -66,13 +66,13 @@ export const DataManagement: React.FC = () => {
 
   // ✅ Clear translation cache only (fix "." bug)
   const handleClearTranslationCache = () => {
-    if (!confirm('🧹 清除翻译缓存？\n\n这会删除所有单词的缓存翻译，但保留学习进度和个人资料。\n\n下次查看单词时会重新生成翻译。')) {
-      return;
-    }
+    console.log('🧹 Clear cache button clicked');
 
     try {
       const storageKey = 'active-vocab-storage';
       const data = localStorage.getItem(storageKey);
+
+      console.log('📦 Storage data exists:', !!data);
 
       if (!data) {
         showToast('没有缓存数据需要清除', 'warning');
@@ -80,18 +80,31 @@ export const DataManagement: React.FC = () => {
       }
 
       const parsedData = JSON.parse(data);
+      console.log('📊 Parsed data structure:', {
+        hasState: !!parsedData.state,
+        hasLearnState: !!parsedData.state?.learnState,
+        hasWordExplanations: !!parsedData.state?.learnState?.wordExplanations,
+        explanationsCount: Object.keys(parsedData.state?.learnState?.wordExplanations || {}).length
+      });
 
       // Clear only wordExplanations, keep everything else
       if (parsedData.state?.learnState?.wordExplanations) {
+        const count = Object.keys(parsedData.state.learnState.wordExplanations).length;
         parsedData.state.learnState.wordExplanations = {};
         localStorage.setItem(storageKey, JSON.stringify(parsedData));
-        showToast('✅ 翻译缓存已清除！页面即将刷新...', 'success');
-        setTimeout(() => window.location.reload(), 800);
+
+        console.log(`✅ Cleared ${count} word explanations`);
+        showToast(`✅ 已清除 ${count} 个单词缓存！页面即将刷新...`, 'success');
+        setTimeout(() => {
+          console.log('🔄 Reloading page...');
+          window.location.reload();
+        }, 1000);
       } else {
+        console.warn('⚠️ No wordExplanations found in storage');
         showToast('没有翻译缓存需要清除', 'warning');
       }
     } catch (error) {
-      console.error('Clear cache failed:', error);
+      console.error('❌ Clear cache failed:', error);
       showToast('清除失败，请重试', 'error');
     }
   };
