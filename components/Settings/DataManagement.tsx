@@ -64,6 +64,38 @@ export const DataManagement: React.FC = () => {
     input.click();
   };
 
+  // ✅ Clear translation cache only (fix "." bug)
+  const handleClearTranslationCache = () => {
+    if (!confirm('🧹 清除翻译缓存？\n\n这会删除所有单词的缓存翻译，但保留学习进度和个人资料。\n\n下次查看单词时会重新生成翻译。')) {
+      return;
+    }
+
+    try {
+      const storageKey = 'active-vocab-storage';
+      const data = localStorage.getItem(storageKey);
+
+      if (!data) {
+        showToast('没有缓存数据需要清除', 'warning');
+        return;
+      }
+
+      const parsedData = JSON.parse(data);
+
+      // Clear only wordExplanations, keep everything else
+      if (parsedData.state?.learnState?.wordExplanations) {
+        parsedData.state.learnState.wordExplanations = {};
+        localStorage.setItem(storageKey, JSON.stringify(parsedData));
+        showToast('✅ 翻译缓存已清除！页面即将刷新...', 'success');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        showToast('没有翻译缓存需要清除', 'warning');
+      }
+    } catch (error) {
+      console.error('Clear cache failed:', error);
+      showToast('清除失败，请重试', 'error');
+    }
+  };
+
   // ✅ Clear all data
   const handleClearAllData = () => {
     if (!confirm('⚠️ 确定要清空所有数据吗？此操作无法撤销！\n\n包括：单词、学习记录、复习进度、Token统计')) {
@@ -136,6 +168,45 @@ export const DataManagement: React.FC = () => {
             <div>• All vocabulary & learning progress</div>
             <div>• Review history & statistics</div>
             <div>• Profile & saved contexts</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cache Management */}
+      <div className="space-y-4">
+        <header>
+          <h2 className="text-h2 text-gray-900">Cache Management</h2>
+          <p className="text-small text-gray-500">Clear cached data to fix display issues</p>
+        </header>
+
+        <div className="bg-blue-50 p-6 rounded border border-blue-300 space-y-3">
+          <button
+            onClick={handleClearTranslationCache}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-small font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            🧹 清除翻译缓存
+          </button>
+
+          <div className="bg-white p-3 rounded border border-blue-200 text-tiny text-gray-700">
+            <div className="font-semibold mb-1 text-blue-700">什么时候需要清除？</div>
+            <div>• 看到翻译显示为 "." 或其他符号</div>
+            <div>• 翻译显示异常或不完整</div>
+            <div>• 更新后需要重新加载数据</div>
+            <div className="mt-2 text-gray-500">✅ 不会删除学习进度和个人资料</div>
           </div>
         </div>
       </div>
