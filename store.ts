@@ -605,21 +605,56 @@ export const useStore = create<AppState>()(
         }
       }),
       // ✅ Merge function to handle old data without wordExplanations and tokenUsage
-      merge: (persistedState: any, currentState: any) => ({
-        ...currentState,
-        ...persistedState,
-        tokenUsage: persistedState.tokenUsage || {
-          inputTokens: 0,
-          outputTokens: 0,
-          totalCost: 0,
-        },
-        learnState: {
-          ...currentState.learnState,
-          ...(persistedState.learnState || {}),
-          wordExplanations: persistedState.learnState?.wordExplanations || {}, // ✅ Default to empty object
-          userSentences: persistedState.learnState?.userSentences || {} // ✅ Default to empty object
-        }
-      }),
+      merge: (persistedState: any, currentState: any) => {
+        // ✅ FIX: Clean invalid translations from persisted data
+        const cleanWordExplanations = (explanations: any) => {
+          if (!explanations || typeof explanations !== 'object') return {};
+
+          const cleaned: any = {};
+          Object.keys(explanations).forEach(wordId => {
+            const explanation = explanations[wordId];
+            if (explanation && explanation.exampleTranslation) {
+              const translation = explanation.exampleTranslation.trim();
+
+              // Validate translation - reject if invalid
+              const isInvalid =
+                !/[\u4e00-\u9fa5]/.test(translation) ||  // No Chinese characters
+                translation.length < 2 ||                // Too short
+                /^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation);  // Only symbols
+
+              if (isInvalid) {
+                console.warn(`🧹 Cleaning invalid translation for word ${wordId}:`, JSON.stringify(translation));
+                // Replace with fallback message
+                cleaned[wordId] = {
+                  ...explanation,
+                  exampleTranslation: '（翻译失败，请重新生成）'
+                };
+              } else {
+                cleaned[wordId] = explanation;
+              }
+            } else {
+              cleaned[wordId] = explanation;
+            }
+          });
+          return cleaned;
+        };
+
+        return {
+          ...currentState,
+          ...persistedState,
+          tokenUsage: persistedState.tokenUsage || {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalCost: 0,
+          },
+          learnState: {
+            ...currentState.learnState,
+            ...(persistedState.learnState || {}),
+            wordExplanations: cleanWordExplanations(persistedState.learnState?.wordExplanations || {}), // ✅ Clean on load
+            userSentences: persistedState.learnState?.userSentences || {} // ✅ Default to empty object
+          }
+        };
+      },
     }
   )
 );
