@@ -28,7 +28,12 @@ export const generateWordExplanation = async (
   1. "meaning": Simple English definition (CEFR B1 level).
   2. "phonetic": American English phonetic transcription in IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
   3. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
-  4. "exampleTranslation": The Chinese translation of the example sentence.
+  4. "exampleTranslation": The Chinese (中文) translation of the example sentence.
+     - MUST be in Chinese (中文), not English
+     - MUST contain at least 2 Chinese characters (汉字)
+     - Do NOT return: punctuation only (., ?, !), symbols (°, ×, ÷), or English text
+     - Example valid: "我需要买些日用品。" ✓
+     - Example invalid: "." ✗   "°" ✗   "..." ✗
   `;
 
   const response = await ai.models.generateContent({
@@ -54,6 +59,28 @@ export const generateWordExplanation = async (
   if (!data || !data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
     throw new Error('Invalid response from AI: missing required fields');
   }
+
+  // ✅ FIX: Validate translation quality - must contain Chinese characters
+  const translation = data.exampleTranslation.trim();
+  console.log('🔍 [Gemini] Translation before validation:', JSON.stringify(translation));
+
+  // Primary check: MUST contain Chinese characters
+  if (!/[\u4e00-\u9fa5]/.test(translation)) {
+    console.warn('⚠️ [Gemini] Translation invalid (no Chinese):', JSON.stringify(translation));
+    data.exampleTranslation = '（翻译失败，请重新生成）';
+  }
+  // Secondary check: If it's too short (< 2 chars), likely invalid
+  else if (translation.length < 2) {
+    console.warn('⚠️ [Gemini] Translation too short:', JSON.stringify(translation));
+    data.exampleTranslation = '（翻译失败，请重新生成）';
+  }
+  // Tertiary check: If it's just punctuation or symbols
+  else if (/^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation)) {
+    console.warn('⚠️ [Gemini] Translation is only symbols:', JSON.stringify(translation));
+    data.exampleTranslation = '（翻译失败，请重新生成）';
+  }
+
+  console.log('✅ [Gemini] Final validated translation:', JSON.stringify(data.exampleTranslation));
   return data;
 };
 
