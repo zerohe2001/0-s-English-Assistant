@@ -138,100 +138,161 @@ export const evaluateUserSentence = async (
   return data;
 };
 
-export const generateConversationScene = async (
+
+/**
+ * Generate conversation questions based on user's created sentences
+ * Returns 3 questions that extend the topics mentioned in user sentences
+ */
+export const generateConversationQuestions = async (
+  userSentences: { word: string; sentence: string }[],
   profile: UserProfile,
-  context: string,
-  words: string[]
-) => {
+  context: string
+): Promise<string[]> => {
+  const sentenceList = userSentences
+    .map((s, i) => `${i + 1}. "${s.sentence}" (using word: ${s.word})`)
+    .join('\n');
+
   const prompt = `
-  Create a roleplay scenario in EXACTLY 2 short sentences:
+You are an English conversation teacher.
 
-  User: ${profile.name} (${profile.occupation} in ${profile.city})
-  Activity: ${context}
-  Target Words: ${words.join(', ')}
+User Profile:
+- Name: ${profile.name}
+- City: ${profile.city}
+- Occupation: ${profile.occupation}
+- Today's Context: ${context}
 
-  Format (MUST follow):
-  Sentence 1: Describe the situation (max 15 words)
-  Sentence 2: State who you are playing (max 10 words)
+The user just created these sentences using new vocabulary:
+${sentenceList}
 
-  Example: "You're ordering coffee at a café. I'll be the barista."
-  Example: "You're checking into a hotel. I'm the front desk staff."
-  Example: "You're at a job interview. I'll play the interviewer."
+Task: Generate EXACTLY 3 engaging follow-up questions based on the topics mentioned in their sentences.
 
-  CRITICAL: Output ONLY 2 sentences, nothing else!
-  `;
+Requirements:
+1. Questions should be conversational and natural
+2. Each question should relate to at least one of their sentences
+3. Questions should encourage the user to use the vocabulary words naturally
+4. Keep questions simple (max 15 words each)
+5. Make questions personally relevant to their context
+
+Output format: Return ONLY a JSON array of 3 question strings.
+Example: ["What strategies help you avoid procrastination?", "How do you manage deadlines?", "What's your biggest time management challenge?"]
+`;
 
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: prompt,
     config: {
-      responseMimeType: "text/plain",
-    }
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      },
+    },
   });
 
-  // ✅ FIX: Check for empty response and truncate if too long
-  let scene = response.text?.trim() || '';
-  if (!scene) {
-    throw new Error('No conversation scene generated');
+  const questions = JSON.parse(response.text || "[]");
+  if (!Array.isArray(questions) || questions.length !== 3) {
+    throw new Error('Invalid questions response: expected array of 3 strings');
   }
 
-  // ✅ Force truncate to first 2 sentences if AI ignores instructions
-  const sentences = scene.match(/[^.!?]+[.!?]+/g) || [scene];
-  if (sentences.length > 2) {
-    scene = sentences.slice(0, 2).join(' ');
-  }
-
-  // ✅ Enforce max length (200 chars)
-  if (scene.length > 200) {
-    scene = scene.substring(0, 197) + '...';
-  }
-
-  return scene;
+  return questions;
 };
 
-export const generateSessionSummary = async (
-    history: ChatMessage[],
-    targetWords: string[]
-) => {
-    const transcript = history.map(h => `${h.role}: ${h.text}`).join('\n');
+/**
+ * Correct user's text answer and provide feedback (with streaming support)
+ */
+export const correctUserAnswer = async (
+  question: string,
+  userAnswer: string,
+  onStream?: (chunk: string) => void
+): Promise<{ correctedText: string; feedback: string; hasErrors: boolean }> => {
+  const prompt = `
+You are an English grammar teacher.
 
-    const prompt = `
-    Analyze this roleplay conversation transcript.
-    Target Words: ${targetWords.join(', ')}
+Question: "${question}"
+User's Answer: "${userAnswer}"
 
-    Transcript:
-    ${transcript}
+Task: Check the user's answer for grammar, spelling, and naturalness.
 
-    Task:
-    1. Identify which target words were used correctly by the user.
-    2. Identify which words were missed or unused.
-    3. Provide overall feedback on the conversation (fluency, vocabulary usage).
-    `;
+Requirements:
+1. Provide a corrected version (even if no changes needed)
+2. Give brief, encouraging feedback highlighting what was good and what to improve
+3. Indicate if there were any errors
 
-    const response = await ai.models.generateContent({
-        model: MODEL_NAME,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    usedWords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    missedWords: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    feedback: { type: Type.STRING }
-                },
-                required: ["usedWords", "missedWords", "feedback"]
-            }
-        }
+Output JSON format:
+{
+  "correctedText": "The corrected version of their answer",
+  "feedback": "Brief feedback (2-3 sentences max)",
+  "hasErrors": true or false
+}
+`;
+
+  // ✅ Use streaming if callback provided
+  if (onStream) {
+    const response = await ai.models.generateContentStream({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            correctedText: { type: Type.STRING },
+            feedback: { type: Type.STRING },
+            hasErrors: { type: Type.BOOLEAN }
+          },
+          required: ["correctedText", "feedback", "hasErrors"]
+        },
+      },
     });
 
-    // ✅ FIX: Proper error handling
-    const data = JSON.parse(response.text || "null");
-    if (!data || !Array.isArray(data.usedWords) || !Array.isArray(data.missedWords) || !data.feedback) {
-      throw new Error('Invalid session summary response');
+    let fullText = '';
+    for await (const chunk of response) {
+      const chunkText = chunk.text || '';
+      fullText += chunkText;
+      onStream(chunkText); // ✅ Stream each chunk to UI
+    }
+
+    // ✅ FIX: Add try/catch for JSON parsing in case of incomplete stream
+    let data;
+    try {
+      data = JSON.parse(fullText || "null");
+    } catch (parseError) {
+      console.error('❌ JSON parse error in streaming response:', parseError);
+      console.error('Raw response:', fullText);
+      throw new Error('Failed to parse AI response. Please try again.');
+    }
+
+    if (!data || !data.correctedText || !data.feedback || typeof data.hasErrors !== 'boolean') {
+      throw new Error('Invalid correction response');
     }
     return data;
-}
+  }
+
+  // Non-streaming fallback
+  const response = await ai.models.generateContent({
+    model: MODEL_NAME,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          correctedText: { type: Type.STRING },
+          feedback: { type: Type.STRING },
+          hasErrors: { type: Type.BOOLEAN }
+        },
+        required: ["correctedText", "feedback", "hasErrors"]
+      },
+    },
+  });
+
+  const data = JSON.parse(response.text || "null");
+  if (!data || !data.correctedText || !data.feedback || typeof data.hasErrors !== 'boolean') {
+    throw new Error('Invalid correction response');
+  }
+
+  return data;
+};
 
 export const translateToChinese = async (sentence: string): Promise<string> => {
   const prompt = `Translate the following English sentence to Chinese:

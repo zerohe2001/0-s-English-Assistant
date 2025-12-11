@@ -33,32 +33,38 @@ export interface Word {
 
 export type WordStep = 'explanation' | 'shadowing' | 'creation';
 
-export interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-}
-
-export interface SessionSummary {
-  usedWords: string[];
-  missedWords: string[];
-  feedback: string;
-}
-
 export type ReviewStep = 'speaking' | 'comparing';
 
+// ✅ Text-based conversation Q&A
+export interface ConversationMessage {
+  role: 'ai' | 'user';
+  text: string;
+  correction?: {
+    correctedText: string;
+    feedback: string;
+  };
+}
+
+export interface ConversationState {
+  questions: string[]; // All questions
+  currentQuestion: string;
+  messages: ConversationMessage[];
+  questionIndex: number;
+  totalQuestions: number;
+  isWaitingForAnswer: boolean;
+}
+
 export interface LearnState {
-  currentStep: 'input-context' | 'learning' | 'review' | 'conversation' | 'summary';
+  currentStep: 'input-context' | 'learning' | 'review' | 'conversation';
   dailyContext: string;
   learningQueue: Word[];
   currentWordIndex: number;
   wordSubStep: WordStep;
   reviewSubStep?: ReviewStep; // ✅ Review substep
   currentReviewAttempt?: string; // ✅ Current user's spoken sentence in review
-  generatedScene?: string;
-  conversationHistory: ChatMessage[];
-  sessionSummary?: SessionSummary;
   wordExplanations: { [wordId: string]: WordExplanation }; // ✅ Store explanations to avoid regeneration
-  userSentences: { [wordId: string]: string }; // ✅ Store user's created sentences for better scene generation
+  userSentences: { [wordId: string]: string }; // ✅ Store user's created sentences
+  conversation?: ConversationState; // ✅ Text-based conversation state
 }
 
 export interface WordExplanation {

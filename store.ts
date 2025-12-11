@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UserProfile, Word, LearnState, ChatMessage, SessionSummary, DictionaryState, SavedContext, TokenUsage, ReadingArticle, ReadingState } from './types';
+import { UserProfile, Word, LearnState, DictionaryState, SavedContext, TokenUsage, ReadingArticle, ReadingState, ConversationMessage } from './types';
 import { fetchWordDefinition } from './services/dictionary';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -46,16 +46,19 @@ interface AppState {
   startLearningWithWords: (wordIds: string[]) => void; // ✅ Start learning with specific words
   setWordSubStep: (step: LearnState['wordSubStep']) => void;
   nextWord: () => void;
-  completeLearningPhase: (sceneDescription: string) => void;
   startReviewPhase: () => void; // ✅ Start review phase
   setReviewSubStep: (step: import('./types').ReviewStep) => void; // ✅ Set review substep
   setReviewAttempt: (attempt: string) => void; // ✅ Store current review attempt
   nextReviewWord: (completed: boolean) => void; // ✅ Move to next word in review
-  addChatMessage: (message: ChatMessage) => void;
-  setSessionSummary: (summary: SessionSummary) => void;
   resetSession: () => void;
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
-  saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence (for scene generation)
+  saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence
+
+  // ✅ Text-based conversation
+  startConversation: (questions: string[]) => void;
+  addConversationMessage: (message: ConversationMessage) => void;
+  nextConversationQuestion: () => void;
+  completeConversation: () => void;
 
   // Dictionary
   dictionary: DictionaryState;
@@ -255,7 +258,6 @@ export const useStore = create<AppState>()(
         wordSubStep: 'explanation',
         reviewSubStep: undefined,
         currentReviewAttempt: undefined,
-        conversationHistory: [],
         wordExplanations: {}, // ✅ Initialize empty explanations map
         userSentences: {}, // ✅ Initialize empty user sentences map
       },
@@ -275,8 +277,7 @@ export const useStore = create<AppState>()(
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',
-            conversationHistory: [],
-          }
+              }
         };
       }),
       startLearningWithWords: (wordIds) => set((state) => {
@@ -289,8 +290,7 @@ export const useStore = create<AppState>()(
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',
-            conversationHistory: [],
-          }
+              }
         };
       }),
       setWordSubStep: (step) => set((state) => ({
@@ -310,9 +310,6 @@ export const useStore = create<AppState>()(
           }
         };
       }),
-      completeLearningPhase: (scene) => set((state) => ({
-        learnState: { ...state.learnState, currentStep: 'conversation', generatedScene: scene }
-      })),
       startReviewPhase: () => set((state) => ({
         learnState: {
           ...state.learnState,
@@ -331,11 +328,11 @@ export const useStore = create<AppState>()(
         const nextIndex = state.learnState.currentWordIndex + 1;
 
         if (nextIndex >= state.learnState.learningQueue.length) {
-          // All review done, move to conversation
+          // All review done, session complete
           return {
             learnState: {
               ...state.learnState,
-              currentStep: 'conversation',
+              currentStep: 'input-context',
               reviewSubStep: undefined,
               currentReviewAttempt: undefined
             }
@@ -351,27 +348,6 @@ export const useStore = create<AppState>()(
           }
         };
       }),
-      addChatMessage: (message) => set((state) => ({
-        learnState: { 
-          ...state.learnState, 
-          conversationHistory: [...state.learnState.conversationHistory, message] 
-        }
-      })),
-      setSessionSummary: (summary) => set((state) => {
-         // Mark used words as learned
-         const learnedIds = state.learnState.learningQueue
-            .filter(w => summary.usedWords.includes(w.text))
-            .map(w => w.id);
-            
-         const updatedWords = state.words.map(w => 
-            learnedIds.includes(w.id) ? { ...w, learned: true, lastPracticed: new Date().toISOString() } : w
-         );
-
-         return {
-            words: updatedWords,
-            learnState: { ...state.learnState, currentStep: 'summary', sessionSummary: summary }
-         };
-      }),
       resetSession: () => set({
         learnState: {
           currentStep: 'input-context',
@@ -381,9 +357,6 @@ export const useStore = create<AppState>()(
           wordSubStep: 'explanation',
           reviewSubStep: undefined, // ✅ Clear review substep
           currentReviewAttempt: undefined, // ✅ Clear review attempt
-          generatedScene: undefined,
-          conversationHistory: [],
-          sessionSummary: undefined,
           wordExplanations: {}, // ✅ Clear explanations on reset
           userSentences: {} // ✅ Clear user sentences on reset
         }
@@ -404,6 +377,84 @@ export const useStore = create<AppState>()(
             ...state.learnState.userSentences,
             [wordId]: sentence
           }
+        }
+      })),
+
+      // ✅ Text-based conversation
+      startConversation: (questions) => {
+        // ✅ FIX: Validate questions array is not empty
+        if (!questions || questions.length === 0) {
+          console.error('❌ Cannot start conversation with empty questions array');
+          // Don't change state, stay in current step
+          return;
+        }
+
+        return set((state) => ({
+          learnState: {
+            ...state.learnState,
+            currentStep: 'conversation',
+            conversation: {
+              questions: questions, // ✅ Store all questions (validated non-empty)
+              currentQuestion: questions[0],
+              messages: [{
+                role: 'ai',
+                text: questions[0]
+              }],
+              questionIndex: 0,
+              totalQuestions: questions.length,
+              isWaitingForAnswer: true
+            }
+          }
+        }));
+      },
+
+      addConversationMessage: (message) => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          conversation: state.learnState.conversation ? {
+            ...state.learnState.conversation,
+            messages: [...state.learnState.conversation.messages, message],
+            isWaitingForAnswer: message.role === 'ai'
+          } : undefined
+        }
+      })),
+
+      nextConversationQuestion: () => set((state) => {
+        const conv = state.learnState.conversation;
+        if (!conv) return state;
+
+        const nextIndex = conv.questionIndex + 1;
+
+        // If there are more questions
+        if (nextIndex < conv.totalQuestions) {
+          const nextQuestion = conv.questions[nextIndex] || '';
+
+          return {
+            learnState: {
+              ...state.learnState,
+              conversation: {
+                ...conv,
+                currentQuestion: nextQuestion,
+                questionIndex: nextIndex,
+                isWaitingForAnswer: true,
+                messages: [...conv.messages, {
+                  role: 'ai',
+                  text: nextQuestion
+                }]
+              }
+            }
+          };
+        }
+
+        // No more questions, conversation complete
+        return state;
+      }),
+
+      completeConversation: () => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          currentStep: 'input-context',
+          conversation: undefined
         }
       })),
 

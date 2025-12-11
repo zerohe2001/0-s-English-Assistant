@@ -1,16 +1,16 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-// ✅ Use Claude for text generation (faster, more reliable, better quota)
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, generateConversationScene, generateSessionSummary, translateToChinese } from '../services/gemini';
+// ✅ Use Gemini for text generation
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, generateConversationQuestions } from '../services/gemini';
 import { speak, preloadAudio } from '../services/tts';
-import LiveSession from '../components/LiveSession';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 import ReviewWord from '../components/ReviewWord';
+import TextConversation from '../components/TextConversation';
 import { WordExplanation, SentenceEvaluation } from '../types';
-import { DeepgramRecorder } from '../services/deepgram-recorder';
+import { DeepgramWebSocketRecorder } from '../services/deepgram-websocket';
 
 export const Learn = () => {
   const navigate = useNavigate();
@@ -21,10 +21,8 @@ export const Learn = () => {
     startLearning,
     setWordSubStep,
     nextWord,
-    completeLearningPhase,
     nextReviewWord, // ✅ Move to next word in review
     updateReviewStats, // ✅ Update review statistics
-    setSessionSummary,
     resetSession,
     words,
     addSavedContext,
@@ -33,11 +31,14 @@ export const Learn = () => {
     openDictionary, // ✅ Open dictionary modal for word lookup
     saveUserSentence, // ✅ Save user's created sentence (for scene generation)
     saveWordSentence, // ✅ Save sentence to Word object (for review)
+    startConversation, // ✅ Start text conversation
+    completeConversation, // ✅ Complete conversation
     showToast
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null); // ✅ Track copied text for feedback
+  const [isPending, startTransition] = useTransition(); // ✅ React 19 concurrent feature
 
   // ✅ Read explanation from store instead of local state
   const currentWord = learnState.learningQueue?.[learnState.currentWordIndex];
@@ -57,12 +58,12 @@ export const Learn = () => {
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const recorderRef = useRef<DeepgramRecorder | null>(null);
+  const recorderRef = useRef<DeepgramWebSocketRecorder | null>(null);
   const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
-  // Initialize Deepgram Recorder
+  // Initialize Deepgram WebSocket Recorder
   useEffect(() => {
-    const recorder = new DeepgramRecorder();
+    const recorder = new DeepgramWebSocketRecorder();
     recorderRef.current = recorder;
 
     // Initialize microphone access
@@ -71,14 +72,17 @@ export const Learn = () => {
       // Microphone access will be requested on first recording attempt
     });
 
-    // ✅ Cleanup: Stop recorder when component unmounts or step changes
+    // ✅ Cleanup: Force cleanup on unmount to prevent memory leaks
     return () => {
       if (recorderRef.current) {
+        // ✅ FIX: Always cleanup, even if recording (component is unmounting)
+        // This ensures WebSocket closes and microphone is released
         recorderRef.current.cleanup();
         recorderRef.current = null;
+        console.log('🧹 Learn component unmounted - recorder cleaned up');
       }
     };
-  }, [learnState.currentStep]); // Re-initialize if step changes
+  }, []); // Run only once on mount
 
   // Fetch word content when currentWord changes
   useEffect(() => {
@@ -178,29 +182,35 @@ export const Learn = () => {
         }
 
         recorderRef.current.start(
-          (transcript: string) => {
-            // Transcript received from Deepgram
-            console.log('✅ Deepgram transcript:', transcript);
-            setTranscript(transcript);
-            setIsTranscribing(false); // ✅ Stop showing "Processing..."
+          (transcript: string, isFinal: boolean) => {
+            // ✅ Real-time transcript from Deepgram WebSocket
+            console.log(`✅ Deepgram transcript (${isFinal ? 'FINAL' : 'interim'}):`, transcript);
 
-            // Process the transcript based on current step
-            if (learnState.currentStep === 'input-context') {
-              setManualContext(prev => {
-                const spacer = prev ? ' ' : '';
-                return prev + spacer + transcript;
-              });
-              setIsListeningContext(false);
-            } else {
-              // Normal practice flow - evaluate when stopped
-              handleSpeechResult(transcript);
+            // Always update transcript display for real-time feedback
+            setTranscript(transcript);
+
+            // ✅ Only process on final results
+            if (isFinal) {
+              setIsTranscribing(false);
+
+              // Process the transcript based on current step
+              if (learnState.currentStep === 'input-context') {
+                setManualContext(prev => {
+                  const spacer = prev ? ' ' : '';
+                  return prev + spacer + transcript;
+                });
+                setIsListeningContext(false);
+              } else {
+                // Normal practice flow - evaluate when final
+                handleSpeechResult(transcript);
+              }
             }
           },
           (error: Error) => {
             console.error('❌ Deepgram error:', error);
             showToast(`Speech recognition failed: ${error.message}`, "error");
             setIsRecording(false);
-            setIsTranscribing(false); // ✅ Stop showing "Processing..."
+            setIsTranscribing(false);
           }
         );
       } catch (e) {
@@ -227,12 +237,18 @@ export const Learn = () => {
                // Already initialized, ignore
              });
              recorderRef.current.start(
-               (transcript: string) => {
-                 setManualContext(prev => {
-                   const spacer = prev ? ' ' : '';
-                   return prev + spacer + transcript;
-                 });
-                 setIsListeningContext(false);
+               (transcript: string, isFinal: boolean) => {
+                 // ✅ Real-time context input
+                 console.log(`✅ Context transcript (${isFinal ? 'FINAL' : 'interim'}):`, transcript);
+
+                 // ✅ Only update context on final results
+                 if (isFinal) {
+                   setManualContext(prev => {
+                     const spacer = prev ? ' ' : '';
+                     return prev + spacer + transcript;
+                   });
+                   setIsListeningContext(false);
+                 }
                },
                (error: Error) => {
                  console.error('❌ Context mic error:', error);
@@ -320,28 +336,52 @@ export const Learn = () => {
               saveUserSentence(currentWord.id, userSentence);
               console.log('✅ Saved user sentence for scene:', userSentence);
 
-              // Generate and save translation to Word object for review
-              const translation = await translateToChinese(userSentence);
-              saveWordSentence(currentWord.id, userSentence, translation);
-              console.log('✅ Saved sentence to Word with translation:', translation);
+              // ✅ FIX: Try translation, but save sentence even if translation fails
+              try {
+                const translation = await translateToChinese(userSentence);
+                saveWordSentence(currentWord.id, userSentence, translation);
+                console.log('✅ Saved sentence to Word with translation:', translation);
+              } catch (translationError) {
+                console.error('❌ Translation failed:', translationError);
+                // Save with placeholder translation - can retry later
+                saveWordSentence(currentWord.id, userSentence, '[Translation pending]');
+                showToast('Sentence saved (translation failed)', 'warning');
+              }
           }
       }
 
-      // Move to next word or conversation
+      // Move to next word or start conversation
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+          // All words completed, start conversation
           setIsLoading(true);
           try {
-              // ✅ Pass user sentences to scene generation
-              const scene = await generateConversationScene(
-                  profile,
-                  learnState.dailyContext,
-                  learnState.learningQueue.map(w => w.text),
-                  learnState.userSentences // ✅ Include user's created sentences
+              // Prepare user sentences for question generation
+              const userSentences = learnState.learningQueue
+                .map(w => ({
+                  word: w.text,
+                  sentence: learnState.userSentences[w.id] || ''
+                }))
+                .filter(s => s.sentence); // Only include words with sentences
+
+              // Generate conversation questions
+              const questions = await generateConversationQuestions(
+                userSentences,
+                profile,
+                learnState.dailyContext
               );
-              completeLearningPhase(scene);
+
+              // ✅ FIX: Validate questions before starting conversation
+              if (!questions || questions.length === 0) {
+                throw new Error('Failed to generate conversation questions');
+              }
+
+              // Start conversation with questions
+              startConversation(questions);
           } catch (error) {
-              console.error(error);
-              showToast("Failed to generate conversation scene. Please try again.", "error");
+              console.error('Failed to generate conversation:', error);
+              showToast("Failed to start conversation. Session complete!", "error");
+              resetSession();
+              navigate('/');
           } finally {
               setIsLoading(false);
           }
@@ -356,21 +396,35 @@ export const Learn = () => {
   const handleSkipCreation = async () => {
       console.log('⏭️ Skipped creation, word NOT marked as learned');
 
-      // Move to next word or conversation (same logic as Next but without marking)
+      // Move to next word or start conversation (same logic as Next but without marking)
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+          // All words completed, start conversation
           setIsLoading(true);
           try {
-              // ✅ Pass user sentences to scene generation
-              const scene = await generateConversationScene(
-                  profile,
-                  learnState.dailyContext,
-                  learnState.learningQueue.map(w => w.text),
-                  learnState.userSentences // ✅ Include user's created sentences
+              const userSentences = learnState.learningQueue
+                .map(w => ({
+                  word: w.text,
+                  sentence: learnState.userSentences[w.id] || ''
+                }))
+                .filter(s => s.sentence);
+
+              const questions = await generateConversationQuestions(
+                userSentences,
+                profile,
+                learnState.dailyContext
               );
-              completeLearningPhase(scene);
+
+              // ✅ FIX: Validate questions before starting conversation
+              if (!questions || questions.length === 0) {
+                throw new Error('Failed to generate conversation questions');
+              }
+
+              startConversation(questions);
           } catch (error) {
-              console.error(error);
-              showToast("Failed to generate conversation scene. Please try again.", "error");
+              console.error('Failed to generate conversation:', error);
+              showToast("Failed to start conversation. Session complete!", "error");
+              resetSession();
+              navigate('/');
           } finally {
               setIsLoading(false);
           }
@@ -388,42 +442,41 @@ export const Learn = () => {
           // Default behavior for other callers
           setWordSubStep('creation');
       } else if (learnState.wordSubStep === 'creation') {
-          // Move to next word or conversation
+          // Move to next word or start conversation
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-             setIsLoading(true);
-             try {
-                 const scene = await generateConversationScene(
-                     profile,
-                     learnState.dailyContext,
-                     learnState.learningQueue.map(w => w.text)
-                 );
-                 completeLearningPhase(scene);
-             } catch (e) {
-                 console.error(e);
-                 showToast("Failed to generate conversation scene.", "error");
-             } finally {
-                 setIsLoading(false);
-             }
+              // All words completed, start conversation
+              setIsLoading(true);
+              try {
+                  const userSentences = learnState.learningQueue
+                    .map(w => ({
+                      word: w.text,
+                      sentence: learnState.userSentences[w.id] || ''
+                    }))
+                    .filter(s => s.sentence);
+
+                  const questions = await generateConversationQuestions(
+                    userSentences,
+                    profile,
+                    learnState.dailyContext
+                  );
+
+                  // ✅ FIX: Validate questions before starting conversation
+                  if (!questions || questions.length === 0) {
+                    throw new Error('Failed to generate conversation questions');
+                  }
+
+                  startConversation(questions);
+              } catch (error) {
+                  console.error('Failed to generate conversation:', error);
+                  showToast("Failed to start conversation. Session complete!", "error");
+                  resetSession();
+                  navigate('/');
+              } finally {
+                  setIsLoading(false);
+              }
           } else {
              nextWord();
           }
-      }
-  };
-
-  const handleConversationComplete = async (history: any[]) => {
-      setIsLoading(true);
-      try {
-        const summary = await generateSessionSummary(
-            history,
-            learnState.learningQueue.map(w => w.text)
-        );
-        setSessionSummary(summary);
-      } catch (e) {
-          console.error(e);
-          showToast("Failed to generate summary.", "error");
-          resetSession(); // Fallback
-      } finally {
-          setIsLoading(false);
       }
   };
 
@@ -454,28 +507,33 @@ export const Learn = () => {
       console.log(`🚀 Preloading ${queue.length} words in background...`);
       setIsLoading(true);
 
-      // Preload all words concurrently
-      const preloadPromises = queue.map(async (word) => {
-          try {
-              const result = await generateWordExplanation(word.text, profile, combined);
-              setWordExplanation(word.id, result);
+      // ✅ FIX: Limit to 2 concurrent preloads to prevent memory overflow
+      const MAX_CONCURRENT = 2;
 
-              // Preload TTS audio
-              if (result.example) {
-                  preloadAudio(result.example);
+      for (let i = 0; i < queue.length; i += MAX_CONCURRENT) {
+          const batch = queue.slice(i, i + MAX_CONCURRENT);
+          const batchPromises = batch.map(async (word) => {
+              try {
+                  const result = await generateWordExplanation(word.text, profile, combined);
+                  setWordExplanation(word.id, result);
+
+                  // Preload TTS audio
+                  if (result.example) {
+                      preloadAudio(result.example);
+                  }
+                  if (word.text) {
+                      preloadAudio(word.text);
+                  }
+
+                  console.log(`✅ Preloaded: ${word.text}`);
+              } catch (e) {
+                  console.error(`❌ Failed to preload ${word.text}:`, e);
               }
-              if (word.text) {
-                  preloadAudio(word.text);
-              }
+          });
 
-              console.log(`✅ Preloaded: ${word.text}`);
-          } catch (e) {
-              console.error(`❌ Failed to preload ${word.text}:`, e);
-          }
-      });
+          await Promise.all(batchPromises);
+      }
 
-      // Wait for all to complete
-      await Promise.all(preloadPromises);
       setIsLoading(false);
       console.log('🎉 All words preloaded!');
   };
@@ -988,22 +1046,10 @@ export const Learn = () => {
 
       // Check if all words reviewed
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-        // All review done, generate scene and move to conversation
-        setIsLoading(true);
-        try {
-          const scene = await generateConversationScene(
-            profile,
-            learnState.dailyContext,
-            learnState.learningQueue.map(w => w.text),
-            learnState.userSentences
-          );
-          completeLearningPhase(scene);
-        } catch (error) {
-          console.error(error);
-          showToast("Failed to generate conversation scene. Please try again.", "error");
-        } finally {
-          setIsLoading(false);
-        }
+        // All review done, complete session
+        showToast("Review completed!", "success");
+        resetSession();
+        navigate('/');
       } else {
         // Move to next word
         nextReviewWord(true);
@@ -1035,116 +1081,31 @@ export const Learn = () => {
     );
   }
 
+  // ✅ Conversation step - Text-based Q&A
   if (learnState.currentStep === 'conversation') {
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full space-y-4 animate-fade-in p-6">
-                 <div className="w-16 h-16 border-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-                 <div className="text-center">
-                     <p className="text-h2 text-gray-900">Analyzing Conversation</p>
-                     <p className="text-body text-gray-500 mt-2">Generating your feedback and summary...</p>
-                 </div>
-            </div>
-        )
-    }
+    const handleConversationComplete = () => {
+      showToast("Great job! Conversation completed.", "success");
+      completeConversation();
+      resetSession();
+      navigate('/');
+    };
+
+    const handleConversationCancel = () => {
+      if (confirm('Are you sure you want to cancel the conversation?')) {
+        resetSession();
+        navigate('/');
+      }
+    };
+
     return (
       <>
-        <LiveSession
-          profile={profile}
-          context={learnState.dailyContext}
-          words={learnState.learningQueue.map(w => w.text)}
-          scene={learnState.generatedScene || "A casual conversation."}
+        <TextConversation
           onComplete={handleConversationComplete}
-          onCancel={resetSession}
+          onCancel={handleConversationCancel}
         />
         <DictionaryModal />
       </>
     );
-  }
-
-  if (learnState.currentStep === 'summary' && learnState.sessionSummary) {
-      // Check if there are words to review
-      const isDueForReview = (word: typeof words[0]): boolean => {
-        if (!word.userSentence || !word.userSentenceTranslation) return false;
-        if (!word.nextReviewDate) return true;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const reviewDate = new Date(word.nextReviewDate);
-        reviewDate.setHours(0, 0, 0, 0);
-        return today >= reviewDate;
-      };
-      const wordsToReview = words.filter(isDueForReview);
-
-      const handleBackHome = () => {
-        resetSession();
-        navigate('/');
-      };
-
-      const handleContinueReview = () => {
-        resetSession();
-        navigate('/review');
-      };
-
-      return (
-          <>
-          <div className="max-w-xl mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
-              <div className="text-center mb-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  <h1 className="text-h1 text-gray-900 mb-2">Well done!</h1>
-                  <p className="text-small text-gray-500">You've completed this learning session.</p>
-              </div>
-
-              <div className="space-y-4">
-                  <div className="bg-white border border-gray-300 rounded p-4">
-                      <h3 className="text-h3 text-gray-900 mb-2">Feedback</h3>
-                      <p className="text-small text-gray-700 leading-relaxed">{learnState.sessionSummary.feedback}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-100 p-4 rounded">
-                          <h3 className="text-small font-medium text-gray-900 mb-2">Used Words</h3>
-                          <ul className="list-disc list-inside text-tiny text-gray-700 space-y-1">
-                              {learnState.sessionSummary.usedWords.length > 0 ?
-                                learnState.sessionSummary.usedWords.map(w => <li key={w}>{w}</li>) :
-                                <li>None</li>
-                              }
-                          </ul>
-                      </div>
-                      <div className="bg-gray-100 p-4 rounded">
-                          <h3 className="text-small font-medium text-gray-900 mb-2">Missed</h3>
-                          <ul className="list-disc list-inside text-tiny text-gray-700 space-y-1">
-                              {learnState.sessionSummary.missedWords.length > 0 ?
-                                learnState.sessionSummary.missedWords.map(w => <li key={w}>{w}</li>) :
-                                <li>None!</li>
-                              }
-                          </ul>
-                      </div>
-                  </div>
-
-                  {/* Next Steps */}
-                  <div className="pt-4 space-y-3">
-                    {wordsToReview.length > 0 && (
-                      <button
-                        onClick={handleContinueReview}
-                        className="w-full bg-gray-900 text-white py-3 rounded text-small font-medium hover:bg-gray-700 transition-colors"
-                      >
-                          Continue to Review ({wordsToReview.length} words)
-                      </button>
-                    )}
-                    <button
-                      onClick={handleBackHome}
-                      className="w-full bg-gray-100 text-gray-900 py-3 rounded text-small font-medium hover:bg-gray-200 transition-colors"
-                    >
-                        Back to Today
-                    </button>
-                  </div>
-              </div>
-          </div>
-          <DictionaryModal />
-          </>
-      )
   }
 
   return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>;
