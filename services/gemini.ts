@@ -6,13 +6,44 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MODEL_NAME = "gemini-2.5-flash";
 
+/**
+ * Validate if translation contains proper Chinese content
+ */
+const isValidTranslation = (translation: string): boolean => {
+  const trimmed = translation.trim();
+
+  // Must contain Chinese characters
+  if (!/[\u4e00-\u9fa5]/.test(trimmed)) {
+    return false;
+  }
+
+  // Must be at least 2 characters
+  if (trimmed.length < 2) {
+    return false;
+  }
+
+  // Must not be only symbols/punctuation
+  if (/^[^\u4e00-\u9fa5a-zA-Z]+$/.test(trimmed)) {
+    return false;
+  }
+
+  return true;
+};
+
 export const generateWordExplanation = async (
   word: string,
   profile: UserProfile,
   context: string
 ) => {
-  const prompt = `
-  You are an expert English tutor.
+  const maxRetries = 2;
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    attempt++;
+    console.log(`🔄 [Gemini] Attempt ${attempt}/${maxRetries + 1} for word: ${word}`);
+
+    const prompt = `
+  You are an expert English tutor specializing in creating personalized learning content.
 
   User Profile:
   Name: ${profile.name}
@@ -24,64 +55,100 @@ export const generateWordExplanation = async (
 
   Task: Explain the word "${word}" and create a personalized example sentence.
 
-  Requirements:
-  1. "meaning": Simple English definition (CEFR B1 level).
-  2. "phonetic": American English phonetic transcription in IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
-  3. "example": A VERY SHORT, CONVERSATIONAL sentence (max 8-12 words) using "${word}". It MUST sound like something spoken in real life, not a textbook sentence.
-  4. "exampleTranslation": The Chinese (中文) translation of the example sentence.
-     - MUST be in Chinese (中文), not English
-     - MUST contain at least 2 Chinese characters (汉字)
-     - Do NOT return: punctuation only (., ?, !), symbols (°, ×, ÷), or English text
-     - Example valid: "我需要买些日用品。" ✓
-     - Example invalid: "." ✗   "°" ✗   "..." ✗
+  CRITICAL Requirements for exampleTranslation:
+  ⚠️ EXTREMELY IMPORTANT: The "exampleTranslation" field MUST be a complete Chinese sentence.
+
+  ✅ CORRECT examples:
+  - "我今天需要买些日用品。" ✓
+  - "他经常拖延工作。" ✓
+  - "这个周末我想去远足。" ✓
+
+  ❌ FORBIDDEN - These will cause the app to FAIL:
+  - "." ✗ (only punctuation)
+  - "°" ✗ (only symbols)
+  - "..." ✗ (only dots)
+  - "" ✗ (empty string)
+  - "translation" ✗ (English word)
+
+  Requirements for ALL fields:
+  1. "meaning": Simple English definition (CEFR B1 level, 5-15 words).
+  2. "phonetic": American English IPA format (e.g., /prəˌkræstɪˈneɪʃn/).
+  3. "example": SHORT, CONVERSATIONAL sentence (max 12 words) using "${word}".
+  4. "exampleTranslation":
+     - MUST be a COMPLETE Chinese (中文) sentence
+     - MUST be 4-20 Chinese characters long
+     - MUST contain actual Chinese characters (汉字), not symbols or English
+     - MUST be a natural, fluent translation of the example sentence
+     - Think: "What would a native Chinese speaker say?"
   `;
 
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          meaning: { type: Type.STRING },
-          phonetic: { type: Type.STRING },
-          example: { type: Type.STRING },
-          exampleTranslation: { type: Type.STRING },
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              meaning: { type: Type.STRING },
+              phonetic: { type: Type.STRING },
+              example: { type: Type.STRING },
+              exampleTranslation: { type: Type.STRING },
+            },
+            required: ["meaning", "phonetic", "example", "exampleTranslation"],
+          },
         },
-        required: ["meaning", "phonetic", "example", "exampleTranslation"],
-      },
-    },
-  });
+      });
 
-  // ✅ FIX: Proper error handling for empty responses
-  const data = JSON.parse(response.text || "null");
-  if (!data || !data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
-    throw new Error('Invalid response from AI: missing required fields');
+      // ✅ Parse and validate response
+      const data = JSON.parse(response.text || "null");
+      if (!data || !data.meaning || !data.phonetic || !data.example || !data.exampleTranslation) {
+        console.error(`❌ [Gemini] Attempt ${attempt}: Missing required fields`);
+        if (attempt > maxRetries) {
+          throw new Error('Invalid response from AI: missing required fields');
+        }
+        continue; // Retry
+      }
+
+      // ✅ Validate translation quality
+      const translation = data.exampleTranslation.trim();
+      console.log(`🔍 [Gemini] Attempt ${attempt} translation:`, JSON.stringify(translation));
+
+      if (isValidTranslation(translation)) {
+        console.log(`✅ [Gemini] Success on attempt ${attempt}! Translation:`, JSON.stringify(translation));
+        return data;
+      } else {
+        console.warn(`⚠️ [Gemini] Attempt ${attempt} failed validation:`, JSON.stringify(translation));
+
+        if (attempt > maxRetries) {
+          // Last attempt failed, return with fallback message
+          console.error(`❌ [Gemini] All ${maxRetries + 1} attempts failed for word: ${word}`);
+          data.exampleTranslation = '（翻译生成失败，请重试）';
+          return data;
+        }
+
+        // Retry with next attempt
+        console.log(`🔄 [Gemini] Retrying... (${attempt}/${maxRetries + 1})`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+        continue;
+      }
+    } catch (error) {
+      console.error(`❌ [Gemini] Attempt ${attempt} error:`, error);
+
+      if (attempt > maxRetries) {
+        throw error;
+      }
+
+      // Retry
+      console.log(`🔄 [Gemini] Retrying after error... (${attempt}/${maxRetries + 1})`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      continue;
+    }
   }
 
-  // ✅ FIX: Validate translation quality - must contain Chinese characters
-  const translation = data.exampleTranslation.trim();
-  console.log('🔍 [Gemini] Translation before validation:', JSON.stringify(translation));
-
-  // Primary check: MUST contain Chinese characters
-  if (!/[\u4e00-\u9fa5]/.test(translation)) {
-    console.warn('⚠️ [Gemini] Translation invalid (no Chinese):', JSON.stringify(translation));
-    data.exampleTranslation = '（翻译失败，请重新生成）';
-  }
-  // Secondary check: If it's too short (< 2 chars), likely invalid
-  else if (translation.length < 2) {
-    console.warn('⚠️ [Gemini] Translation too short:', JSON.stringify(translation));
-    data.exampleTranslation = '（翻译失败，请重新生成）';
-  }
-  // Tertiary check: If it's just punctuation or symbols
-  else if (/^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation)) {
-    console.warn('⚠️ [Gemini] Translation is only symbols:', JSON.stringify(translation));
-    data.exampleTranslation = '（翻译失败，请重新生成）';
-  }
-
-  console.log('✅ [Gemini] Final validated translation:', JSON.stringify(data.exampleTranslation));
-  return data;
+  // Should never reach here due to the loop logic
+  throw new Error('Failed to generate word explanation after retries');
 };
 
 export const evaluateShadowing = async (
@@ -322,30 +389,75 @@ Output JSON format:
 };
 
 export const translateToChinese = async (sentence: string): Promise<string> => {
-  const prompt = `Translate the following English sentence to Chinese:
+  const maxRetries = 2;
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    attempt++;
+    console.log(`🔄 [translateToChinese] Attempt ${attempt}/${maxRetries + 1} for: "${sentence.substring(0, 30)}..."`);
+
+    const prompt = `Translate this English sentence to natural Chinese (中文):
+
 "${sentence}"
 
-Requirements:
-1. Provide a natural, accurate Chinese translation
-2. Output ONLY the Chinese translation, nothing else`;
+⚠️ CRITICAL Requirements:
+1. Output MUST be in Chinese (中文), not English
+2. Output MUST contain at least 4 Chinese characters (汉字)
+3. Translate naturally and conversationally
+4. Output ONLY the Chinese translation
 
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents: prompt,
-    config: {
-      responseMimeType: "text/plain",
+❌ FORBIDDEN outputs (will cause FAILURE):
+- Punctuation only: "." "?" "°" ✗
+- Symbols or numbers only ✗
+- English text ✗
+- Empty responses ✗
+
+✅ CORRECT example:
+Input: "I need to buy some groceries today."
+Output: 我今天需要买些日用品。`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt,
+        config: {
+          responseMimeType: "text/plain",
+        }
+      });
+
+      const translation = response.text?.trim() || '';
+      console.log(`🔍 [translateToChinese] Attempt ${attempt} result:`, JSON.stringify(translation));
+
+      if (isValidTranslation(translation)) {
+        console.log(`✅ [translateToChinese] Success on attempt ${attempt}!`);
+        return translation;
+      } else {
+        console.warn(`⚠️ [translateToChinese] Attempt ${attempt} failed validation`);
+
+        if (attempt > maxRetries) {
+          console.error(`❌ [translateToChinese] All ${maxRetries + 1} attempts failed`);
+          return '（翻译失败，请重试）';
+        }
+
+        // Retry
+        console.log(`🔄 [translateToChinese] Retrying... (${attempt}/${maxRetries + 1})`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+    } catch (error) {
+      console.error(`❌ [translateToChinese] Attempt ${attempt} error:`, error);
+
+      if (attempt > maxRetries) {
+        return '（翻译失败，请重试）';
+      }
+
+      // Retry
+      console.log(`🔄 [translateToChinese] Retrying after error...`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      continue;
     }
-  });
-
-  const translation = response.text?.trim() || '';
-  if (!translation) {
-    throw new Error('Empty translation received');
   }
 
-  // Validate it contains Chinese characters
-  if (!/[\u4e00-\u9fa5]/.test(translation)) {
-    throw new Error('Translation does not contain Chinese characters');
-  }
-
-  return translation;
+  // Should never reach here
+  return '（翻译失败，请重试）';
 };
