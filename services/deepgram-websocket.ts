@@ -125,6 +125,20 @@ export class DeepgramWebSocketRecorder {
         console.error('❌ Status code:', error?.statusCode);
         console.error('❌ Error string:', String(error));
 
+        // ✅ DEBUG: Log the inner error object
+        if (error?.error) {
+          console.error('❌ Inner error object:', error.error);
+          console.error('❌ Inner error type:', typeof error.error);
+          console.error('❌ Inner error constructor:', error.error.constructor?.name);
+          console.error('❌ Inner error message:', error.error.message);
+          console.error('❌ Inner error code:', error.error.code);
+          console.error('❌ Inner error reason:', error.error.reason);
+        }
+
+        // ✅ DEBUG: Log WebSocket state
+        console.error('❌ ReadyState:', error?.readyState);
+        console.error('❌ URL:', error?.url);
+
         // ✅ Provide user-friendly error messages based on error type
         let userMessage = 'Speech recognition error. Please try again.';
 
