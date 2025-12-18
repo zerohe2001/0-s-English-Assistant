@@ -65,9 +65,11 @@ export class DeepgramWebSocketRecorder {
 
     try {
       // ✅ Create Deepgram client
+      console.log('🔧 Creating Deepgram client...');
       const deepgram = createClient(apiKey);
 
       // ✅ Create live transcription connection with MAXIMUM SPEED settings
+      console.log('🔧 Creating live transcription connection...');
       this.deepgramConnection = deepgram.listen.live({
         model: 'nova-2',
         language: 'en',
@@ -77,6 +79,8 @@ export class DeepgramWebSocketRecorder {
         utterance_end_ms: 800, // ✅ 800ms silence ends utterance (optimized from 1000ms)
         vad_turnoff: 300, // ✅ Voice activity detection for faster silence detection
       });
+
+      console.log('🔧 Deepgram connection object created:', this.deepgramConnection);
 
       // ✅ Handle connection open
       this.deepgramConnection.on(LiveTranscriptionEvents.Open, () => {
@@ -113,7 +117,13 @@ export class DeepgramWebSocketRecorder {
 
       // ✅ Handle errors
       this.deepgramConnection.on(LiveTranscriptionEvents.Error, (error: any) => {
-        console.error('❌ Deepgram error:', error);
+        console.error('❌ Deepgram error (full details):', error);
+        console.error('❌ Error type:', typeof error);
+        console.error('❌ Error properties:', Object.keys(error));
+        console.error('❌ Error message:', error?.message);
+        console.error('❌ Error code:', error?.code);
+        console.error('❌ Status code:', error?.statusCode);
+        console.error('❌ Error string:', String(error));
 
         // ✅ Provide user-friendly error messages based on error type
         let userMessage = 'Speech recognition error. Please try again.';
@@ -134,8 +144,9 @@ export class DeepgramWebSocketRecorder {
       });
 
       // ✅ Handle connection close
-      this.deepgramConnection.on(LiveTranscriptionEvents.Close, () => {
+      this.deepgramConnection.on(LiveTranscriptionEvents.Close, (closeEvent: any) => {
         console.log('🔌 Deepgram WebSocket closed');
+        console.log('🔧 Close event:', closeEvent);
 
         // ✅ FIX: Notify user if connection closed unexpectedly during recording
         if (this.isRecording && !this.connectionClosed && this.onError) {
@@ -144,6 +155,16 @@ export class DeepgramWebSocketRecorder {
         }
       });
 
+      // ✅ Debug: Log all Deepgram events to understand what's happening
+      this.deepgramConnection.on(LiveTranscriptionEvents.Metadata, (metadata: any) => {
+        console.log('📊 Deepgram metadata:', metadata);
+      });
+
+      this.deepgramConnection.on(LiveTranscriptionEvents.Warning, (warning: any) => {
+        console.warn('⚠️ Deepgram warning:', warning);
+      });
+
+      console.log('🔧 All event listeners attached');
       this.isRecording = true;
       console.log('🎙️ WebSocket recording started');
 
