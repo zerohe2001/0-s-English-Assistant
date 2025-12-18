@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { DeepgramWebSocketRecorder } from '../services/deepgram-websocket';
+import { DeepgramRecorder } from '../services/deepgram-recorder';
 import { speak } from '../services/tts';
 import { compareSentences } from '../services/claude';
 import ClickableText from './ClickableText';
@@ -31,11 +31,11 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const recorderRef = useRef<DeepgramWebSocketRecorder | null>(null);
+  const recorderRef = useRef<DeepgramRecorder | null>(null);
 
   // Initialize Deepgram Recorder
   useEffect(() => {
-    const recorder = new DeepgramWebSocketRecorder();
+    const recorder = new DeepgramRecorder();
     recorderRef.current = recorder;
 
     // Initialize microphone access
@@ -67,14 +67,12 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       await recorderRef.current.initialize();
 
       recorderRef.current.start(
-        (transcript: string, isFinal: boolean) => {
-          // ✅ Real-time transcript from Deepgram WebSocket
-          console.log(`✅ Review transcript (${isFinal ? 'FINAL' : 'interim'}):`, transcript);
+        (transcript: string) => {
+          // ✅ Transcript from Deepgram (received after stop)
+          console.log(`✅ Review transcript:`, transcript);
 
-          // Always update display for real-time feedback
+          // Update display with transcribed text
           setUserSentence(transcript);
-
-          // Processing happens when user stops recording, not here
         },
         (error: Error) => {
           console.error('❌ Deepgram error:', error);
@@ -95,8 +93,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     }
     setIsRecording(false);
 
-    // ✅ FIX: Wait briefly for final WebSocket message (reduced from 500ms)
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Note: With DeepgramRecorder, the transcript callback will be called
+    // automatically after stop(), so we wait a bit for it to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Analyze sentence with Claude
     if (userSentence.trim()) {

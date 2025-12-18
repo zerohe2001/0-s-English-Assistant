@@ -10,7 +10,7 @@ import DictionaryModal from '../components/DictionaryModal';
 import ReviewWord from '../components/ReviewWord';
 import TextConversation from '../components/TextConversation';
 import { WordExplanation, SentenceEvaluation } from '../types';
-import { DeepgramWebSocketRecorder } from '../services/deepgram-websocket';
+import { DeepgramRecorder } from '../services/deepgram-recorder';
 
 export const Learn = () => {
   const navigate = useNavigate();
@@ -58,12 +58,12 @@ export const Learn = () => {
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const recorderRef = useRef<DeepgramWebSocketRecorder | null>(null);
+  const recorderRef = useRef<DeepgramRecorder | null>(null);
   const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
-  // Initialize Deepgram WebSocket Recorder
+  // Initialize Deepgram Recorder
   useEffect(() => {
-    const recorder = new DeepgramWebSocketRecorder();
+    const recorder = new DeepgramRecorder();
     recorderRef.current = recorder;
 
     // Initialize microphone access
@@ -182,28 +182,23 @@ export const Learn = () => {
         }
 
         recorderRef.current.start(
-          (transcript: string, isFinal: boolean) => {
-            // ✅ Real-time transcript from Deepgram WebSocket
-            console.log(`✅ Deepgram transcript (${isFinal ? 'FINAL' : 'interim'}):`, transcript);
+          (transcript: string) => {
+            // ✅ Transcript from Deepgram (received after stop)
+            console.log(`✅ Deepgram transcript:`, transcript);
 
-            // Always update transcript display for real-time feedback
             setTranscript(transcript);
+            setIsTranscribing(false);
 
-            // ✅ Only process on final results
-            if (isFinal) {
-              setIsTranscribing(false);
-
-              // Process the transcript based on current step
-              if (learnState.currentStep === 'input-context') {
-                setManualContext(prev => {
-                  const spacer = prev ? ' ' : '';
-                  return prev + spacer + transcript;
-                });
-                setIsListeningContext(false);
-              } else {
-                // Normal practice flow - evaluate when final
-                handleSpeechResult(transcript);
-              }
+            // Process the transcript based on current step
+            if (learnState.currentStep === 'input-context') {
+              setManualContext(prev => {
+                const spacer = prev ? ' ' : '';
+                return prev + spacer + transcript;
+              });
+              setIsListeningContext(false);
+            } else {
+              // Normal practice flow - evaluate
+              handleSpeechResult(transcript);
             }
           },
           (error: Error) => {
@@ -237,18 +232,15 @@ export const Learn = () => {
                // Already initialized, ignore
              });
              recorderRef.current.start(
-               (transcript: string, isFinal: boolean) => {
-                 // ✅ Real-time context input
-                 console.log(`✅ Context transcript (${isFinal ? 'FINAL' : 'interim'}):`, transcript);
+               (transcript: string) => {
+                 // ✅ Context input transcript
+                 console.log(`✅ Context transcript:`, transcript);
 
-                 // ✅ Only update context on final results
-                 if (isFinal) {
-                   setManualContext(prev => {
-                     const spacer = prev ? ' ' : '';
-                     return prev + spacer + transcript;
-                   });
-                   setIsListeningContext(false);
-                 }
+                 setManualContext(prev => {
+                   const spacer = prev ? ' ' : '';
+                   return prev + spacer + transcript;
+                 });
+                 setIsListeningContext(false);
                },
                (error: Error) => {
                  console.error('❌ Context mic error:', error);
