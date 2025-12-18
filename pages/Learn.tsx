@@ -109,13 +109,27 @@ export const Learn = () => {
 
     // ✅ Check if explanation already exists in store
     if (learnState.wordExplanations[currentWord.id]) {
-      console.log('✨ Using cached explanation for:', currentWord.text);
-      // Preload audio for cached explanation
       const cached = learnState.wordExplanations[currentWord.id];
-      if (cached.example) {
-        preloadAudio(cached.example);
+
+      // ✅ Validate cached translation
+      const translation = cached.exampleTranslation?.trim() || '';
+      const isInvalid =
+        !translation ||
+        !/[\u4e00-\u9fa5]/.test(translation) ||  // No Chinese characters
+        translation.length < 2 ||                // Too short
+        /^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation);  // Only symbols
+
+      if (isInvalid) {
+        console.warn('⚠️ Cached translation is invalid, regenerating for:', currentWord.text, 'Translation:', JSON.stringify(translation));
+        // Clear invalid cache and regenerate below
+      } else {
+        console.log('✨ Using cached explanation for:', currentWord.text);
+        // Preload audio for cached explanation
+        if (cached.example) {
+          preloadAudio(cached.example);
+        }
+        return; // Don't regenerate
       }
-      return; // Don't regenerate
     }
 
     // Generate new explanation if not cached
