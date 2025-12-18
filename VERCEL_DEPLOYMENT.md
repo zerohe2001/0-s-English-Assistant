@@ -122,7 +122,31 @@ Vercel 提供内置的 Analytics：
 
 ## 🔧 常见问题
 
-### 1. API keys 不工作
+### 1. Deepgram 语音识别错误
+
+**症状**：控制台反复显示 "❌ Deepgram error"，语音识别无法工作
+
+**可能原因**：
+- Deepgram API 密钥未配置或配置错误
+- API 密钥无效或已过期
+- API 配额已用尽（免费额度 $200）
+- 环境变量名称错误
+
+**解决方案**：
+```bash
+# 1. 检查 Vercel 环境变量配置（必须以 VITE_ 开头）
+VITE_GEMINI_API_KEY=你的_Gemini_密钥
+VITE_DEEPGRAM_API_KEY=你的_Deepgram_密钥
+
+# 2. 确认 Deepgram 账户状态
+# 访问 https://console.deepgram.com/
+# 检查余额和 API 密钥是否有效
+
+# 3. 重新部署（修改环境变量后必须重新部署）
+# 在 Vercel 项目页面点击 "Redeploy"
+```
+
+### 2. API keys 不工作
 
 **症状**：API 调用失败，控制台显示 "API key not found"
 
@@ -135,7 +159,7 @@ VITE_DEEPGRAM_API_KEY=...
 # 重新部署
 ```
 
-### 2. 构建失败
+### 3. 构建失败
 
 **症状**：Vercel 构建过程中出错
 
@@ -148,7 +172,7 @@ npm run build
 npm install
 ```
 
-### 3. 运行时错误
+### 4. 运行时错误
 
 **症状**：部署成功但运行时报错
 
@@ -157,7 +181,7 @@ npm install
 - 查看浏览器控制台
 - 验证环境变量设置
 
-### 4. API 配额耗尽
+### 5. API 配额耗尽
 
 **症状**：Gemini 或 Deepgram API 达到限额
 

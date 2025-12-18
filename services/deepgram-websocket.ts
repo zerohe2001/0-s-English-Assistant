@@ -57,8 +57,11 @@ export class DeepgramWebSocketRecorder {
 
     const apiKey = import.meta.env.VITE_DEEPGRAM_API_KEY || process.env.DEEPGRAM_API_KEY;
     if (!apiKey) {
-      throw new Error('Deepgram API key not found');
+      const errorMsg = 'Deepgram API key not configured. Please add VITE_DEEPGRAM_API_KEY to your environment variables.';
+      console.error('❌', errorMsg);
+      throw new Error(errorMsg);
     }
+    console.log('✅ Deepgram API key found:', apiKey.substring(0, 10) + '...');
 
     try {
       // ✅ Create Deepgram client
@@ -111,8 +114,22 @@ export class DeepgramWebSocketRecorder {
       // ✅ Handle errors
       this.deepgramConnection.on(LiveTranscriptionEvents.Error, (error: any) => {
         console.error('❌ Deepgram error:', error);
+
+        // ✅ Provide user-friendly error messages based on error type
+        let userMessage = 'Speech recognition error. Please try again.';
+
+        if (error?.error?.includes?.('401') || error?.statusCode === 401) {
+          userMessage = 'Invalid Deepgram API key. Please check your configuration.';
+        } else if (error?.error?.includes?.('402') || error?.statusCode === 402) {
+          userMessage = 'Deepgram quota exceeded. Please check your account balance.';
+        } else if (error?.error?.includes?.('403') || error?.statusCode === 403) {
+          userMessage = 'Deepgram access denied. Please verify your API permissions.';
+        } else if (!navigator.onLine) {
+          userMessage = 'No internet connection. Please check your network.';
+        }
+
         if (this.onError) {
-          this.onError(new Error(error.message || 'Deepgram connection error'));
+          this.onError(new Error(userMessage));
         }
       });
 
