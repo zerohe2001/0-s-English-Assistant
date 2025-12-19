@@ -155,7 +155,7 @@ export const Vocabulary = () => {
                     </div>
 
                     {/* Word text */}
-                    <span className={`flex-1 text-small font-medium ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                    <span className={`flex-1 min-w-0 text-small font-medium truncate ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
                       {word.text}
                     </span>
 
@@ -188,12 +188,12 @@ export const Vocabulary = () => {
                 <div key={word.id} className="bg-white p-4 rounded border border-gray-300">
                   {/* Word Header */}
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-h3 text-gray-900">
+                    <span className="text-h3 text-gray-900 flex-1 min-w-0 truncate mr-2">
                       {word.text}
                     </span>
                     <button
                       onClick={() => removeWord(word.id)}
-                      className="text-gray-400 hover:text-red-600 p-1 transition-colors"
+                      className="flex-shrink-0 text-gray-400 hover:text-red-600 p-1 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
