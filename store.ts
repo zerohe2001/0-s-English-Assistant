@@ -460,7 +460,7 @@ export const useStore = create<AppState>()(
         return {
           learnState: {
             ...state.learnState,
-            currentStep: 'learning',
+            currentStep: 'input-context', // Start with context selection
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',
