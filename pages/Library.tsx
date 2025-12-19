@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import AddArticleModal from '../components/AddArticleModal';
 import DictionaryModal from '../components/DictionaryModal';
+import { ContextLibrary } from '../components/Settings/ContextLibrary';
 import { audioCache } from '../services/audioCache';
 
 export const Library = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'words' | 'articles') || 'words';
-  const [activeTab, setActiveTab] = useState<'words' | 'articles'>(initialTab);
+  const initialTab = (searchParams.get('tab') as 'words' | 'articles' | 'contexts') || 'words';
+  const [activeTab, setActiveTab] = useState<'words' | 'articles' | 'contexts'>(initialTab);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const {
@@ -181,6 +182,16 @@ export const Library = () => {
         >
           Articles
         </button>
+        <button
+          onClick={() => setActiveTab('contexts')}
+          className={`px-4 py-2 text-small font-medium border-b transition-colors ${
+            activeTab === 'contexts'
+              ? 'border-gray-900 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Contexts
+        </button>
       </div>
 
       {/* Words Tab */}
@@ -335,6 +346,13 @@ export const Library = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Contexts Tab */}
+      {activeTab === 'contexts' && (
+        <div className="space-y-4">
+          <ContextLibrary />
         </div>
       )}
 

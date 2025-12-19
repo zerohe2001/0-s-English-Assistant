@@ -2,7 +2,6 @@ import React from 'react';
 import { Tabs, TabList, Tab, TabPanel } from '../components/Settings/Tabs';
 import { AccountSection } from '../components/Settings/AccountSection';
 import { ProfileSection } from '../components/Settings/ProfileSection';
-import { ContextLibrary } from '../components/Settings/ContextLibrary';
 import { DataManagement } from '../components/Settings/DataManagement';
 import { APIUsage } from '../components/Settings/APIUsage';
 
@@ -28,7 +27,6 @@ export const Settings = () => {
           <div className="space-y-8">
             <AccountSection />
             <ProfileSection />
-            <ContextLibrary />
           </div>
         </TabPanel>
 
