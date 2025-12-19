@@ -838,13 +838,7 @@ export const Learn = () => {
                                     {explanation.exampleTranslation}
                                 </p>
                             ) : (
-                                <div className="mt-4 flex items-center justify-between">
-                                    <span className="text-tiny text-gray-500 flex items-center bg-white px-2 py-1 rounded border border-gray-300">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                        </svg>
-                                        Copy to ask AI
-                                    </span>
+                                <div className="mt-4 flex items-center justify-center">
                                     <span className="text-tiny text-gray-500 flex items-center bg-white px-2 py-1 rounded border border-gray-300">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
                                         Tap for Chinese
