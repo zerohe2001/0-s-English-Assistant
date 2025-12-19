@@ -215,7 +215,7 @@ export const Vocabulary = () => {
                         <div className="bg-gray-100 p-3 rounded border border-gray-300">
                           <div className="text-tiny text-gray-500 uppercase mb-1">中文翻译</div>
                           <div className="text-small text-gray-900">
-                            <ClickableText text={word.userSentenceTranslation} />
+                            {word.userSentenceTranslation}
                           </div>
                         </div>
                       )}

@@ -778,7 +778,7 @@ export const Learn = () => {
 
                             {showTranslation ? (
                                 <p className="mt-3 pt-3 border-t border-gray-300 text-gray-700 animate-fade-in font-medium">
-                                    <ClickableText text={explanation.exampleTranslation} />
+                                    {explanation.exampleTranslation}
                                 </p>
                             ) : (
                                 <div className="mt-4 flex items-center justify-between">

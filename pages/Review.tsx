@@ -130,7 +130,7 @@ export const Review = () => {
                     <div className="space-y-1 text-small">
                       {word.userSentenceTranslation && (
                         <div className="text-gray-700">
-                          <ClickableText text={word.userSentenceTranslation} />
+                          {word.userSentenceTranslation}
                         </div>
                       )}
                       {word.userSentence && (
