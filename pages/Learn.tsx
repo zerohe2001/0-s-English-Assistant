@@ -37,6 +37,7 @@ export const Learn = () => {
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null); // ✅ Track copied text for feedback
   const [isPending, startTransition] = useTransition(); // ✅ React 19 concurrent feature
 
@@ -84,7 +85,15 @@ export const Learn = () => {
     };
   }, []); // Run only once on mount
 
-  // Fetch word content when currentWord changes
+  // ✅ Batch preload all word explanations on component mount
+  useEffect(() => {
+    if (learnState.currentStep === 'learning' && learnState.learningQueue.length > 0) {
+      batchPreloadExplanations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // Fetch word content when currentWord changes (for cache check and audio preload)
   useEffect(() => {
     if (learnState.currentStep === 'learning' && currentWord && learnState.wordSubStep === 'explanation') {
       loadWordContent();
@@ -100,56 +109,100 @@ export const Learn = () => {
     setShowTranslation(false);
   }, [learnState.wordSubStep, learnState.currentWordIndex]);
 
+  // ✅ Batch preload all word explanations
+  const batchPreloadExplanations = async () => {
+    const wordsToLoad = learnState.learningQueue.filter(word => {
+      const cached = learnState.wordExplanations[word.id];
+      if (!cached) return true; // Need to load
+
+      // Check if cached translation is valid
+      const translation = cached.exampleTranslation?.trim() || '';
+      const isInvalid =
+        !translation ||
+        !/[\u4e00-\u9fa5]/.test(translation) ||
+        translation.length < 2 ||
+        /^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation);
+
+      return isInvalid; // Need to reload if invalid
+    });
+
+    if (wordsToLoad.length === 0) {
+      console.log('✨ All words already cached');
+      return;
+    }
+
+    console.log(`🚀 Batch loading ${wordsToLoad.length} words...`);
+    setIsLoading(true);
+    setLoadingProgress({ current: 0, total: wordsToLoad.length });
+
+    try {
+      let completedCount = 0;
+
+      // Load all words in parallel
+      const promises = wordsToLoad.map(async (word) => {
+        try {
+          const result = await generateWordExplanation(word.text, profile, learnState.dailyContext);
+          setWordExplanation(word.id, result);
+          completedCount++;
+          setLoadingProgress({ current: completedCount, total: wordsToLoad.length });
+          console.log(`✅ Loaded ${completedCount}/${wordsToLoad.length}: ${word.text}`);
+
+          // Preload audio in background
+          if (result.example) {
+            preloadAudio(result.example);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to load ${word.text}:`, error);
+          completedCount++;
+          setLoadingProgress({ current: completedCount, total: wordsToLoad.length });
+        }
+      });
+
+      await Promise.all(promises);
+      console.log(`🎉 Batch loading completed! Loaded ${wordsToLoad.length} words`);
+    } catch (error) {
+      console.error('❌ Batch loading error:', error);
+    } finally {
+      setIsLoading(false);
+      setLoadingProgress(null);
+    }
+  };
+
   const loadWordContent = async () => {
-    // ✅ Safety check: currentWord must exist
+    // ✅ This function now only handles cache check and audio preload
+    // Batch preloading is done on mount, so this is just for switching between words
+
     if (!currentWord) {
       console.error('loadWordContent called but currentWord is undefined');
       return;
     }
 
-    // ✅ Check if explanation already exists in store
-    if (learnState.wordExplanations[currentWord.id]) {
-      const cached = learnState.wordExplanations[currentWord.id];
+    const cached = learnState.wordExplanations[currentWord.id];
 
-      // ✅ Validate cached translation
-      const translation = cached.exampleTranslation?.trim() || '';
-      const isInvalid =
-        !translation ||
-        !/[\u4e00-\u9fa5]/.test(translation) ||  // No Chinese characters
-        translation.length < 2 ||                // Too short
-        /^[^\u4e00-\u9fa5a-zA-Z]+$/.test(translation);  // Only symbols
+    if (cached) {
+      console.log('✨ Using cached explanation for:', currentWord.text);
+      // Preload audio for cached explanation
+      if (cached.example) {
+        preloadAudio(cached.example);
+      }
+    } else {
+      // This should rarely happen since batch preload runs first
+      // But handle it just in case
+      console.warn('⚠️ No cached explanation found for:', currentWord.text, '- loading individually');
+      setIsLoading(true);
+      try {
+        const result = await generateWordExplanation(currentWord.text, profile, learnState.dailyContext);
+        setWordExplanation(currentWord.id, result);
 
-      if (isInvalid) {
-        console.warn('⚠️ Cached translation is invalid, regenerating for:', currentWord.text, 'Translation:', JSON.stringify(translation));
-        // Clear invalid cache and regenerate below
-      } else {
-        console.log('✨ Using cached explanation for:', currentWord.text);
-        // Preload audio for cached explanation
-        if (cached.example) {
-          preloadAudio(cached.example);
+        if (result.example) {
+          preloadAudio(result.example);
         }
-        return; // Don't regenerate
+      } catch (e) {
+        console.error(e);
+        showToast("Failed to load word data. Check API Key or Connection.", "error");
+      } finally {
+        setIsLoading(false);
       }
-    }
-
-    // Generate new explanation if not cached
-    setIsLoading(true);
-    try {
-      const result = await generateWordExplanation(currentWord.text, profile, learnState.dailyContext);
-
-      // ✅ Store in Zustand store instead of local state
-      setWordExplanation(currentWord.id, result);
-
-      // 🚀 Preload audio in background
-      if (result.example) {
-        console.log('⏳ Preloading audio for example sentence...');
-        preloadAudio(result.example);
-      }
-    } catch (e) {
-      console.error(e);
-      showToast("Failed to load word data. Check API Key or Connection.", "error");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -699,7 +752,11 @@ export const Learn = () => {
         {isLoading && !explanation && (
             <div className="flex-1 flex flex-col justify-center items-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-                <p className="text-body text-gray-500">Preparing lesson...</p>
+                <p className="text-body text-gray-500">
+                  {loadingProgress
+                    ? `Loading ${loadingProgress.current} of ${loadingProgress.total} words...`
+                    : 'Preparing lesson...'}
+                </p>
             </div>
         )}
 
