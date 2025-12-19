@@ -1,5 +1,5 @@
 
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Settings } from './pages/Settings';
 import { Today } from './pages/Today';
@@ -8,6 +8,7 @@ import { Vocabulary } from './pages/Vocabulary';
 import { Learn } from './pages/Learn';
 import { Review } from './pages/Review';
 import { ReadingDetail } from './pages/ReadingDetail';
+import { Auth } from './pages/Auth';
 import { useStore } from './store';
 import DictionaryModal from './components/DictionaryModal';
 import ToastContainer from './components/ToastContainer';
@@ -76,10 +77,38 @@ const ProfileGuard = ({ children }: PropsWithChildren) => {
     return <>{children}</>;
 }
 
+const AuthGuard = ({ children }: PropsWithChildren) => {
+  const { isAuthenticated, checkAuth } = useStore();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      await checkAuth();
+      setIsChecking(false);
+    };
+    init();
+  }, [checkAuth]);
+
+  if (isChecking) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Auth onAuthSuccess={() => checkAuth()} />;
+  }
+
+  return <>{children}</>;
+};
+
 export default function App() {
   return (
     <HashRouter>
         <ApiKeyGuard>
+          <AuthGuard>
             <Layout>
                 <Routes>
                 <Route path="/" element={
@@ -99,6 +128,7 @@ export default function App() {
                 <Route path="/me" element={<Settings />} />
                 </Routes>
             </Layout>
+          </AuthGuard>
         </ApiKeyGuard>
     </HashRouter>
   );

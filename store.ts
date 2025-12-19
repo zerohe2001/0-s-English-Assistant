@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { UserProfile, Word, LearnState, DictionaryState, SavedContext, TokenUsage, ReadingArticle, ReadingState, ConversationMessage } from './types';
 import { fetchWordDefinition } from './services/dictionary';
+import { supabase, getCurrentUser, syncProfile, syncWords, syncWordExplanations, syncTokenUsage, fetchProfile, fetchWords, fetchWordExplanations, fetchTokenUsage } from './services/supabase';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -13,6 +14,15 @@ export interface ToastMessage {
 }
 
 interface AppState {
+  // Authentication & Sync
+  user: any | null;
+  isAuthenticated: boolean;
+  isSyncing: boolean;
+  checkAuth: () => Promise<void>;
+  loadDataFromCloud: () => Promise<void>;
+  syncDataToCloud: () => Promise<void>;
+  logout: () => Promise<void>;
+
   // Toast Notifications
   toasts: ToastMessage[];
   showToast: (message: string, type: ToastType) => void;
@@ -79,6 +89,163 @@ interface AppState {
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // Authentication & Sync
+      user: null,
+      isAuthenticated: false,
+      isSyncing: false,
+
+      checkAuth: async () => {
+        const user = await getCurrentUser();
+        set({ user, isAuthenticated: !!user });
+
+        if (user) {
+          // Load data from cloud on auth check
+          await get().loadDataFromCloud();
+        }
+      },
+
+      loadDataFromCloud: async () => {
+        try {
+          set({ isSyncing: true });
+
+          // Fetch all data in parallel
+          const [profileData, wordsData, explanationsData, tokenData] = await Promise.all([
+            fetchProfile(),
+            fetchWords(),
+            fetchWordExplanations(),
+            fetchTokenUsage()
+          ]);
+
+          // Update profile
+          if (profileData.data) {
+            const p = profileData.data;
+            set({
+              profile: {
+                name: p.name,
+                level: p.level,
+                target: p.target,
+                nativeLanguage: p.native_language,
+                savedContexts: p.saved_contexts || []
+              },
+              isProfileSet: true
+            });
+          }
+
+          // Update words
+          if (wordsData.data && wordsData.data.length > 0) {
+            set({
+              words: wordsData.data.map((w: any) => ({
+                id: w.id,
+                text: w.text,
+                learned: w.learned,
+                userSentence: w.user_sentence,
+                userSentenceTranslation: w.user_sentence_translation,
+                reviewStats: w.review_stats,
+                nextReviewDate: w.next_review_date
+              }))
+            });
+          }
+
+          // Update word explanations
+          if (explanationsData.data && explanationsData.data.length > 0) {
+            const explanations: Record<string, any> = {};
+            explanationsData.data.forEach((exp: any) => {
+              explanations[exp.word_id] = {
+                definition: exp.definition,
+                example: exp.example,
+                exampleTranslation: exp.example_translation,
+                tips: exp.tips
+              };
+            });
+            set((state) => ({
+              learnState: {
+                ...state.learnState,
+                wordExplanations: explanations
+              }
+            }));
+          }
+
+          // Update token usage
+          if (tokenData.data) {
+            set({
+              tokenUsage: {
+                inputTokens: tokenData.data.input_tokens,
+                outputTokens: tokenData.data.output_tokens,
+                totalCost: tokenData.data.total_cost
+              }
+            });
+          }
+
+          console.log('✅ Data loaded from cloud');
+        } catch (error) {
+          console.error('❌ Failed to load data from cloud:', error);
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
+
+      syncDataToCloud: async () => {
+        const state = get();
+        if (!state.isAuthenticated) return;
+
+        try {
+          set({ isSyncing: true });
+
+          // Sync all data in parallel
+          await Promise.all([
+            syncProfile(state.profile),
+            syncWords(state.words),
+            syncWordExplanations(state.learnState.wordExplanations || {}),
+            syncTokenUsage(state.tokenUsage)
+          ]);
+
+          console.log('✅ Data synced to cloud');
+        } catch (error) {
+          console.error('❌ Failed to sync data to cloud:', error);
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
+
+      logout: async () => {
+        const { signOut } = await import('./services/supabase');
+        await signOut();
+        set({
+          user: null,
+          isAuthenticated: false,
+          // Optionally clear local data
+          profile: {
+            name: '',
+            city: '',
+            occupation: '',
+            hobbies: '',
+            frequentPlaces: '',
+            savedContexts: [],
+          },
+          isProfileSet: false,
+          words: [],
+          learnState: {
+            currentStep: 'input',
+            dailyContext: '',
+            learningQueue: [],
+            currentWordIndex: 0,
+            wordSubStep: 'explanation',
+            reviewStep: 'speak',
+            reviewAttempt: '',
+            wordExplanations: {},
+            userSentences: {},
+            conversationMessages: [],
+            conversationQuestions: [],
+            currentConversationIndex: 0,
+          },
+          tokenUsage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalCost: 0,
+          }
+        });
+      },
+
       // Toast Notifications
       toasts: [],
       showToast: (message, type) => {
@@ -100,10 +267,14 @@ export const useStore = create<AppState>()(
         savedContexts: [],
       },
       isProfileSet: false,
-      updateProfile: (profile) => set((state) => ({
-        profile: { ...state.profile, ...profile },
-        isProfileSet: true
-      })),
+      updateProfile: (profile) => {
+        set((state) => ({
+          profile: { ...state.profile, ...profile },
+          isProfileSet: true
+        }));
+        // Sync to cloud after update
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
 
       // Token Usage Tracking
       tokenUsage: {
@@ -111,22 +282,26 @@ export const useStore = create<AppState>()(
         outputTokens: 0,
         totalCost: 0,
       },
-      addTokenUsage: (inputTokens, outputTokens) => set((state) => {
-        const newInputTokens = state.tokenUsage.inputTokens + inputTokens;
-        const newOutputTokens = state.tokenUsage.outputTokens + outputTokens;
-        // Claude Haiku 3.5 pricing: $0.80/M input, $4.00/M output
-        const inputCost = (newInputTokens / 1000000) * 0.80;
-        const outputCost = (newOutputTokens / 1000000) * 4.00;
-        const totalCost = inputCost + outputCost;
+      addTokenUsage: (inputTokens, outputTokens) => {
+        set((state) => {
+          const newInputTokens = state.tokenUsage.inputTokens + inputTokens;
+          const newOutputTokens = state.tokenUsage.outputTokens + outputTokens;
+          // Claude Haiku 3.5 pricing: $0.80/M input, $4.00/M output
+          const inputCost = (newInputTokens / 1000000) * 0.80;
+          const outputCost = (newOutputTokens / 1000000) * 4.00;
+          const totalCost = inputCost + outputCost;
 
-        return {
-          tokenUsage: {
-            inputTokens: newInputTokens,
-            outputTokens: newOutputTokens,
-            totalCost: totalCost,
-          }
-        };
-      }),
+          return {
+            tokenUsage: {
+              inputTokens: newInputTokens,
+              outputTokens: newOutputTokens,
+              totalCost: totalCost,
+            }
+          };
+        });
+        // Sync to cloud
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       resetTokenUsage: () => set({
         tokenUsage: {
           inputTokens: 0,
@@ -151,15 +326,21 @@ export const useStore = create<AppState>()(
       })),
 
       words: [],
-      addWord: (text) => set((state) => ({
-        words: [
-          { id: crypto.randomUUID(), text: text.trim(), addedAt: new Date().toISOString(), learned: false },
-          ...state.words
-        ]
-      })),
-      removeWord: (id) => set((state) => ({
-        words: state.words.filter((w) => w.id !== id)
-      })),
+      addWord: (text) => {
+        set((state) => ({
+          words: [
+            { id: crypto.randomUUID(), text: text.trim(), addedAt: new Date().toISOString(), learned: false },
+            ...state.words
+          ]
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
+      removeWord: (id) => {
+        set((state) => ({
+          words: state.words.filter((w) => w.id !== id)
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       bulkAddWords: (text) => set((state) => {
         // ✅ Helper function to clean raw word input
         const cleanWord = (rawText: string): string => {
@@ -197,20 +378,26 @@ export const useStore = create<AppState>()(
 
         return { words: [...wordObjects, ...state.words] };
       }),
-      markWordAsLearned: (wordId) => set((state) => ({
-        words: state.words.map(w =>
-          w.id === wordId
-            ? { ...w, learned: true, lastPracticed: new Date().toISOString() }
-            : w
-        )
-      })),
-      saveWordSentence: (wordId, sentence, translation) => set((state) => ({
-        words: state.words.map(w =>
-          w.id === wordId
-            ? { ...w, userSentence: sentence, userSentenceTranslation: translation }
-            : w
-        )
-      })),
+      markWordAsLearned: (wordId) => {
+        set((state) => ({
+          words: state.words.map(w =>
+            w.id === wordId
+              ? { ...w, learned: true, lastPracticed: new Date().toISOString() }
+              : w
+          )
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
+      saveWordSentence: (wordId, sentence, translation) => {
+        set((state) => ({
+          words: state.words.map(w =>
+            w.id === wordId
+              ? { ...w, userSentence: sentence, userSentenceTranslation: translation }
+              : w
+          )
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       updateReviewStats: (wordId, stats) => set((state) => {
         // ✅ Calculate next review date based on performance
         const calculateNextReviewDate = (stats: import('./types').ReviewStats): string => {
@@ -361,15 +548,18 @@ export const useStore = create<AppState>()(
           userSentences: {} // ✅ Clear user sentences on reset
         }
       }),
-      setWordExplanation: (wordId, explanation) => set((state) => ({
-        learnState: {
-          ...state.learnState,
-          wordExplanations: {
-            ...state.learnState.wordExplanations,
-            [wordId]: explanation
+      setWordExplanation: (wordId, explanation) => {
+        set((state) => ({
+          learnState: {
+            ...state.learnState,
+            wordExplanations: {
+              ...state.learnState.wordExplanations,
+              [wordId]: explanation
+            }
           }
-        }
-      })),
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       saveUserSentence: (wordId, sentence) => set((state) => ({
         learnState: {
           ...state.learnState,
