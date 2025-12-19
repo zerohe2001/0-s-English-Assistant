@@ -3,12 +3,11 @@ import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 // ✅ Use Gemini for text generation
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, generateConversationQuestions } from '../services/gemini';
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese } from '../services/gemini';
 import { speak, preloadAudio } from '../services/tts';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 import ReviewWord from '../components/ReviewWord';
-import TextConversation from '../components/TextConversation';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 
@@ -31,8 +30,6 @@ export const Learn = () => {
     openDictionary, // ✅ Open dictionary modal for word lookup
     saveUserSentence, // ✅ Save user's created sentence (for scene generation)
     saveWordSentence, // ✅ Save sentence to Word object (for review)
-    startConversation, // ✅ Start text conversation
-    completeConversation, // ✅ Complete conversation
     showToast
   } = useStore();
 
@@ -409,41 +406,12 @@ export const Learn = () => {
           }
       }
 
-      // Move to next word or start conversation
+      // Move to next word or complete session
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-          // All words completed, start conversation
-          setIsLoading(true);
-          try {
-              // Prepare user sentences for question generation
-              const userSentences = learnState.learningQueue
-                .map(w => ({
-                  word: w.text,
-                  sentence: learnState.userSentences[w.id] || ''
-                }))
-                .filter(s => s.sentence); // Only include words with sentences
-
-              // Generate conversation questions
-              const questions = await generateConversationQuestions(
-                userSentences,
-                profile,
-                learnState.dailyContext
-              );
-
-              // ✅ FIX: Validate questions before starting conversation
-              if (!questions || questions.length === 0) {
-                throw new Error('Failed to generate conversation questions');
-              }
-
-              // Start conversation with questions
-              startConversation(questions);
-          } catch (error) {
-              console.error('Failed to generate conversation:', error);
-              showToast("Failed to start conversation. Session complete!", "error");
-              resetSession();
-              navigate('/');
-          } finally {
-              setIsLoading(false);
-          }
+          // All words completed, end session
+          showToast("Great job! All words learned.", "success");
+          resetSession();
+          navigate('/');
       } else {
           setEvaluation(null);
           setTranscript('');
@@ -455,38 +423,12 @@ export const Learn = () => {
   const handleSkipCreation = async () => {
       console.log('⏭️ Skipped creation, word NOT marked as learned');
 
-      // Move to next word or start conversation (same logic as Next but without marking)
+      // Move to next word or complete session (same logic as Next but without marking)
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-          // All words completed, start conversation
-          setIsLoading(true);
-          try {
-              const userSentences = learnState.learningQueue
-                .map(w => ({
-                  word: w.text,
-                  sentence: learnState.userSentences[w.id] || ''
-                }))
-                .filter(s => s.sentence);
-
-              const questions = await generateConversationQuestions(
-                userSentences,
-                profile,
-                learnState.dailyContext
-              );
-
-              // ✅ FIX: Validate questions before starting conversation
-              if (!questions || questions.length === 0) {
-                throw new Error('Failed to generate conversation questions');
-              }
-
-              startConversation(questions);
-          } catch (error) {
-              console.error('Failed to generate conversation:', error);
-              showToast("Failed to start conversation. Session complete!", "error");
-              resetSession();
-              navigate('/');
-          } finally {
-              setIsLoading(false);
-          }
+          // All words completed, end session
+          showToast("Session complete!", "success");
+          resetSession();
+          navigate('/');
       } else {
           setEvaluation(null);
           setTranscript('');
@@ -501,38 +443,12 @@ export const Learn = () => {
           // Default behavior for other callers
           setWordSubStep('creation');
       } else if (learnState.wordSubStep === 'creation') {
-          // Move to next word or start conversation
+          // Move to next word or complete session
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-              // All words completed, start conversation
-              setIsLoading(true);
-              try {
-                  const userSentences = learnState.learningQueue
-                    .map(w => ({
-                      word: w.text,
-                      sentence: learnState.userSentences[w.id] || ''
-                    }))
-                    .filter(s => s.sentence);
-
-                  const questions = await generateConversationQuestions(
-                    userSentences,
-                    profile,
-                    learnState.dailyContext
-                  );
-
-                  // ✅ FIX: Validate questions before starting conversation
-                  if (!questions || questions.length === 0) {
-                    throw new Error('Failed to generate conversation questions');
-                  }
-
-                  startConversation(questions);
-              } catch (error) {
-                  console.error('Failed to generate conversation:', error);
-                  showToast("Failed to start conversation. Session complete!", "error");
-                  resetSession();
-                  navigate('/');
-              } finally {
-                  setIsLoading(false);
-              }
+              // All words completed, end session
+              showToast("Great job! All words learned.", "success");
+              resetSession();
+              navigate('/');
           } else {
              nextWord();
           }
@@ -1087,7 +1003,7 @@ export const Learn = () => {
     );
   }
 
-  // ✅ Review Step - Practice sentences before conversation
+  // ✅ Review Step - Practice sentences
   if (learnState.currentStep === 'review') {
     const currentWord = learnState.learningQueue[learnState.currentWordIndex];
 
@@ -1132,33 +1048,6 @@ export const Learn = () => {
           originalSentence={currentWord.userSentence}
           chineseTranslation={currentWord.userSentenceTranslation}
           onNext={handleReviewComplete}
-        />
-        <DictionaryModal />
-      </>
-    );
-  }
-
-  // ✅ Conversation step - Text-based Q&A
-  if (learnState.currentStep === 'conversation') {
-    const handleConversationComplete = () => {
-      showToast("Great job! Conversation completed.", "success");
-      completeConversation();
-      resetSession();
-      navigate('/');
-    };
-
-    const handleConversationCancel = () => {
-      if (confirm('Are you sure you want to cancel the conversation?')) {
-        resetSession();
-        navigate('/');
-      }
-    };
-
-    return (
-      <>
-        <TextConversation
-          onComplete={handleConversationComplete}
-          onCancel={handleConversationCancel}
         />
         <DictionaryModal />
       </>
