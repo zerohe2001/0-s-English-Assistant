@@ -457,6 +457,7 @@ export const Learn = () => {
 
   const handleStartSession = async () => {
       // Combine manual text and selected cards
+
       const savedContexts = profile.savedContexts || [];
       const selectedTexts = savedContexts
         .filter(c => selectedContextIds.includes(c.id))
@@ -470,15 +471,25 @@ export const Learn = () => {
       }
 
       setDailyContext(combined);
-      startLearning();
 
-      // ✅ PERFORMANCE OPTIMIZATION: Preload ALL words immediately
-      // Get the learning queue that was just created by startLearning()
+      // Manually transition to learning step (startLearning would reset to input-context)
       const queue = words.filter(w => !w.learned).slice(0, 5);
       if (queue.length === 0 && words.length > 0) {
           queue.push(...[...words].sort(() => 0.5 - Math.random()).slice(0, 5));
       }
 
+      // Set learning state manually
+      useStore.setState((state) => ({
+        learnState: {
+          ...state.learnState,
+          currentStep: 'learning',
+          learningQueue: queue,
+          currentWordIndex: 0,
+          wordSubStep: 'explanation',
+        }
+      }));
+
+      // ✅ PERFORMANCE OPTIMIZATION: Preload ALL words immediately
       console.log(`🚀 Preloading ${queue.length} words in background...`);
       setIsLoading(true);
 
