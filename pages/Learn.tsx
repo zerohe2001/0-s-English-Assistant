@@ -9,6 +9,7 @@ import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 import ReviewWord from '../components/ReviewWord';
 import { ContextInput } from '../components/ContextInput';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 
@@ -50,39 +51,30 @@ export const Learn = () => {
   // Input State - moved to ContextInput component
 
   // Practice State
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false); // ✅ Show "Processing..." state
-  const [transcript, setTranscript] = useState('');
   const [textInput, setTextInput] = useState(''); // ✅ For typed input (alternative to speech)
   const [inputMethod, setInputMethod] = useState<'voice' | 'text'>('voice'); // ✅ Track how user provided input
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
-  const recorderRef = useRef<DeepgramRecorder | null>(null);
   const processingRef = useRef(false); // ✅ Prevent race conditions in speech evaluation
 
-  // Initialize Deepgram Recorder
-  useEffect(() => {
-    const recorder = new DeepgramRecorder();
-    recorderRef.current = recorder;
-
-    // Initialize microphone access
-    recorder.initialize().catch((error) => {
-      console.error('❌ Failed to initialize recorder:', error);
-      // Microphone access will be requested on first recording attempt
-    });
-
-    // ✅ Cleanup: Force cleanup on unmount to prevent memory leaks
-    return () => {
-      if (recorderRef.current) {
-        // ✅ FIX: Always cleanup, even if recording (component is unmounting)
-        // This ensures WebSocket closes and microphone is released
-        recorderRef.current.cleanup();
-        recorderRef.current = null;
-        console.log('🧹 Learn component unmounted - recorder cleaned up');
-      }
-    };
-  }, []); // Run only once on mount
+  // Voice Recorder Hook
+  const {
+    isRecording,
+    isTranscribing,
+    transcript,
+    setTranscript,
+    toggleRecording,
+    recorderRef,
+  } = useVoiceRecorder({
+    onTranscript: (transcriptText) => {
+      // Process the transcript
+      handleSpeechResult(transcriptText);
+    },
+    onError: (error) => {
+      showToast(error, "error");
+    },
+  });
 
   // ✅ Batch preload all word explanations on component mount
   useEffect(() => {
@@ -224,63 +216,11 @@ export const Learn = () => {
   };
 
   const handleToggleRecording = async () => {
-    if (!recorderRef.current) {
-      showToast("Speech recognition not available. Please check your microphone permissions.", "error");
-      return;
+    // Mark input as voice when starting recording
+    if (!isRecording) {
+      setInputMethod('voice');
     }
-
-    if (isRecording) {
-      // Stop recording and transcribe
-      recorderRef.current.stop();
-      setIsRecording(false);
-      setIsTranscribing(true); // ✅ Show "Processing..." state
-    } else {
-      // Start recording
-      setTranscript('');
-      setInputMethod('voice'); // Mark as voice input
-      setIsRecording(true);
-
-      try {
-        // Ensure recorder is initialized
-        if (!recorderRef.current.recording) {
-          await recorderRef.current.initialize().catch(() => {
-            // Already initialized, ignore
-          });
-        }
-
-        recorderRef.current.start(
-          (transcript: string) => {
-            // ✅ Transcript from Deepgram (received after stop)
-            console.log(`✅ Deepgram transcript:`, transcript);
-
-            setTranscript(transcript);
-            setIsTranscribing(false);
-
-            // Process the transcript based on current step
-            if (learnState.currentStep === 'input-context') {
-              setManualContext(prev => {
-                const spacer = prev ? ' ' : '';
-                return prev + spacer + transcript;
-              });
-              setIsListeningContext(false);
-            } else {
-              // Normal practice flow - evaluate
-              handleSpeechResult(transcript);
-            }
-          },
-          (error: Error) => {
-            console.error('❌ Deepgram error:', error);
-            showToast(`Speech recognition failed: ${error.message}`, "error");
-            setIsRecording(false);
-            setIsTranscribing(false);
-          }
-        );
-      } catch (e) {
-        console.error("Failed to start recording:", e);
-        setIsRecording(false);
-        showToast("Failed to access microphone. Please check your browser permissions.", "error");
-      }
-    }
+    await toggleRecording();
   };
 
 
@@ -557,7 +497,6 @@ export const Learn = () => {
           profile={profile}
           words={words}
           learningQueue={learnState.learningQueue}
-          recorderRef={recorderRef}
           onStartSession={handleStartSession}
           onSaveContext={addSavedContext}
           openDictionary={openDictionary}

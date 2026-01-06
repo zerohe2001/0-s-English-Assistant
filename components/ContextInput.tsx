@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { UserProfile, SavedContext, Word } from '../types';
-import { DeepgramRecorder } from '../services/deepgram-recorder';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 
 interface ContextInputProps {
   profile: UserProfile;
   words: Word[];
   learningQueue: Word[];
-  recorderRef: React.MutableRefObject<DeepgramRecorder | null>;
   onStartSession: (context: string) => void;
   onSaveContext: (text: string) => void;
   openDictionary: (word: string) => void;
@@ -17,7 +16,6 @@ export const ContextInput: React.FC<ContextInputProps> = ({
   profile,
   words,
   learningQueue,
-  recorderRef,
   onStartSession,
   onSaveContext,
   openDictionary,
@@ -25,44 +23,19 @@ export const ContextInput: React.FC<ContextInputProps> = ({
 }) => {
   const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
   const [manualContext, setManualContext] = useState('');
-  const [isListeningContext, setIsListeningContext] = useState(false);
 
-  const handleToggleContextMic = async () => {
-    if (!recorderRef.current) {
-      showToast("Speech recognition not available.", "error");
-      return;
-    }
-
-    if (isListeningContext) {
-      recorderRef.current.stop();
-      setIsListeningContext(false);
-    } else {
-      setIsListeningContext(true);
-      try {
-        await recorderRef.current.initialize().catch(() => {
-          // Already initialized, ignore
-        });
-        recorderRef.current.start(
-          (transcript: string) => {
-            console.log(`✅ Context transcript:`, transcript);
-            setManualContext(prev => {
-              const spacer = prev ? ' ' : '';
-              return prev + spacer + transcript;
-            });
-            setIsListeningContext(false);
-          },
-          (error: Error) => {
-            console.error('❌ Context mic error:', error);
-            showToast(`Speech recognition failed: ${error.message}`, "error");
-            setIsListeningContext(false);
-          }
-        );
-      } catch (e) {
-        setIsListeningContext(false);
-        showToast("Failed to access microphone.", "error");
-      }
-    }
-  };
+  const { isRecording: isListeningContext, toggleRecording } = useVoiceRecorder({
+    onTranscript: (transcript) => {
+      console.log(`✅ Context transcript:`, transcript);
+      setManualContext(prev => {
+        const spacer = prev ? ' ' : '';
+        return prev + spacer + transcript;
+      });
+    },
+    onError: (error) => {
+      showToast(error, "error");
+    },
+  });
 
   const handleSaveContext = () => {
     if (!manualContext.trim()) return;
@@ -148,7 +121,7 @@ export const ContextInput: React.FC<ContextInputProps> = ({
           onChange={(e) => setManualContext(e.target.value)}
         />
         <button
-          onClick={handleToggleContextMic}
+          onClick={toggleRecording}
           className={`absolute bottom-4 right-4 p-2 rounded-full transition-all ${isListeningContext ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
