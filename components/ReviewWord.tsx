@@ -8,6 +8,7 @@ import { UserSentence } from '../types';
 
 interface ReviewWordProps {
   word: string;
+  phonetic?: string; // ✅ Phonetic notation
   userSentences: UserSentence[]; // ✅ Array of sentences to review
   onNext: (stats: { retryCount: number, skipped: boolean }) => void;
 }
@@ -20,6 +21,7 @@ interface ComparisonResult {
 
 const ReviewWord: React.FC<ReviewWordProps> = ({
   word,
+  phonetic,
   userSentences,
   onNext
 }) => {
@@ -185,8 +187,15 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
           <div className="w-1 h-8 bg-gray-900 rounded-full"></div>
           <h1 className="text-h1 text-gray-900">Review</h1>
         </div>
-        <div className="flex items-center gap-2 text-gray-500">
-          <span className="px-3 py-1 bg-gray-100 rounded text-small font-medium">{word}</span>
+        <div className="flex items-center gap-2 text-gray-500 flex-wrap">
+          <div className="flex items-baseline gap-2 px-3 py-1 bg-gray-100 rounded">
+            <span className="text-small font-medium text-gray-900">{word}</span>
+            {phonetic && (
+              <span className="text-tiny text-gray-500 font-mono">
+                {phonetic}
+              </span>
+            )}
+          </div>
           <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-small font-semibold">
             {currentSentenceIndex + 1}/{userSentences.length}
           </span>

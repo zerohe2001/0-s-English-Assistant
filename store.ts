@@ -348,10 +348,28 @@ export const useStore = create<AppState>()(
       })),
 
       words: [],
-      addWord: (text) => {
+      addWord: async (text) => {
+        const word = text.trim();
+
+        // Fetch phonetic from dictionary API
+        let phonetic = '';
+        try {
+          const dictEntry = await fetchWordDefinition(word);
+          phonetic = dictEntry?.phonetic || '';
+          console.log(`✅ Fetched phonetic for "${word}":`, phonetic);
+        } catch (error) {
+          console.warn(`⚠️ Failed to fetch phonetic for "${word}":`, error);
+        }
+
         set((state) => ({
           words: [
-            { id: crypto.randomUUID(), text: text.trim(), addedAt: new Date().toISOString(), learned: false },
+            {
+              id: crypto.randomUUID(),
+              text: word,
+              phonetic,
+              addedAt: new Date().toISOString(),
+              learned: false
+            },
             ...state.words
           ]
         }));
@@ -363,7 +381,7 @@ export const useStore = create<AppState>()(
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
-      bulkAddWords: (text) => set((state) => {
+      bulkAddWords: async (text) => {
         // ✅ Helper function to clean raw word input
         const cleanWord = (rawText: string): string => {
           let cleaned = rawText;
@@ -391,15 +409,31 @@ export const useStore = create<AppState>()(
         const rawWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
         const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0 && /^[a-zA-Z\s-]+$/.test(w));
 
-        const wordObjects = cleanedWords.map(w => ({
-          id: crypto.randomUUID(),
-          text: w,
-          addedAt: new Date().toISOString(),
-          learned: false
-        }));
+        // Fetch phonetics for all words in parallel
+        const now = new Date().toISOString();
+        const wordObjects = await Promise.all(
+          cleanedWords.map(async (wordText) => {
+            let phonetic = '';
+            try {
+              const dictEntry = await fetchWordDefinition(wordText);
+              phonetic = dictEntry?.phonetic || '';
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch phonetic for "${wordText}"`);
+            }
 
-        return { words: [...wordObjects, ...state.words] };
-      }),
+            return {
+              id: crypto.randomUUID(),
+              text: wordText,
+              phonetic,
+              addedAt: now,
+              learned: false
+            };
+          })
+        );
+
+        set((state) => ({ words: [...wordObjects, ...state.words] }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       markWordAsLearned: (wordId) => {
         const now = new Date();
         const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

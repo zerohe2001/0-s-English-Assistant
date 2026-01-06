@@ -10,7 +10,8 @@ export const Review = () => {
 
   // Check if word should be reviewed today
   const isDueForReview = (word: typeof words[0]): boolean => {
-    if (!word.userSentence || !word.userSentenceTranslation) return false;
+    // Only review words that have at least one sentence
+    if (!word.userSentences || word.userSentences.length === 0) return false;
     if (!word.nextReviewDate) return true;
 
     const today = new Date();
@@ -25,9 +26,9 @@ export const Review = () => {
     return words.filter(isDueForReview);
   }, [words]);
 
-  const totalWithSentences = words.filter(w => w.userSentence).length;
+  const totalWithSentences = words.filter(w => w.userSentences && w.userSentences.length > 0).length;
   const masteredWords = words.filter(w =>
-    w.userSentence &&
+    w.userSentences && w.userSentences.length > 0 &&
     w.nextReviewDate &&
     new Date(w.nextReviewDate) > new Date()
   ).length;
@@ -52,8 +53,8 @@ export const Review = () => {
       <>
         <ReviewWord
           word={word.text}
-          originalSentence={word.userSentence!}
-          chineseTranslation={word.userSentenceTranslation!}
+          phonetic={word.phonetic}
+          userSentences={word.userSentences || []}
           onNext={handleReviewComplete}
         />
         <DictionaryModal />
@@ -120,6 +121,11 @@ export const Review = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-semibold text-gray-900">{word.text}</span>
+                      {word.phonetic && (
+                        <span className="text-tiny text-gray-500 font-mono">
+                          {word.phonetic}
+                        </span>
+                      )}
                       {word.reviewStats && word.reviewStats.retryCount > 0 && (
                         <span className="px-2 py-0.5 text-tiny text-gray-500 bg-gray-100 rounded">
                           {word.reviewStats.retryCount + 1} attempts
@@ -127,17 +133,19 @@ export const Review = () => {
                       )}
                     </div>
 
-                    <div className="space-y-1 text-small">
-                      {word.userSentenceTranslation && (
-                        <div className="text-gray-700">
-                          {word.userSentenceTranslation}
+                    <div className="space-y-2 text-small">
+                      {word.userSentences && word.userSentences.map((sent, idx) => (
+                        <div key={idx} className="border-l-2 border-gray-200 pl-2">
+                          {sent.translation && (
+                            <div className="text-gray-700">
+                              {sent.translation}
+                            </div>
+                          )}
+                          <div className="text-gray-500 text-tiny">
+                            <ClickableText text={sent.sentence} />
+                          </div>
                         </div>
-                      )}
-                      {word.userSentence && (
-                        <div className="text-gray-500 text-tiny">
-                          <ClickableText text={word.userSentence} />
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </div>
 

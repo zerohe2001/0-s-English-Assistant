@@ -155,9 +155,16 @@ export const Vocabulary = () => {
                     </div>
 
                     {/* Word text */}
-                    <span className={`flex-1 min-w-0 text-small font-medium truncate ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
-                      {word.text}
-                    </span>
+                    <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                      <span className={`text-small font-medium truncate ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                        {word.text}
+                      </span>
+                      {word.phonetic && (
+                        <span className="text-tiny text-gray-500 font-mono flex-shrink-0">
+                          {word.phonetic}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Delete button */}
                     <button
@@ -189,9 +196,16 @@ export const Vocabulary = () => {
                   {/* Word Header */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1 min-w-0 mr-2">
-                      <span className="text-h3 text-gray-900 block truncate">
-                        {word.text}
-                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-h3 text-gray-900 truncate">
+                          {word.text}
+                        </span>
+                        {word.phonetic && (
+                          <span className="text-tiny text-gray-500 font-mono flex-shrink-0">
+                            {word.phonetic}
+                          </span>
+                        )}
+                      </div>
                       {/* Review Date */}
                       {word.nextReviewDate && (() => {
                         const reviewDate = new Date(word.nextReviewDate);

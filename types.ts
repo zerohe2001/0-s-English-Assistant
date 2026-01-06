@@ -19,14 +19,20 @@ export interface ReviewStats {
   skipped: boolean;
 }
 
+export interface UserSentence {
+  sentence: string;
+  translation: string;
+  createdAt: string; // ISO date string
+}
+
 export interface Word {
   id: string;
   text: string;
+  phonetic?: string; // ✅ American English phonetic (e.g., /ˈtɪltɪŋ/)
   addedAt: string; // ISO date string
   learned: boolean;
   lastPracticed?: string; // ISO date string
-  userSentence?: string; // ✅ User's created sentence for this word
-  userSentenceTranslation?: string; // ✅ Chinese translation of user's sentence
+  userSentences?: UserSentence[]; // ✅ User's created sentences (up to 3)
   reviewStats?: ReviewStats; // ✅ Review statistics
   nextReviewDate?: string; // ✅ Next review date (ISO string) - for spaced repetition
 }
@@ -60,10 +66,12 @@ export interface LearnState {
   learningQueue: Word[];
   currentWordIndex: number;
   wordSubStep: WordStep;
+  currentSentenceIndex: number; // ✅ Track which sentence user is creating (0-2)
   reviewSubStep?: ReviewStep; // ✅ Review substep
   currentReviewAttempt?: string; // ✅ Current user's spoken sentence in review
+  currentReviewSentenceIndex?: number; // ✅ Track which sentence is being reviewed (0-2)
   wordExplanations: { [wordId: string]: WordExplanation }; // ✅ Store explanations to avoid regeneration
-  userSentences: { [wordId: string]: string }; // ✅ Store user's created sentences
+  userSentences: { [wordId: string]: string }; // ✅ Store user's created sentences (temp storage during learning)
   conversation?: ConversationState; // ✅ Text-based conversation state
 }
 
