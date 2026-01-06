@@ -41,12 +41,23 @@ export const Today = () => {
   ].filter(Boolean).length;
   const totalTasks = 2;
 
+  // Check if there's an active learning session in progress
+  const hasActiveSession = learnState.currentStep === 'learning' && learnState.learningQueue.length > 0;
+  const sessionProgress = hasActiveSession
+    ? `Word ${learnState.currentWordIndex + 1}/${learnState.learningQueue.length}`
+    : '';
+
   const handleStartLearning = () => {
     if (wordsToLearn.length === 0) {
       showToast('No words to learn today. Add some words in Library!', 'info');
       return;
     }
     startLearning();
+    navigate('/learn');
+  };
+
+  const handleResumeLearning = () => {
+    // Resume learning session without resetting state
     navigate('/learn');
   };
 
@@ -82,19 +93,32 @@ export const Today = () => {
       <div className="space-y-2">
         {/* Learn New Words */}
         <div
-          onClick={wordsToLearn.length > 0 ? handleStartLearning : () => navigate('/library')}
-          className="bg-white border border-gray-300 rounded p-4 transition-colors cursor-pointer hover:bg-gray-50"
+          onClick={hasActiveSession ? handleResumeLearning : (wordsToLearn.length > 0 ? handleStartLearning : () => navigate('/library'))}
+          className={`bg-white rounded p-4 transition-colors cursor-pointer ${hasActiveSession ? 'border-2 border-blue-500 shadow-sm hover:bg-blue-50' : 'border border-gray-300 hover:bg-gray-50'}`}
         >
           <div className="flex items-start justify-between mb-2">
-            <h2 className="text-h3 text-gray-900">Learn</h2>
-            {wordsToLearn.length > 0 && (
+            <h2 className="text-h3 text-gray-900">{hasActiveSession ? 'Resume Learning' : 'Learn'}</h2>
+            {hasActiveSession ? (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-tiny rounded font-medium">
+                In Progress
+              </span>
+            ) : wordsToLearn.length > 0 ? (
               <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-tiny rounded">
                 {wordsToLearn.length}
               </span>
-            )}
+            ) : null}
           </div>
 
-          {wordsToLearn.length > 0 ? (
+          {hasActiveSession ? (
+            <div>
+              <p className="text-small text-gray-900 font-medium mb-1">
+                Continue from {sessionProgress}
+              </p>
+              <p className="text-tiny text-gray-500">
+                {learnState.learningQueue.map(w => w.text).join(', ')}
+              </p>
+            </div>
+          ) : wordsToLearn.length > 0 ? (
             <p className="text-small text-gray-500">
               {wordsToLearn.map(w => w.text).join(', ')}
             </p>
