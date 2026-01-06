@@ -41,7 +41,7 @@ export type WordStep = 'explanation' | 'shadowing' | 'creation';
 
 export type ReviewStep = 'speaking' | 'comparing';
 
-// ✅ Text-based conversation Q&A
+// ✅ Text-based conversation Q&A (DEPRECATED - Feature removed, kept for compatibility)
 export interface ConversationMessage {
   role: 'ai' | 'user';
   text: string;

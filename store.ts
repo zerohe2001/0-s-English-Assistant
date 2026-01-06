@@ -67,12 +67,6 @@ interface AppState {
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
   saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence
 
-  // ✅ Text-based conversation
-  startConversation: (questions: string[]) => void;
-  addConversationMessage: (message: ConversationMessage) => void;
-  nextConversationQuestion: () => void;
-  completeConversation: () => void;
-
   // Dictionary
   dictionary: DictionaryState;
   openDictionary: (word: string) => Promise<void>;
@@ -725,7 +719,7 @@ export const useStore = create<AppState>()(
         }
       })),
 
-      // ✅ Text-based conversation
+      // ✅ Text-based conversation (DEPRECATED - Feature removed, kept for compatibility)
       startConversation: (questions) => {
         // ✅ FIX: Validate questions array is not empty
         if (!questions || questions.length === 0) {

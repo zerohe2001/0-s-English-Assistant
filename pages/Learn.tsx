@@ -350,20 +350,11 @@ export const Learn = () => {
             console.log("User said:", text);
             console.log("Input method:", inputMethod);
 
-            // ✅ Smart evaluation: Fast text comparison for typed input, AI for voice
-            let result;
-            if (inputMethod === 'text') {
-                // Fast: Simple text comparison (no AI call, instant feedback)
-                console.log("Using fast text comparison...");
-                result = compareTextSimilarity(explanation.example, text);
-                console.log("Text comparison result:", result);
-            } else {
-                // Voice: Use AI for speech evaluation
-                console.log("Using AI evaluation for voice input...");
-                result = await evaluateShadowing(explanation.example, text);
-                console.log("AI evaluation result:", result);
-            }
-
+            // ✅ Fast text comparison for all input types (no AI needed)
+            // Deepgram already converted speech to text, just need to compare
+            console.log("Using fast text comparison for", inputMethod, "input...");
+            const result = compareTextSimilarity(explanation.example, text);
+            console.log("Text comparison result:", result);
             setShadowingFeedback(result);
         } else if (learnState.wordSubStep === 'creation') {
             // Check sentence creation
