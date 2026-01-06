@@ -145,8 +145,7 @@ export const syncWords = async (words: any[]) => {
         id: w.id,
         text: w.text,
         learned: w.learned || false,
-        user_sentence: w.userSentence || null,
-        user_sentence_translation: w.userSentenceTranslation || null,
+        user_sentences: w.userSentences ? JSON.stringify(w.userSentences) : null, // ✅ Store as JSON
         review_stats: w.reviewStats || null,
         next_review_date: w.nextReviewDate || null,
       }))
