@@ -21,6 +21,7 @@ export const Learn = () => {
     setWordSubStep,
     nextSentence, // ✅ Move to next sentence in creation phase
     nextWord,
+    goBackStep, // ✅ Go back to previous step in learning flow
     nextReviewWord, // ✅ Move to next word in review
     updateReviewStats, // ✅ Update review statistics
     resetSession,
@@ -462,6 +463,21 @@ export const Learn = () => {
       }
   };
 
+  // ✅ Handle Back button - go to previous step
+  const handleGoBack = () => {
+    // Clear current UI state when going back
+    setTranscript('');
+    setTextInput('');
+    setEvaluation(null);
+    setShadowingFeedback(null);
+
+    // Navigate to previous step
+    goBackStep();
+  };
+
+  // Check if at the very beginning (can't go back further)
+  const isAtBeginning = learnState.currentWordIndex === 0 && learnState.wordSubStep === 'explanation';
+
   const handleNextStep = async () => {
       if (learnState.wordSubStep === 'explanation') {
           setWordSubStep('shadowing');
@@ -699,7 +715,16 @@ export const Learn = () => {
                  <div className={`h-1 w-6 rounded ${learnState.wordSubStep === 'creation' ? 'bg-gray-900' : 'bg-gray-300'}`}></div>
              </div>
            </div>
-           <button onClick={resetSession} className="text-small text-gray-500 hover:text-red-600 transition-colors">Exit</button>
+           <div className="flex gap-3">
+             <button
+               onClick={handleGoBack}
+               disabled={isAtBeginning}
+               className={`text-small transition-colors ${isAtBeginning ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-900'}`}
+             >
+               返回
+             </button>
+             <button onClick={resetSession} className="text-small text-gray-500 hover:text-red-600 transition-colors">Exit</button>
+           </div>
         </div>
 
         {isLoading && !explanation && (

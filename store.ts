@@ -57,6 +57,7 @@ interface AppState {
   setWordSubStep: (step: LearnState['wordSubStep']) => void;
   nextSentence: () => void; // ✅ Move to next sentence in creation phase (0->1->2)
   nextWord: () => void;
+  goBackStep: () => void; // ✅ Go back to previous step in learning flow
   startReviewPhase: () => void; // ✅ Start review phase
   setReviewSubStep: (step: import('./types').ReviewStep) => void; // ✅ Set review substep
   setReviewAttempt: (attempt: string) => void; // ✅ Store current review attempt
@@ -581,6 +582,63 @@ export const useStore = create<AppState>()(
             currentSentenceIndex: 0 // ✅ Reset sentence index for new word
           }
         };
+      }),
+      goBackStep: () => set((state) => {
+        const { wordSubStep, currentSentenceIndex, currentWordIndex } = state.learnState;
+
+        // In Creation phase
+        if (wordSubStep === 'creation') {
+          if (currentSentenceIndex > 0) {
+            // Go back to previous sentence (2→1 or 1→0)
+            return {
+              learnState: {
+                ...state.learnState,
+                currentSentenceIndex: currentSentenceIndex - 1
+              }
+            };
+          } else {
+            // At sentence 0, go back to shadowing
+            return {
+              learnState: {
+                ...state.learnState,
+                wordSubStep: 'shadowing',
+                currentSentenceIndex: 0
+              }
+            };
+          }
+        }
+
+        // In Shadowing phase
+        if (wordSubStep === 'shadowing') {
+          // Go back to explanation
+          return {
+            learnState: {
+              ...state.learnState,
+              wordSubStep: 'explanation'
+            }
+          };
+        }
+
+        // In Explanation phase
+        if (wordSubStep === 'explanation') {
+          if (currentWordIndex > 0) {
+            // Go back to previous word's last sentence (Creation, Sentence 2)
+            return {
+              learnState: {
+                ...state.learnState,
+                currentWordIndex: currentWordIndex - 1,
+                wordSubStep: 'creation',
+                currentSentenceIndex: 2
+              }
+            };
+          } else {
+            // At first word, can't go back further
+            return state;
+          }
+        }
+
+        // Default: no change
+        return state;
       }),
       startReviewPhase: () => set((state) => ({
         learnState: {
