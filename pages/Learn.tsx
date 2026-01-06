@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 // ✅ Use Gemini for text generation
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese } from '../services/gemini';
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, compareTextSimilarity } from '../services/gemini';
 import { speak, preloadAudio } from '../services/tts';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
@@ -56,6 +56,7 @@ export const Learn = () => {
   const [isTranscribing, setIsTranscribing] = useState(false); // ✅ Show "Processing..." state
   const [transcript, setTranscript] = useState('');
   const [textInput, setTextInput] = useState(''); // ✅ For typed input (alternative to speech)
+  const [inputMethod, setInputMethod] = useState<'voice' | 'text'>('voice'); // ✅ Track how user provided input
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -238,6 +239,7 @@ export const Learn = () => {
     } else {
       // Start recording
       setTranscript('');
+      setInputMethod('voice'); // Mark as voice input
       setIsRecording(true);
 
       try {
@@ -346,9 +348,22 @@ export const Learn = () => {
             }
             console.log("Target sentence:", explanation.example);
             console.log("User said:", text);
+            console.log("Input method:", inputMethod);
 
-            const result = await evaluateShadowing(explanation.example, text);
-            console.log("Shadowing result:", result);
+            // ✅ Smart evaluation: Fast text comparison for typed input, AI for voice
+            let result;
+            if (inputMethod === 'text') {
+                // Fast: Simple text comparison (no AI call, instant feedback)
+                console.log("Using fast text comparison...");
+                result = compareTextSimilarity(explanation.example, text);
+                console.log("Text comparison result:", result);
+            } else {
+                // Voice: Use AI for speech evaluation
+                console.log("Using AI evaluation for voice input...");
+                result = await evaluateShadowing(explanation.example, text);
+                console.log("AI evaluation result:", result);
+            }
+
             setShadowingFeedback(result);
         } else if (learnState.wordSubStep === 'creation') {
             // Check sentence creation
@@ -373,6 +388,9 @@ export const Learn = () => {
           showToast("Please enter some text first.", "warning");
           return;
       }
+
+      // Mark as text input (for fast evaluation)
+      setInputMethod('text');
 
       // Set transcript to the typed text
       setTranscript(text);

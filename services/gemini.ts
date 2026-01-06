@@ -151,6 +151,61 @@ export const generateWordExplanation = async (
   throw new Error('Failed to generate word explanation after retries');
 };
 
+/**
+ * Fast text comparison for typed input (no AI call needed)
+ * Returns immediate feedback based on simple text matching
+ */
+export const compareTextSimilarity = (
+  target: string,
+  input: string
+): { isCorrect: boolean; feedback: string } => {
+  // Normalize: lowercase, remove punctuation, trim
+  const normalize = (str: string) =>
+    str.toLowerCase()
+       .replace(/[^\w\s]/g, '') // Remove punctuation
+       .replace(/\s+/g, ' ')    // Normalize whitespace
+       .trim();
+
+  const targetNorm = normalize(target);
+  const inputNorm = normalize(input);
+
+  // Exact match (after normalization)
+  if (targetNorm === inputNorm) {
+    return {
+      isCorrect: true,
+      feedback: "Perfect match! ✅"
+    };
+  }
+
+  // Calculate word-level similarity
+  const targetWords = targetNorm.split(/\s+/);
+  const inputWords = inputNorm.split(/\s+/);
+
+  // Count matched words
+  const matchedWords = inputWords.filter(inputWord =>
+    targetWords.some(targetWord => targetWord === inputWord)
+  ).length;
+
+  const similarity = targetWords.length > 0 ? matchedWords / targetWords.length : 0;
+
+  if (similarity >= 0.9) {
+    return {
+      isCorrect: true,
+      feedback: "Great! Minor differences but essentially correct."
+    };
+  } else if (similarity >= 0.7) {
+    return {
+      isCorrect: true,
+      feedback: `Good effort! Match: ${Math.round(similarity * 100)}%. Check for small differences.`
+    };
+  } else {
+    return {
+      isCorrect: false,
+      feedback: `Please review the target sentence. Match: ${Math.round(similarity * 100)}%. Try again!`
+    };
+  }
+};
+
 export const evaluateShadowing = async (
   targetSentence: string,
   userTranscript: string
