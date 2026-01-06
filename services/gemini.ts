@@ -246,6 +246,63 @@ export const evaluateShadowing = async (
     return data;
 }
 
+/**
+ * Quick pre-check for common sentence errors (instant, no AI call)
+ * Returns instant feedback for obvious mistakes
+ */
+export const quickCheckSentence = (
+  word: string,
+  sentence: string,
+  exampleSentence?: string
+): { passed: boolean; feedback?: string } => {
+  const trimmed = sentence.trim();
+  const wordLower = word.toLowerCase();
+  const sentenceLower = trimmed.toLowerCase();
+
+  // 1. Must use the target word
+  if (!sentenceLower.includes(wordLower)) {
+    return {
+      passed: false,
+      feedback: `Please use the word "${word}" in your sentence.`
+    };
+  }
+
+  // 2. Must be at least 5 words (complete sentence)
+  const wordCount = trimmed.split(/\s+/).length;
+  if (wordCount < 5) {
+    return {
+      passed: false,
+      feedback: `Please write a complete sentence (at least 5 words). You wrote ${wordCount}.`
+    };
+  }
+
+  // 3. Cannot just repeat the example sentence (lazy copying)
+  if (exampleSentence) {
+    const exampleNorm = exampleSentence.toLowerCase().replace(/[^\w\s]/g, '');
+    const sentenceNorm = sentenceLower.replace(/[^\w\s]/g, '');
+
+    if (exampleNorm === sentenceNorm) {
+      return {
+        passed: false,
+        feedback: "Please create your own sentence, not copy the example."
+      };
+    }
+  }
+
+  // 4. Basic completeness check (has subject pronoun/article)
+  const hasSubject = /\b(i|you|he|she|it|we|they|the|this|that|a|an|my|your|his|her|our|their)\b/i.test(sentenceLower);
+
+  if (!hasSubject) {
+    return {
+      passed: false,
+      feedback: "Please write a complete sentence with a subject (I, you, he, she, the, etc.)."
+    };
+  }
+
+  // ✅ Passed all quick checks - ready for AI evaluation
+  return { passed: true };
+};
+
 export const evaluateUserSentence = async (
   word: string,
   userSentence: string,

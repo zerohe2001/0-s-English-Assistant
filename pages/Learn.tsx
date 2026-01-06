@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 // ✅ Use Gemini for text generation
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, compareTextSimilarity } from '../services/gemini';
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, compareTextSimilarity, quickCheckSentence } from '../services/gemini';
 import { speak, preloadAudio } from '../services/tts';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
@@ -359,6 +359,27 @@ export const Learn = () => {
         } else if (learnState.wordSubStep === 'creation') {
             // Check sentence creation
             console.log("Evaluating user sentence...");
+
+            // ✅ Quick pre-check for common errors (instant feedback, no AI call)
+            const quickCheck = quickCheckSentence(
+                currentWord.text,
+                text,
+                explanation?.example
+            );
+
+            if (!quickCheck.passed) {
+                // Instant feedback for basic errors - don't call AI!
+                console.log("❌ Quick check failed:", quickCheck.feedback);
+                setEvaluation({
+                    isCorrect: false,
+                    feedback: quickCheck.feedback!,
+                    betterWay: text  // Keep original sentence
+                });
+                return;
+            }
+
+            // ✅ Passed quick checks - now do full AI evaluation
+            console.log("✅ Quick check passed, calling AI for grammar evaluation...");
             const result = await evaluateUserSentence(currentWord.text, text, learnState.dailyContext);
             console.log("Sentence evaluation result:", result);
             setEvaluation(result);
