@@ -54,6 +54,7 @@ export const Learn = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false); // ✅ Show "Processing..." state
   const [transcript, setTranscript] = useState('');
+  const [textInput, setTextInput] = useState(''); // ✅ For typed input (alternative to speech)
   const [evaluation, setEvaluation] = useState<SentenceEvaluation | null>(null);
   const [shadowingFeedback, setShadowingFeedback] = useState<{isCorrect: boolean, feedback: string} | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -362,6 +363,24 @@ export const Learn = () => {
           processingRef.current = false;
           setIsLoading(false);
       }
+  };
+
+  // ✅ Handle text input submission (alternative to speech)
+  const handleTextSubmit = async () => {
+      const text = textInput.trim();
+      if (!text) {
+          showToast("Please enter some text first.", "warning");
+          return;
+      }
+
+      // Set transcript to the typed text
+      setTranscript(text);
+
+      // Process it the same way as speech
+      await handleSpeechResult(text);
+
+      // Clear text input after submission
+      setTextInput('');
   };
 
   // ✅ Handle Next from Shadowing - does NOT mark as learned yet (wait for 3 sentences)
@@ -853,6 +872,37 @@ export const Learn = () => {
                                         <p className="mt-4 text-gray-500 font-medium text-small">
                                             {isRecording ? "Recording... Tap to Stop" : isTranscribing ? "Processing..." : "Tap to Start Recording"}
                                         </p>
+
+                                        {/* Text Input Alternative */}
+                                        <div className="w-full max-w-md mt-6">
+                                          <div className="flex items-center gap-3 mb-3">
+                                            <div className="flex-1 h-px bg-gray-300"></div>
+                                            <span className="text-tiny text-gray-500 uppercase">Or Type</span>
+                                            <div className="flex-1 h-px bg-gray-300"></div>
+                                          </div>
+                                          <div className="space-y-2">
+                                            <textarea
+                                              value={textInput}
+                                              onChange={(e) => setTextInput(e.target.value)}
+                                              placeholder="Type the sentence here..."
+                                              className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-20"
+                                              disabled={isLoading || isRecording}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  handleTextSubmit();
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              onClick={handleTextSubmit}
+                                              disabled={isLoading || isRecording || !textInput.trim()}
+                                              className="w-full py-2 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                              Submit
+                                            </button>
+                                          </div>
+                                        </div>
                                     </div>
                                     {isTranscribing && (
                                         <div className="mt-4 p-3 bg-gray-100 rounded max-w-md animate-pulse border border-gray-300">
@@ -967,6 +1017,37 @@ export const Learn = () => {
                                             )}
                                         </button>
                                         <p className="mt-4 text-gray-500 font-medium text-small">{isRecording ? "Recording... Tap to Stop" : isTranscribing ? "Processing..." : "Tap to Start Recording"}</p>
+
+                                        {/* Text Input Alternative */}
+                                        <div className="w-full max-w-md mt-6">
+                                          <div className="flex items-center gap-3 mb-3">
+                                            <div className="flex-1 h-px bg-gray-300"></div>
+                                            <span className="text-tiny text-gray-500 uppercase">Or Type</span>
+                                            <div className="flex-1 h-px bg-gray-300"></div>
+                                          </div>
+                                          <div className="space-y-2">
+                                            <textarea
+                                              value={textInput}
+                                              onChange={(e) => setTextInput(e.target.value)}
+                                              placeholder="Type your sentence here..."
+                                              className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-20"
+                                              disabled={isLoading || isRecording}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  handleTextSubmit();
+                                                }
+                                              }}
+                                            />
+                                            <button
+                                              onClick={handleTextSubmit}
+                                              disabled={isLoading || isRecording || !textInput.trim()}
+                                              className="w-full py-2 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                              Submit
+                                            </button>
+                                          </div>
+                                        </div>
                                     </div>
                                     {isTranscribing && (
                                         <div className="mt-4 p-3 bg-gray-100 rounded max-w-md animate-pulse border border-gray-300">

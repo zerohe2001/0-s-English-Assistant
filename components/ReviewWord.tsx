@@ -4,11 +4,11 @@ import { speak } from '../services/tts';
 import { compareSentences } from '../services/claude';
 import ClickableText from './ClickableText';
 import { useStore } from '../store';
+import { UserSentence } from '../types';
 
 interface ReviewWordProps {
   word: string;
-  originalSentence: string;
-  chineseTranslation: string;
+  userSentences: UserSentence[]; // ✅ Array of sentences to review
   onNext: (stats: { retryCount: number, skipped: boolean }) => void;
 }
 
@@ -20,18 +20,24 @@ interface ComparisonResult {
 
 const ReviewWord: React.FC<ReviewWordProps> = ({
   word,
-  originalSentence,
-  chineseTranslation,
+  userSentences,
   onNext
 }) => {
   const { showToast } = useStore();
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0); // ✅ Track which sentence is being reviewed
   const [step, setStep] = useState<'speaking' | 'comparing'>('speaking');
   const [userSentence, setUserSentence] = useState('');
+  const [textInput, setTextInput] = useState(''); // ✅ For typed input (alternative to speech)
   const [retryCount, setRetryCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const recorderRef = useRef<DeepgramRecorder | null>(null);
+
+  // ✅ Get current sentence being reviewed
+  const currentSentence = userSentences[currentSentenceIndex];
+  const originalSentence = currentSentence?.sentence || '';
+  const chineseTranslation = currentSentence?.translation || '';
 
   // Initialize Deepgram Recorder
   useEffect(() => {
@@ -117,6 +123,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     setRetryCount(prev => prev + 1);
     setStep('speaking');
     setUserSentence('');
+    setTextInput('');
     setComparison(null);
   };
 
@@ -124,8 +131,46 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     onNext({ retryCount: retryCount, skipped: true });
   };
 
+  // ✅ Handle text input submission (alternative to speech)
+  const handleTextSubmit = async () => {
+    const text = textInput.trim();
+    if (!text) {
+      showToast('Please enter some text first.', 'warning');
+      return;
+    }
+
+    setUserSentence(text);
+    setTextInput('');
+
+    // Analyze sentence with Claude
+    setIsAnalyzing(true);
+    try {
+      const result = await compareSentences(originalSentence, text);
+      setComparison(result);
+      setStep('comparing');
+    } catch (error) {
+      console.error('Failed to analyze sentence:', error);
+      showToast('分析失败，请重试', 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleNext = () => {
-    onNext({ retryCount: retryCount, skipped: false });
+    // Check if there are more sentences to review
+    if (currentSentenceIndex < userSentences.length - 1) {
+      // Move to next sentence
+      setCurrentSentenceIndex(prev => prev + 1);
+      setStep('speaking');
+      setUserSentence('');
+      setTextInput('');
+      setComparison(null);
+      setRetryCount(0); // Reset retry count for new sentence
+      console.log(`✅ Moving to sentence ${currentSentenceIndex + 2}/${userSentences.length}`);
+    } else {
+      // All sentences reviewed, complete the review
+      onNext({ retryCount: retryCount, skipped: false });
+    }
   };
 
   const playOriginal = () => {
@@ -142,6 +187,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
         </div>
         <div className="flex items-center gap-2 text-gray-500">
           <span className="px-3 py-1 bg-gray-100 rounded text-small font-medium">{word}</span>
+          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-small font-semibold">
+            {currentSentenceIndex + 1}/{userSentences.length}
+          </span>
           {retryCount > 0 && (
             <span className="text-tiny text-gray-500">· Attempt {retryCount + 1}</span>
           )}
@@ -175,6 +223,36 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
                   </svg>
                 </button>
                 <p className="mt-4 text-small text-gray-500">Click to start recording</p>
+
+                {/* Text Input Alternative */}
+                <div className="w-full max-w-md mt-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex-1 h-px bg-gray-300"></div>
+                    <span className="text-tiny text-gray-500 uppercase">Or Type</span>
+                    <div className="flex-1 h-px bg-gray-300"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <textarea
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      placeholder="Type your translation here..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleTextSubmit();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleTextSubmit}
+                      disabled={!textInput.trim()}
+                      className="w-full py-2 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
