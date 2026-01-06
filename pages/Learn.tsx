@@ -19,6 +19,7 @@ export const Learn = () => {
     setDailyContext,
     startLearning,
     setWordSubStep,
+    nextSentence, // ✅ Move to next sentence in creation phase
     nextWord,
     nextReviewWord, // ✅ Move to next word in review
     updateReviewStats, // ✅ Update review statistics
@@ -29,7 +30,7 @@ export const Learn = () => {
     markWordAsLearned, // ✅ Mark word as learned
     openDictionary, // ✅ Open dictionary modal for word lookup
     saveUserSentence, // ✅ Save user's created sentence (for scene generation)
-    saveWordSentence, // ✅ Save sentence to Word object (for review)
+    addUserSentence, // ✅ Add sentence to Word's userSentences array
     showToast
   } = useStore();
 
@@ -363,12 +364,9 @@ export const Learn = () => {
       }
   };
 
-  // ✅ Handle Next from Shadowing - marks word as learned
+  // ✅ Handle Next from Shadowing - does NOT mark as learned yet (wait for 3 sentences)
   const handleNextFromShadowing = () => {
-      if (currentWord) {
-          markWordAsLearned(currentWord.id);
-          console.log('✅ Word marked as learned:', currentWord.text);
-      }
+      console.log('✅ Shadowing completed, moving to creation');
       setWordSubStep('creation');
   };
 
@@ -378,44 +376,53 @@ export const Learn = () => {
       setWordSubStep('creation');
   };
 
-  // ✅ Handle Next from Creation - marks word as learned and moves to next
+  // ✅ Handle Next from Creation - saves sentence and moves to next sentence or word
   const handleNextFromCreation = async () => {
-      if (currentWord) {
-          markWordAsLearned(currentWord.id);
-          console.log('✅ Word marked as learned:', currentWord.text);
+      if (currentWord && transcript && transcript.trim()) {
+          const userSentence = transcript.trim();
 
-          // ✅ Save user's sentence if they created one
-          if (transcript && transcript.trim()) {
-              const userSentence = transcript.trim();
+          // Save to learnState for scene generation
+          saveUserSentence(currentWord.id, userSentence);
+          console.log('✅ Saved user sentence for scene:', userSentence);
 
-              // Save to learnState for scene generation
-              saveUserSentence(currentWord.id, userSentence);
-              console.log('✅ Saved user sentence for scene:', userSentence);
-
-              // ✅ FIX: Try translation, but save sentence even if translation fails
-              try {
-                const translation = await translateToChinese(userSentence);
-                saveWordSentence(currentWord.id, userSentence, translation);
-                console.log('✅ Saved sentence to Word with translation:', translation);
-              } catch (translationError) {
-                console.error('❌ Translation failed:', translationError);
-                // Save with placeholder translation - can retry later
-                saveWordSentence(currentWord.id, userSentence, '[Translation pending]');
-                showToast('Sentence saved (translation failed)', 'warning');
-              }
+          // ✅ FIX: Try translation, then add to userSentences array
+          try {
+            const translation = await translateToChinese(userSentence);
+            addUserSentence(currentWord.id, userSentence, translation);
+            console.log(`✅ Added sentence ${learnState.currentSentenceIndex + 1}/3 to Word with translation:`, translation);
+          } catch (translationError) {
+            console.error('❌ Translation failed:', translationError);
+            // Save with placeholder translation - can retry later
+            addUserSentence(currentWord.id, userSentence, '[Translation pending]');
+            showToast('Sentence saved (translation failed)', 'warning');
           }
       }
 
-      // Move to next word or complete session
-      if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-          // All words completed, end session
-          showToast("Great job! All words learned.", "success");
-          resetSession();
-          navigate('/');
+      // Check if user has created 3 sentences
+      if (learnState.currentSentenceIndex >= 2) {
+          // User created 3 sentences, mark word as learned and move to next word
+          if (currentWord) {
+              markWordAsLearned(currentWord.id);
+              console.log('✅ Word marked as learned after 3 sentences:', currentWord.text);
+          }
+
+          // Move to next word or complete session
+          if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
+              // All words completed, end session
+              showToast("Great job! All words learned.", "success");
+              resetSession();
+              navigate('/');
+          } else {
+              setEvaluation(null);
+              setTranscript('');
+              nextWord();
+          }
       } else {
+          // Move to next sentence (0->1 or 1->2)
           setEvaluation(null);
           setTranscript('');
-          nextWord();
+          nextSentence();
+          console.log(`✅ Moving to sentence ${learnState.currentSentenceIndex + 2}/3`);
       }
   };
 
@@ -912,6 +919,9 @@ export const Learn = () => {
                                  {currentWord.text}
                                </strong>.
                              </p>
+                             <p className="text-small text-blue-600 font-semibold mt-2">
+                               Sentence {learnState.currentSentenceIndex + 1} of 3
+                             </p>
                          </div>
 
                          <div className="flex flex-col items-center">
@@ -1018,7 +1028,7 @@ export const Learn = () => {
   if (learnState.currentStep === 'review') {
     const currentWord = learnState.learningQueue[learnState.currentWordIndex];
 
-    if (!currentWord || !currentWord.userSentence || !currentWord.userSentenceTranslation) {
+    if (!currentWord || !currentWord.userSentences || currentWord.userSentences.length === 0) {
       // Skip words without sentences
       nextReviewWord(false);
       return null;
@@ -1056,8 +1066,7 @@ export const Learn = () => {
       <>
         <ReviewWord
           word={currentWord.text}
-          originalSentence={currentWord.userSentence}
-          chineseTranslation={currentWord.userSentenceTranslation}
+          userSentences={currentWord.userSentences}
           onNext={handleReviewComplete}
         />
         <DictionaryModal />
