@@ -187,10 +187,47 @@ export const Vocabulary = () => {
               {learnedWords.map((word) => (
                 <div key={word.id} className="bg-white p-4 rounded border border-gray-300">
                   {/* Word Header */}
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-h3 text-gray-900 flex-1 min-w-0 truncate mr-2">
-                      {word.text}
-                    </span>
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1 min-w-0 mr-2">
+                      <span className="text-h3 text-gray-900 block truncate">
+                        {word.text}
+                      </span>
+                      {/* Review Date */}
+                      {word.nextReviewDate && (() => {
+                        const reviewDate = new Date(word.nextReviewDate);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        reviewDate.setHours(0, 0, 0, 0);
+
+                        const daysUntil = Math.ceil((reviewDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        const isOverdue = daysUntil < 0;
+                        const isToday = daysUntil === 0;
+                        const isSoon = daysUntil > 0 && daysUntil <= 3;
+
+                        // Format: "1月15日"
+                        const month = reviewDate.getMonth() + 1;
+                        const day = reviewDate.getDate();
+
+                        return (
+                          <div className={`text-tiny mt-1 flex items-center gap-1 ${
+                            isOverdue ? 'text-red-600' :
+                            isToday ? 'text-orange-600' :
+                            isSoon ? 'text-blue-600' :
+                            'text-gray-500'
+                          }`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span className="font-medium">
+                              {isOverdue ? `已过期 ${Math.abs(daysUntil)} 天` :
+                               isToday ? '今天复习' :
+                               daysUntil === 1 ? '明天复习' :
+                               `${month}月${day}日复习`}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     <button
                       onClick={() => removeWord(word.id)}
                       className="flex-shrink-0 text-gray-400 hover:text-red-600 p-1 transition-colors"
@@ -201,24 +238,31 @@ export const Vocabulary = () => {
                     </button>
                   </div>
 
-                  {/* User's Sentence */}
-                  {word.userSentence && (
-                    <div className="space-y-2">
-                      <div className="bg-gray-100 p-3 rounded border border-gray-300">
-                        <div className="text-tiny text-gray-500 uppercase mb-1">Your Sentence</div>
-                        <div className="text-small text-gray-900">
-                          <ClickableText text={word.userSentence} />
-                        </div>
+                  {/* User's Sentences */}
+                  {word.userSentences && word.userSentences.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="text-tiny text-gray-500 uppercase font-semibold">
+                        Your Sentences ({word.userSentences.length}/3)
                       </div>
-
-                      {word.userSentenceTranslation && (
-                        <div className="bg-gray-100 p-3 rounded border border-gray-300">
-                          <div className="text-tiny text-gray-500 uppercase mb-1">中文翻译</div>
-                          <div className="text-small text-gray-900">
-                            {word.userSentenceTranslation}
+                      {word.userSentences.map((sent, idx) => (
+                        <div key={idx} className="space-y-2 border-l-2 border-gray-300 pl-3">
+                          <div className="bg-gray-100 p-3 rounded border border-gray-300">
+                            <div className="text-tiny text-gray-500 mb-1">#{idx + 1}</div>
+                            <div className="text-small text-gray-900">
+                              <ClickableText text={sent.sentence} />
+                            </div>
                           </div>
+
+                          {sent.translation && (
+                            <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                              <div className="text-tiny text-gray-500 uppercase mb-1">中文翻译</div>
+                              <div className="text-small text-gray-700">
+                                {sent.translation}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
 
                       {/* Review Stats */}
                       {word.reviewStats && (
@@ -233,12 +277,10 @@ export const Vocabulary = () => {
                         </div>
                       )}
                     </div>
-                  )}
-
-                  {/* No Sentence */}
-                  {!word.userSentence && (
+                  ) : (
+                    /* No Sentence */
                     <div className="text-small text-gray-500 italic">
-                      No practice sentence recorded
+                      No practice sentences recorded
                     </div>
                   )}
                 </div>
