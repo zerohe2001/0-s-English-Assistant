@@ -46,7 +46,7 @@ interface AppState {
   removeWord: (id: string) => void;
   bulkAddWords: (text: string) => void;
   markWordAsLearned: (wordId: string) => void; // ✅ Mark word as learned
-  saveWordSentence: (wordId: string, sentence: string, translation: string) => void; // ✅ Save sentence to Word object
+  addUserSentence: (wordId: string, sentence: string, translation: string) => void; // ✅ Add a sentence to Word's userSentences array
   updateReviewStats: (wordId: string, stats: import('./types').ReviewStats) => void; // ✅ Update review stats
 
   // Learning Session
@@ -55,10 +55,12 @@ interface AppState {
   startLearning: () => void;
   startLearningWithWords: (wordIds: string[]) => void; // ✅ Start learning with specific words
   setWordSubStep: (step: LearnState['wordSubStep']) => void;
+  nextSentence: () => void; // ✅ Move to next sentence in creation phase (0->1->2)
   nextWord: () => void;
   startReviewPhase: () => void; // ✅ Start review phase
   setReviewSubStep: (step: import('./types').ReviewStep) => void; // ✅ Set review substep
   setReviewAttempt: (attempt: string) => void; // ✅ Store current review attempt
+  nextReviewSentence: () => void; // ✅ Move to next sentence in review (0->1->2)
   nextReviewWord: (completed: boolean) => void; // ✅ Move to next word in review
   resetSession: () => void;
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
@@ -134,15 +136,35 @@ export const useStore = create<AppState>()(
           // Update words
           if (wordsData.data && wordsData.data.length > 0) {
             set({
-              words: wordsData.data.map((w: any) => ({
-                id: w.id,
-                text: w.text,
-                learned: w.learned,
-                userSentence: w.user_sentence,
-                userSentenceTranslation: w.user_sentence_translation,
-                reviewStats: w.review_stats,
-                nextReviewDate: w.next_review_date
-              }))
+              words: wordsData.data.map((w: any) => {
+                // Parse userSentences from JSON string or create from legacy fields
+                let userSentences: import('./types').UserSentence[] = [];
+
+                if (w.user_sentences) {
+                  // New format: JSON array of sentences
+                  try {
+                    userSentences = JSON.parse(w.user_sentences);
+                  } catch (e) {
+                    console.error('Failed to parse user_sentences:', e);
+                  }
+                } else if (w.user_sentence && w.user_sentence_translation) {
+                  // Legacy format: single sentence - convert to array
+                  userSentences = [{
+                    sentence: w.user_sentence,
+                    translation: w.user_sentence_translation,
+                    createdAt: w.added_at || new Date().toISOString()
+                  }];
+                }
+
+                return {
+                  id: w.id,
+                  text: w.text,
+                  learned: w.learned,
+                  userSentences,
+                  reviewStats: w.review_stats,
+                  nextReviewDate: w.next_review_date
+                };
+              })
             });
           }
 
@@ -379,22 +401,40 @@ export const useStore = create<AppState>()(
         return { words: [...wordObjects, ...state.words] };
       }),
       markWordAsLearned: (wordId) => {
+        const now = new Date();
+        const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
         set((state) => ({
           words: state.words.map(w =>
             w.id === wordId
-              ? { ...w, learned: true, lastPracticed: new Date().toISOString() }
+              ? {
+                  ...w,
+                  learned: true,
+                  lastPracticed: now.toISOString(),
+                  nextReviewDate: sevenDaysLater.toISOString()  // ✅ Set initial review date to 7 days later
+                }
               : w
           )
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
-      saveWordSentence: (wordId, sentence, translation) => {
+      addUserSentence: (wordId, sentence, translation) => {
         set((state) => ({
-          words: state.words.map(w =>
-            w.id === wordId
-              ? { ...w, userSentence: sentence, userSentenceTranslation: translation }
-              : w
-          )
+          words: state.words.map(w => {
+            if (w.id === wordId) {
+              const existingSentences = w.userSentences || [];
+              const newSentence: import('./types').UserSentence = {
+                sentence,
+                translation,
+                createdAt: new Date().toISOString()
+              };
+              return {
+                ...w,
+                userSentences: [...existingSentences, newSentence]
+              };
+            }
+            return w;
+          })
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
@@ -443,8 +483,10 @@ export const useStore = create<AppState>()(
         learningQueue: [],
         currentWordIndex: 0,
         wordSubStep: 'explanation',
+        currentSentenceIndex: 0, // ✅ Track current sentence being created (0-2)
         reviewSubStep: undefined,
         currentReviewAttempt: undefined,
+        currentReviewSentenceIndex: undefined, // ✅ Track current sentence being reviewed (0-2)
         wordExplanations: {}, // ✅ Initialize empty explanations map
         userSentences: {}, // ✅ Initialize empty user sentences map
       },
@@ -464,6 +506,7 @@ export const useStore = create<AppState>()(
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',
+            currentSentenceIndex: 0 // ✅ Initialize sentence index
               }
         };
       }),
@@ -477,23 +520,31 @@ export const useStore = create<AppState>()(
             learningQueue: queue,
             currentWordIndex: 0,
             wordSubStep: 'explanation',
+            currentSentenceIndex: 0 // ✅ Initialize sentence index
               }
         };
       }),
       setWordSubStep: (step) => set((state) => ({
         learnState: { ...state.learnState, wordSubStep: step }
       })),
+      nextSentence: () => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          currentSentenceIndex: state.learnState.currentSentenceIndex + 1
+        }
+      })),
       nextWord: () => set((state) => {
         const nextIndex = state.learnState.currentWordIndex + 1;
         if (nextIndex >= state.learnState.learningQueue.length) {
           // All words done, ready for review
-          return { learnState: { ...state.learnState, currentStep: 'review', currentWordIndex: 0, reviewSubStep: 'speaking' } };
+          return { learnState: { ...state.learnState, currentStep: 'review', currentWordIndex: 0, currentSentenceIndex: 0, reviewSubStep: 'speaking', currentReviewSentenceIndex: 0 } };
         }
         return {
           learnState: {
             ...state.learnState,
             currentWordIndex: nextIndex,
-            wordSubStep: 'explanation'
+            wordSubStep: 'explanation',
+            currentSentenceIndex: 0 // ✅ Reset sentence index for new word
           }
         };
       }),
@@ -502,7 +553,8 @@ export const useStore = create<AppState>()(
           ...state.learnState,
           currentStep: 'review',
           currentWordIndex: 0,
-          reviewSubStep: 'speaking'
+          reviewSubStep: 'speaking',
+          currentReviewSentenceIndex: 0 // ✅ Initialize review sentence index
         }
       })),
       setReviewSubStep: (step) => set((state) => ({
@@ -510,6 +562,13 @@ export const useStore = create<AppState>()(
       })),
       setReviewAttempt: (attempt) => set((state) => ({
         learnState: { ...state.learnState, currentReviewAttempt: attempt }
+      })),
+      nextReviewSentence: () => set((state) => ({
+        learnState: {
+          ...state.learnState,
+          currentReviewSentenceIndex: (state.learnState.currentReviewSentenceIndex || 0) + 1,
+          reviewSubStep: 'speaking' // Reset to speaking for next sentence
+        }
       })),
       nextReviewWord: (completed) => set((state) => {
         const nextIndex = state.learnState.currentWordIndex + 1;
@@ -521,7 +580,8 @@ export const useStore = create<AppState>()(
               ...state.learnState,
               currentStep: 'input-context',
               reviewSubStep: undefined,
-              currentReviewAttempt: undefined
+              currentReviewAttempt: undefined,
+              currentReviewSentenceIndex: undefined
             }
           };
         }
@@ -531,7 +591,8 @@ export const useStore = create<AppState>()(
             ...state.learnState,
             currentWordIndex: nextIndex,
             reviewSubStep: 'speaking',
-            currentReviewAttempt: undefined
+            currentReviewAttempt: undefined,
+            currentReviewSentenceIndex: 0 // ✅ Reset to first sentence for next word
           }
         };
       }),
@@ -542,8 +603,10 @@ export const useStore = create<AppState>()(
           learningQueue: [],
           currentWordIndex: 0,
           wordSubStep: 'explanation',
+          currentSentenceIndex: 0, // ✅ Reset sentence index
           reviewSubStep: undefined, // ✅ Clear review substep
           currentReviewAttempt: undefined, // ✅ Clear review attempt
+          currentReviewSentenceIndex: undefined, // ✅ Clear review sentence index
           wordExplanations: {}, // ✅ Clear explanations on reset
           userSentences: {} // ✅ Clear user sentences on reset
         }

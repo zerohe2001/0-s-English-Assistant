@@ -13,18 +13,42 @@ import { useStore } from './store';
 import DictionaryModal from './components/DictionaryModal';
 import ToastContainer from './components/ToastContainer';
 
-const NavLink = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) => {
+const NavLink = ({ to, icon, label, badge }: { to: string; icon: React.ReactNode; label: string; badge?: number }) => {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
     <Link to={to} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
-      {icon}
+      <div className="relative">
+        {icon}
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </div>
       <span className="text-[11px] font-medium">{label}</span>
     </Link>
   );
 };
 
 const Layout = ({ children }: PropsWithChildren) => {
+  const { words } = useStore();
+
+  // Calculate words due for review today
+  const isDueForReview = (word: typeof words[0]): boolean => {
+    if (!word.userSentences || word.userSentences.length === 0) return false;
+    if (!word.nextReviewDate) return true;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const reviewDate = new Date(word.nextReviewDate);
+    reviewDate.setHours(0, 0, 0, 0);
+
+    return today >= reviewDate;
+  };
+
+  const reviewCount = words.filter(isDueForReview).length;
+
   return (
     <div className="h-full flex flex-col bg-white relative">
       <main className="flex-1 overflow-y-auto no-scrollbar content-with-nav">
@@ -35,6 +59,7 @@ const Layout = ({ children }: PropsWithChildren) => {
         <NavLink
           to="/"
           label="Today"
+          badge={reviewCount}
           icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
         />
         <NavLink

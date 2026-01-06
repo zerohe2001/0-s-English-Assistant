@@ -12,7 +12,8 @@ export const Today = () => {
 
   // Words due for review today
   const isDueForReview = (word: typeof words[0]): boolean => {
-    if (!word.userSentence || !word.userSentenceTranslation) return false;
+    // Only review words that have at least one sentence
+    if (!word.userSentences || word.userSentences.length === 0) return false;
     if (!word.nextReviewDate) return true;
 
     const today = new Date();
@@ -110,8 +111,10 @@ export const Today = () => {
         {/* Review Words */}
         <div
           onClick={wordsToReview.length > 0 ? handleStartReview : undefined}
-          className={`bg-white border border-gray-300 rounded p-4 transition-colors ${
-            wordsToReview.length > 0 ? 'cursor-pointer hover:bg-gray-50' : ''
+          className={`bg-white rounded p-4 transition-colors ${
+            wordsToReview.length > 0
+              ? 'border-2 border-orange-400 shadow-sm cursor-pointer hover:bg-orange-50'
+              : 'border border-gray-300'
           }`}
         >
           <div className="flex items-start justify-between mb-2">
