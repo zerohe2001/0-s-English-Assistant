@@ -723,7 +723,7 @@ export const Learn = () => {
              >
                返回
              </button>
-             <button onClick={resetSession} className="text-small text-gray-500 hover:text-red-600 transition-colors">Exit</button>
+             <button onClick={() => navigate('/')} className="text-small text-gray-500 hover:text-red-600 transition-colors">Exit</button>
            </div>
         </div>
 

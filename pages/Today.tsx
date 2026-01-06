@@ -4,7 +4,7 @@ import { useStore } from '../store';
 
 export const Today = () => {
   const navigate = useNavigate();
-  const { profile, words, learnState, startLearning, startReviewPhase, readingState, showToast } = useStore();
+  const { profile, words, learnState, startLearning, startReviewPhase, readingState, resetSession, showToast } = useStore();
 
   // Calculate today's tasks
   const unlearnedWords = words.filter(w => !w.learned);
@@ -61,6 +61,12 @@ export const Today = () => {
     navigate('/learn');
   };
 
+  const handleEndSession = () => {
+    // Actually end the learning session and clear all data
+    resetSession();
+    showToast('Session ended', 'info');
+  };
+
   const handleStartReview = () => {
     if (wordsToReview.length === 0) {
       showToast('No reviews due today. Great work!', 'success');
@@ -114,9 +120,18 @@ export const Today = () => {
               <p className="text-small text-gray-900 font-medium mb-1">
                 Continue from {sessionProgress}
               </p>
-              <p className="text-tiny text-gray-500">
+              <p className="text-tiny text-gray-500 mb-3">
                 {learnState.learningQueue.map(w => w.text).join(', ')}
               </p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card click
+                  handleEndSession();
+                }}
+                className="text-tiny text-gray-500 hover:text-red-600 underline transition-colors"
+              >
+                ✕ End Session
+              </button>
             </div>
           ) : wordsToLearn.length > 0 ? (
             <p className="text-small text-gray-500">
