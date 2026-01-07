@@ -2,16 +2,17 @@
 import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-// ✅ Use Gemini for text generation
-import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, compareTextSimilarity, quickCheckSentence } from '../services/gemini';
+// ✅ Use Gemini API via Edge Function for security
+import { generateWordExplanation, evaluateUserSentence, evaluateShadowing, translateToChinese, compareTextSimilarity, quickCheckSentence } from '../services/geminiClient';
 import { speak, preloadAudio } from '../services/tts';
+import { withErrorHandling, withPerformanceTracking, logAndNotify } from '../utils/errorHandler';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
-import ReviewWord from '../components/ReviewWord';
 import { ContextInput } from '../components/ContextInput';
 import { WordExplanation as WordExplanationComponent } from '../components/WordExplanation';
 import { ShadowingPractice } from '../components/ShadowingPractice';
 import { SentenceCreation } from '../components/SentenceCreation';
+import { ReviewMode } from '../components/ReviewMode';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
@@ -130,30 +131,32 @@ export const Learn = () => {
     try {
       let completedCount = 0;
 
-      // Load all words in parallel
-      const promises = wordsToLoad.map(async (word) => {
-        try {
-          const result = await generateWordExplanation(word.text, profile, learnState.dailyContext);
-          setWordExplanation(word.id, result);
+      // Load all words in parallel with performance tracking
+      await withPerformanceTracking(async () => {
+        const promises = wordsToLoad.map(async (word) => {
+          const result = await withErrorHandling(
+            () => generateWordExplanation(word.text, profile, learnState.dailyContext),
+            (error) => console.error(`❌ Failed to load ${word.text}:`, error),
+            { maxRetries: 1, retryDelay: 500 }
+          );
+
+          if (result) {
+            setWordExplanation(word.id, result);
+            // Preload audio in background
+            if (result.example) {
+              preloadAudio(result.example);
+            }
+          }
+
           completedCount++;
           setLoadingProgress({ current: completedCount, total: wordsToLoad.length });
           console.log(`✅ Loaded ${completedCount}/${wordsToLoad.length}: ${word.text}`);
+        });
 
-          // Preload audio in background
-          if (result.example) {
-            preloadAudio(result.example);
-          }
-        } catch (error) {
-          console.error(`❌ Failed to load ${word.text}:`, error);
-          completedCount++;
-          setLoadingProgress({ current: completedCount, total: wordsToLoad.length });
-        }
-      });
-
-      await Promise.all(promises);
-      console.log(`🎉 Batch loading completed! Loaded ${wordsToLoad.length} words`);
+        await Promise.all(promises);
+      }, `Batch load ${wordsToLoad.length} words`);
     } catch (error) {
-      console.error('❌ Batch loading error:', error);
+      logAndNotify(error, showToast, "Batch loading failed");
     } finally {
       setIsLoading(false);
       setLoadingProgress(null);
@@ -286,8 +289,7 @@ export const Learn = () => {
             setEvaluation(result);
         }
       } catch (error) {
-          console.error("Evaluation failed", error);
-          showToast("Failed to evaluate speech. Please try again.", "error");
+          logAndNotify(error, showToast, "Evaluation failed");
       } finally {
           processingRef.current = false;
           setIsLoading(false);
@@ -616,12 +618,6 @@ export const Learn = () => {
   if (learnState.currentStep === 'review') {
     const currentWord = learnState.learningQueue[learnState.currentWordIndex];
 
-    if (!currentWord || !currentWord.userSentences || currentWord.userSentences.length === 0) {
-      // Skip words without sentences
-      nextReviewWord(false);
-      return null;
-    }
-
     const handleReviewComplete = async (stats: { retryCount: number, skipped: boolean }) => {
       // Update review stats for this word
       updateReviewStats(currentWord.id, stats);
@@ -638,24 +634,15 @@ export const Learn = () => {
       }
     };
 
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full space-y-4 animate-fade-in p-6">
-          <div className="w-16 h-16 border-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-center">
-            <p className="text-h2 text-gray-900">准备对话场景</p>
-            <p className="text-body text-gray-500 mt-2">正在生成个性化对话...</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <>
-        <ReviewWord
-          word={currentWord.text}
-          userSentences={currentWord.userSentences}
-          onNext={handleReviewComplete}
+        <ReviewMode
+          currentWord={currentWord}
+          currentWordIndex={learnState.currentWordIndex}
+          totalWords={learnState.learningQueue.length}
+          isLoading={isLoading}
+          onReviewComplete={handleReviewComplete}
+          onSkipWord={() => nextReviewWord(false)}
         />
         <DictionaryModal />
       </>
