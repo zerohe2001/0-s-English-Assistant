@@ -75,12 +75,17 @@ export const quickCheckSentence = (
   const wordLower = word.toLowerCase();
   const sentenceLower = trimmed.toLowerCase();
 
-  // 1. Check for word stem/variations (allow misspellings - AI will catch them)
-  // Accept if word root appears (e.g., "tilt" matches "tilting", "tiltling")
-  const wordRoot = wordLower.replace(/(ing|ed|s|es)$/, ''); // Remove common endings
-  const hasWordStem = sentenceLower.includes(wordRoot);
+  // 1. Check for word presence with flexible matching
+  // Strategy: Check if the first 4+ characters of the word appear in the sentence
+  // This handles: "tilt" → "tilting", "tiltling", "tilted", etc.
+  const minMatchLength = Math.min(4, wordLower.length - 1); // At least 4 chars or word-1
+  const wordPrefix = wordLower.substring(0, minMatchLength);
 
-  if (!hasWordStem) {
+  // Also check full word (for short words like "run", "go")
+  const hasWord = sentenceLower.includes(wordLower) ||
+                  sentenceLower.includes(wordPrefix);
+
+  if (!hasWord) {
     return {
       passed: false,
       feedback: `Please use the word "${word}" in your sentence.`
