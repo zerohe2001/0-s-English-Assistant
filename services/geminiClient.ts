@@ -63,6 +63,8 @@ export const compareTextSimilarity = (
 /**
  * Quick pre-check for common sentence errors (instant, no AI call)
  * Returns instant feedback for obvious mistakes
+ *
+ * ⚠️ IMPORTANT: Keep checks minimal - let AI handle grammar/spelling
  */
 export const quickCheckSentence = (
   word: string,
@@ -73,20 +75,24 @@ export const quickCheckSentence = (
   const wordLower = word.toLowerCase();
   const sentenceLower = trimmed.toLowerCase();
 
-  // 1. Must use the target word
-  if (!sentenceLower.includes(wordLower)) {
+  // 1. Check for word stem/variations (allow misspellings - AI will catch them)
+  // Accept if word root appears (e.g., "tilt" matches "tilting", "tiltling")
+  const wordRoot = wordLower.replace(/(ing|ed|s|es)$/, ''); // Remove common endings
+  const hasWordStem = sentenceLower.includes(wordRoot);
+
+  if (!hasWordStem) {
     return {
       passed: false,
       feedback: `Please use the word "${word}" in your sentence.`
     };
   }
 
-  // 2. Must be at least 5 words (complete sentence)
+  // 2. Must be at least 4 words (very basic check)
   const wordCount = trimmed.split(/\s+/).length;
-  if (wordCount < 5) {
+  if (wordCount < 4) {
     return {
       passed: false,
-      feedback: `Please write a complete sentence (at least 5 words). You wrote ${wordCount}.`
+      feedback: `Please write a complete sentence (at least 4 words). You wrote ${wordCount}.`
     };
   }
 
@@ -103,17 +109,7 @@ export const quickCheckSentence = (
     }
   }
 
-  // 4. Basic completeness check (has subject pronoun/article)
-  const hasSubject = /\b(i|you|he|she|it|we|they|the|this|that|a|an|my|your|his|her|our|their)\b/i.test(sentenceLower);
-
-  if (!hasSubject) {
-    return {
-      passed: false,
-      feedback: "Please write a complete sentence with a subject (I, you, he, she, the, etc.)."
-    };
-  }
-
-  // ✅ Passed all quick checks - ready for AI evaluation
+  // ✅ Passed basic checks - let AI handle grammar/spelling evaluation
   return { passed: true };
 };
 
