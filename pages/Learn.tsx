@@ -526,15 +526,30 @@ export const Learn = () => {
                  <div className={`h-1 w-6 rounded ${learnState.wordSubStep === 'creation' ? 'bg-gray-900' : 'bg-gray-300'}`}></div>
              </div>
            </div>
-           <div className="flex gap-3">
+           <div className="flex items-center justify-between">
+             {/* Left: Back button (primary action) */}
              <button
                onClick={handleGoBack}
                disabled={isAtBeginning}
-               className={`text-small transition-colors ${isAtBeginning ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-gray-900'}`}
+               className={`flex items-center gap-1 px-4 py-2 rounded transition-colors ${
+                 isAtBeginning
+                   ? 'text-gray-300 cursor-not-allowed'
+                   : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-medium'
+               }`}
              >
-               返回
+               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+               </svg>
+               Back
              </button>
-             <button onClick={() => navigate('/')} className="text-small text-gray-500 hover:text-red-600 transition-colors">Exit</button>
+
+             {/* Right: Exit button (secondary action, subtle) */}
+             <button
+               onClick={() => navigate('/')}
+               className="text-small text-gray-400 hover:text-red-500 transition-colors underline"
+             >
+               Exit
+             </button>
            </div>
         </div>
 
