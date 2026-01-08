@@ -102,6 +102,28 @@ export const Learn = () => {
     setShadowingFeedback(null);
   }, [learnState.wordSubStep, learnState.currentWordIndex]);
 
+  // ✅ Restore saved sentence when returning to completed sentence via Back button
+  useEffect(() => {
+    if (learnState.wordSubStep === 'creation' && currentWord?.id) {
+      const savedSentences = learnState.userSentences?.[currentWord.id];
+
+      if (savedSentences && savedSentences[learnState.currentSentenceIndex]) {
+        const saved = savedSentences[learnState.currentSentenceIndex];
+
+        // Restore sentence and show as "already completed"
+        setTranscript(saved.sentence);
+        setEvaluation({
+          isCorrect: true,
+          feedback: "This sentence was previously saved and validated.",
+          betterWay: saved.sentence
+        });
+      } else {
+        // New sentence - clear state (already handled by previous useEffect)
+        // No action needed here
+      }
+    }
+  }, [learnState.currentSentenceIndex, learnState.wordSubStep, currentWord?.id, learnState.userSentences]);
+
   // ✅ Batch preload all word explanations
   const batchPreloadExplanations = async () => {
     const wordsToLoad = learnState.learningQueue.filter(word => {
