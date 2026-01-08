@@ -330,7 +330,7 @@ export const Learn = () => {
   };
 
   // ✅ Handle Next from Creation - saves sentence and moves to next sentence or word
-  const handleNextFromCreation = async () => {
+  const handleNextFromCreation = () => {
       if (currentWord && transcript && transcript.trim()) {
           const userSentence = transcript.trim();
 
@@ -338,17 +338,18 @@ export const Learn = () => {
           saveUserSentence(currentWord.id, userSentence);
           console.log('✅ Saved user sentence for scene:', userSentence);
 
-          // ✅ FIX: Try translation, then add to userSentences array
-          try {
-            const translation = await translateToChinese(userSentence);
-            addUserSentence(currentWord.id, userSentence, translation);
-            console.log(`✅ Added sentence ${learnState.currentSentenceIndex + 1}/3 to Word with translation:`, translation);
-          } catch (translationError) {
-            console.error('❌ Translation failed:', translationError);
-            // Save with placeholder translation - can retry later
-            addUserSentence(currentWord.id, userSentence, '[Translation pending]');
-            showToast('Sentence saved (translation failed)', 'warning');
-          }
+          // ✅ PERFORMANCE FIX: Translate in background (don't block UI)
+          // User can immediately move to next sentence while translation happens
+          translateToChinese(userSentence)
+            .then(translation => {
+              addUserSentence(currentWord.id, userSentence, translation);
+              console.log(`✅ Translation completed in background (sentence ${learnState.currentSentenceIndex + 1}/3):`, translation);
+            })
+            .catch(translationError => {
+              console.error('❌ Background translation failed:', translationError);
+              // Save with placeholder translation - can retry later
+              addUserSentence(currentWord.id, userSentence, '[Translation pending]');
+            });
       }
 
       // Check if user has created 3 sentences
@@ -371,11 +372,11 @@ export const Learn = () => {
               nextWord();
           }
       } else {
-          // Move to next sentence (0->1 or 1->2)
+          // Move to next sentence (0->1 or 1->2) - INSTANT, no waiting!
           setEvaluation(null);
           setTranscript('');
           nextSentence();
-          console.log(`✅ Moving to sentence ${learnState.currentSentenceIndex + 2}/3`);
+          console.log(`✅ Moving to sentence ${learnState.currentSentenceIndex + 2}/3 (translation in background)`);
       }
   };
 
