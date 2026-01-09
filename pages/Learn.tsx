@@ -95,14 +95,29 @@ export const Learn = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [learnState.currentWordIndex, learnState.currentStep]);
 
-  // Clear state when step changes
+  // Clear state when moving forward (but not when going back)
+  // This runs when wordSubStep or currentWordIndex changes
+  const prevSubStepRef = useRef(learnState.wordSubStep);
+  const prevSentenceIndexRef = useRef(learnState.currentSentenceIndex);
+
   useEffect(() => {
+    // Don't clear if we're in creation mode - let the restoration useEffect handle it
+    if (learnState.wordSubStep === 'creation') {
+      return;
+    }
+
+    // Clear state for other substeps
     setTranscript('');
     setEvaluation(null);
     setShadowingFeedback(null);
+
+    // Update refs
+    prevSubStepRef.current = learnState.wordSubStep;
+    prevSentenceIndexRef.current = learnState.currentSentenceIndex;
   }, [learnState.wordSubStep, learnState.currentWordIndex]);
 
   // ✅ Restore saved sentence when returning to completed sentence via Back button
+  // OR clear state when moving to new sentence
   useEffect(() => {
     if (learnState.wordSubStep === 'creation' && currentWord?.id) {
       const savedSentences = learnState.userSentences?.[currentWord.id];
@@ -111,6 +126,7 @@ export const Learn = () => {
         const saved = savedSentences[learnState.currentSentenceIndex];
 
         // Restore sentence and show as "already completed"
+        console.log(`✅ Restoring saved sentence ${learnState.currentSentenceIndex + 1}:`, saved.sentence);
         setTranscript(saved.sentence);
         setEvaluation({
           isCorrect: true,
@@ -118,8 +134,10 @@ export const Learn = () => {
           betterWay: saved.sentence
         });
       } else {
-        // New sentence - clear state (already handled by previous useEffect)
-        // No action needed here
+        // New sentence - clear state to show input interface
+        console.log(`🆕 New sentence ${learnState.currentSentenceIndex + 1} - clearing state`);
+        setTranscript('');
+        setEvaluation(null);
       }
     }
   }, [learnState.currentSentenceIndex, learnState.wordSubStep, currentWord?.id, learnState.userSentences]);
@@ -421,11 +439,14 @@ export const Learn = () => {
 
   // ✅ Handle Back button - go to previous step
   const handleGoBack = () => {
-    // Clear current UI state when going back
-    setTranscript('');
+    // Don't clear transcript/evaluation here - let useEffect handle restoration
+    // Only clear input-related state that should always be reset
     setTextInput('');
-    setEvaluation(null);
-    setShadowingFeedback(null);
+
+    // Only clear shadowing feedback when actually leaving shadowing step
+    if (learnState.wordSubStep === 'shadowing') {
+      setShadowingFeedback(null);
+    }
 
     // Navigate to previous step
     goBackStep();
