@@ -49,6 +49,12 @@ export const Review = () => {
   // Review mode
   if (currentWordIndex !== null && reviewWords[currentWordIndex]) {
     const word = reviewWords[currentWordIndex];
+
+    // 🐛 DEBUG: Log what we're passing to ReviewWord
+    console.log('=== Review.tsx Debug ===');
+    console.log('Word:', word.text);
+    console.log('User sentences being passed:', word.userSentences);
+
     return (
       <>
         <ReviewWord

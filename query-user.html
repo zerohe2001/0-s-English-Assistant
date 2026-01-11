@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase User Query Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 4px;
+            border-left: 4px solid #3b82f6;
+        }
+        .error {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        .success {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase User Query Tool</h1>
+
+        <div class="warning-box">
+            <strong>⚠️ 重要提示：</strong> Service Role Key 是管理员密钥，拥有完全访问权限。不要分享或提交到 Git！
+        </div>
+
+        <div class="info-box">
+            <strong>📝 如何获取 Service Role Key：</strong><br>
+            1. 访问：<a href="https://ibmjhqtxdqodohlbarnz.supabase.co" target="_blank">Supabase Dashboard</a><br>
+            2. Settings (齿轮图标) → API<br>
+            3. 找到 "service_role" 部分，点击 "Reveal" 显示密钥<br>
+            4. 复制并粘贴到下面的输入框
+        </div>
+
+        <div class="input-group">
+            <label>Supabase URL:</label>
+            <input type="text" id="supabaseUrl" value="https://ibmjhqtxdqodohlbarnz.supabase.co">
+        </div>
+
+        <div class="input-group">
+            <label>Service Role Key (管理员密钥):</label>
+            <textarea id="serviceKey" rows="3" placeholder="粘贴你的 service_role key..."></textarea>
+        </div>
+
+        <div class="input-group">
+            <label>要查询的用户邮箱:</label>
+            <input type="email" id="userEmail" value="lin.hecafa@gmail.com">
+        </div>
+
+        <button onclick="queryUser()" id="queryBtn">🔍 查询用户数据</button>
+
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        async function queryUser() {
+            const resultDiv = document.getElementById('result');
+            const queryBtn = document.getElementById('queryBtn');
+            const supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+            const serviceKey = document.getElementById('serviceKey').value.trim();
+            const userEmail = document.getElementById('userEmail').value.trim();
+
+            if (!supabaseUrl || !serviceKey || !userEmail) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = '❌ 请填写所有必填项';
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            queryBtn.disabled = true;
+            queryBtn.textContent = '⏳ 查询中...';
+            resultDiv.style.display = 'block';
+            resultDiv.className = '';
+            resultDiv.innerHTML = '⏳ 正在连接 Supabase...';
+
+            try {
+                const { createClient } = supabase;
+                const client = createClient(supabaseUrl, serviceKey, {
+                    auth: {
+                        autoRefreshToken: false,
+                        persistSession: false
+                    }
+                });
+
+                resultDiv.innerHTML = '⏳ 正在查询用户列表...';
+
+                // Query all users using admin API
+                const { data: { users }, error: usersError } = await client.auth.admin.listUsers();
+
+                if (usersError) {
+                    throw new Error('查询用户失败: ' + usersError.message);
+                }
+
+                const targetUser = users.find(u => u.email === userEmail);
+
+                if (!targetUser) {
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ 未找到用户: ${userEmail}</h3>
+                        <p>📊 数据库中共有 ${users.length} 个用户</p>
+                        ${users.length > 0 ? `
+                            <h4>👥 已注册用户：</h4>
+                            <ul>
+                                ${users.map(u => `<li>${u.email} (ID: ${u.id})</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                    `;
+                    return;
+                }
+
+                // User found, get all data
+                resultDiv.innerHTML = '⏳ 正在获取用户数据...';
+
+                const userId = targetUser.id;
+
+                // Get profile
+                const { data: profile } = await client
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+
+                // Get words
+                const { data: words } = await client
+                    .from('words')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false });
+
+                // Get word explanations
+                const { data: explanations } = await client
+                    .from('word_explanations')
+                    .select('*')
+                    .eq('user_id', userId);
+
+                // Get token usage
+                const { data: tokenUsage } = await client
+                    .from('token_usage')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+
+                // Display results
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h2>✅ 查询成功！</h2>
+
+                    <h3>👤 用户信息</h3>
+                    <pre>${JSON.stringify({
+                        email: targetUser.email,
+                        id: targetUser.id,
+                        created_at: targetUser.created_at,
+                        last_sign_in_at: targetUser.last_sign_in_at,
+                        email_confirmed: !!targetUser.email_confirmed_at
+                    }, null, 2)}</pre>
+
+                    <h3>📋 个人资料</h3>
+                    <pre>${profile ? JSON.stringify(profile, null, 2) : '未设置'}</pre>
+
+                    <h3>📚 单词列表 (${words?.length || 0} 个)</h3>
+                    ${words && words.length > 0 ? `
+                        <p>已学习: ${words.filter(w => w.learned).length} | 学习中: ${words.filter(w => !w.learned).length}</p>
+                        <details>
+                            <summary>查看前 20 个单词</summary>
+                            <pre>${JSON.stringify(words.slice(0, 20), null, 2)}</pre>
+                        </details>
+                        <details>
+                            <summary>查看完整单词列表</summary>
+                            <pre>${JSON.stringify(words, null, 2)}</pre>
+                        </details>
+                    ` : '<p>暂无单词</p>'}
+
+                    <h3>💡 缓存的单词解释 (${explanations?.length || 0} 个)</h3>
+                    ${explanations && explanations.length > 0 ? `
+                        <details>
+                            <summary>查看详情</summary>
+                            <pre>${JSON.stringify(explanations, null, 2)}</pre>
+                        </details>
+                    ` : '<p>暂无缓存</p>'}
+
+                    <h3>💰 API 使用统计</h3>
+                    <pre>${tokenUsage ? JSON.stringify(tokenUsage, null, 2) : '暂无数据'}</pre>
+                `;
+
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h3>❌ 查询失败</h3>
+                    <p><strong>错误信息：</strong></p>
+                    <pre>${error.message}</pre>
+                    <p><strong>可能的原因：</strong></p>
+                    <ul>
+                        <li>Service Role Key 不正确</li>
+                        <li>Supabase URL 不正确</li>
+                        <li>网络连接问题</li>
+                    </ul>
+                `;
+            } finally {
+                queryBtn.disabled = false;
+                queryBtn.textContent = '🔍 查询用户数据';
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('userEmail').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') queryUser();
+        });
+    </script>
+</body>
+</html>

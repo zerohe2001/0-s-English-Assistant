@@ -41,6 +41,17 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const originalSentence = currentSentence?.sentence || '';
   const chineseTranslation = currentSentence?.translation || '';
 
+  // 🐛 DEBUG: Log the data to find the issue
+  useEffect(() => {
+    console.log('=== ReviewWord Debug ===');
+    console.log('Total sentences:', userSentences.length);
+    console.log('Current index:', currentSentenceIndex);
+    console.log('Current sentence object:', currentSentence);
+    console.log('Original sentence:', originalSentence);
+    console.log('Chinese translation:', chineseTranslation);
+    console.log('All userSentences:', userSentences);
+  }, [currentSentenceIndex, userSentences]);
+
   // Initialize Deepgram Recorder
   useEffect(() => {
     const recorder = new DeepgramRecorder();
