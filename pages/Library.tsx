@@ -277,7 +277,11 @@ export const Library = () => {
                   <div className="flex-1">
                     <p className="text-body text-gray-900">{word.text}</p>
                     <p className="text-tiny text-gray-500 mt-1">
-                      Added {new Date(word.addedAt).toLocaleDateString()}
+                      {word.learned && word.nextReviewDate ? (
+                        <>Review on {new Date(word.nextReviewDate).toLocaleDateString()}</>
+                      ) : (
+                        <>Added {new Date(word.addedAt).toLocaleDateString()}</>
+                      )}
                       {word.learned && ' • Learned'}
                     </p>
                   </div>
