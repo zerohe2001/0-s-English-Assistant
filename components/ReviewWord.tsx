@@ -116,11 +116,11 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     // automatically after stop(), so we wait a bit for it to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Analyze sentence with Claude
+    // Analyze sentence
     if (userSentence.trim()) {
       setIsAnalyzing(true);
       try {
-        const result = await compareSentences(originalSentence, userSentence.trim());
+        const result = await compareWithOriginal(originalSentence, userSentence.trim());
         setComparison(result);
         setStep('comparing');
       } catch (error) {
@@ -155,10 +155,10 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     setUserSentence(text);
     setTextInput('');
 
-    // Analyze sentence with Claude
+    // Analyze sentence
     setIsAnalyzing(true);
     try {
-      const result = await compareSentences(originalSentence, text);
+      const result = await compareWithOriginal(originalSentence, text);
       setComparison(result);
       setStep('comparing');
     } catch (error) {
@@ -167,6 +167,38 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // ✅ Fast comparison with optional AI fallback
+  const compareWithOriginal = async (original: string, userInput: string) => {
+    // Normalize for comparison (lowercase, trim, remove extra spaces)
+    const normalizedOriginal = original.toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedUser = userInput.toLowerCase().replace(/\s+/g, ' ').trim();
+
+    // Fast check: exact match (ignoring case and whitespace)
+    if (normalizedOriginal === normalizedUser) {
+      console.log('✅ Perfect match! No AI call needed.');
+      return {
+        similarity: 100,
+        feedback: 'Perfect! Your sentence matches exactly.',
+        differences: []
+      };
+    }
+
+    // Fast check: very similar (ignore punctuation)
+    const stripPunctuation = (str: string) => str.replace(/[.,!?;:]/g, '').trim();
+    if (stripPunctuation(normalizedOriginal) === stripPunctuation(normalizedUser)) {
+      console.log('✅ Perfect match (ignoring punctuation)! No AI call needed.');
+      return {
+        similarity: 100,
+        feedback: 'Perfect! Your sentence matches exactly.',
+        differences: []
+      };
+    }
+
+    // Not identical - use AI for semantic comparison
+    console.log('🤖 Calling AI for semantic comparison...');
+    return await compareSentences(original, userInput);
   };
 
   const handleNext = () => {
