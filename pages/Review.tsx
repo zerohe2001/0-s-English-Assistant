@@ -12,7 +12,9 @@ export const Review = () => {
   const isDueForReview = (word: typeof words[0]): boolean => {
     // Only review words that have at least one sentence
     if (!word.userSentences || word.userSentences.length === 0) return false;
-    if (!word.nextReviewDate) return true;
+
+    // Must be marked as learned AND have a review date
+    if (!word.learned || !word.nextReviewDate) return false;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
