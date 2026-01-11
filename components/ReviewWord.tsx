@@ -224,7 +224,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
             Translate to English
           </div>
           <div className="text-h2 text-gray-900 leading-relaxed">
-            <ClickableText text={chineseTranslation} />
+            {chineseTranslation}
           </div>
         </div>
 
