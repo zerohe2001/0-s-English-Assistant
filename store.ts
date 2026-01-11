@@ -709,15 +709,22 @@ export const useStore = create<AppState>()(
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
-      saveUserSentence: (wordId, sentence) => set((state) => ({
-        learnState: {
-          ...state.learnState,
-          userSentences: {
-            ...state.learnState.userSentences,
-            [wordId]: sentence
+      saveUserSentence: (wordId, sentence) => set((state) => {
+        const currentIndex = state.learnState.currentSentenceIndex;
+        const existingSentences = state.learnState.userSentences?.[wordId] || [];
+        const updatedSentences = [...existingSentences];
+        updatedSentences[currentIndex] = sentence;
+
+        return {
+          learnState: {
+            ...state.learnState,
+            userSentences: {
+              ...state.learnState.userSentences,
+              [wordId]: updatedSentences
+            }
           }
-        }
-      })),
+        };
+      }),
 
       // ✅ Text-based conversation (DEPRECATED - Feature removed, kept for compatibility)
       startConversation: (questions) => {
