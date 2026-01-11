@@ -482,11 +482,17 @@ export const Learn = () => {
 
       setDailyContext(context);
 
-      // Manually transition to learning step (startLearning would reset to input-context)
-      const queue = words.filter(w => !w.learned).slice(0, 5);
-      if (queue.length === 0 && words.length > 0) {
-          queue.push(...[...words].sort(() => 0.5 - Math.random()).slice(0, 5));
+      // ✅ Use existing learningQueue if available (from Vocabulary selection)
+      // Otherwise, select unlearned words
+      let queue = learnState.learningQueue;
+      if (!queue || queue.length === 0) {
+        queue = words.filter(w => !w.learned).slice(0, 5);
+        if (queue.length === 0 && words.length > 0) {
+            queue = [...words].sort(() => 0.5 - Math.random()).slice(0, 5);
+        }
       }
+
+      console.log('🎯 Starting session with queue:', queue.map(w => w.text));
 
       // Set learning state manually
       useStore.setState((state) => ({
