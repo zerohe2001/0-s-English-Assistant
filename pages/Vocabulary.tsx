@@ -45,7 +45,7 @@ export const Vocabulary = () => {
     setDailyContext('');
     startLearningWithWords(selectedWordIds);
     setSelectedWordIds([]);
-    navigate('/');
+    navigate('/learn');
   };
 
   return (
