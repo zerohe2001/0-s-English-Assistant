@@ -157,7 +157,8 @@ export const useStore = create<AppState>()(
                   learned: w.learned,
                   userSentences,
                   reviewStats: w.review_stats,
-                  nextReviewDate: w.next_review_date
+                  nextReviewDate: w.next_review_date,
+                  reviewCount: w.review_count || 0
                 };
               })
             });
@@ -431,7 +432,7 @@ export const useStore = create<AppState>()(
       },
       markWordAsLearned: (wordId) => {
         const now = new Date();
-        const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const oneDayLater = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
         set((state) => ({
           words: state.words.map(w =>
@@ -440,7 +441,8 @@ export const useStore = create<AppState>()(
                   ...w,
                   learned: true,
                   lastPracticed: now.toISOString(),
-                  nextReviewDate: sevenDaysLater.toISOString()  // ✅ Set initial review date to 7 days later
+                  nextReviewDate: oneDayLater.toISOString(),  // ✅ First review: 1 day later (Ebbinghaus curve)
+                  reviewCount: 0  // ✅ Track number of successful reviews
                 }
               : w
           )
@@ -468,20 +470,32 @@ export const useStore = create<AppState>()(
         setTimeout(() => get().syncDataToCloud(), 100);
       },
       updateReviewStats: (wordId, stats) => set((state) => {
-        // ✅ Calculate next review date based on performance
-        const calculateNextReviewDate = (stats: import('./types').ReviewStats): string => {
+        // ✅ Calculate next review date based on Ebbinghaus forgetting curve
+        const calculateNextReviewDate = (
+          stats: import('./types').ReviewStats,
+          currentReviewCount: number
+        ): string => {
           const today = new Date();
           let daysToAdd = 1; // default: tomorrow
 
+          // Performance-based intervals following spaced repetition
           if (stats.skipped || stats.retryCount >= 3) {
-            // 跳过或重试≥3次 → 明天复习
+            // Poor performance → Review tomorrow
             daysToAdd = 1;
           } else if (stats.retryCount >= 1) {
-            // 重试1-2次 → 3天后复习
-            daysToAdd = 3;
+            // Moderate performance → Shorter intervals
+            if (currentReviewCount === 0) daysToAdd = 2;       // 2 days
+            else if (currentReviewCount === 1) daysToAdd = 3;  // 3 days
+            else if (currentReviewCount === 2) daysToAdd = 7;  // 7 days
+            else daysToAdd = 15;                               // 15 days
           } else {
-            // 完美通过（retry=0） → 7天后复习
-            daysToAdd = 7;
+            // Perfect performance → Standard Ebbinghaus intervals
+            // Review count: 0→1, 1→2, 2→3, 3→4, 4→5, 5+
+            if (currentReviewCount === 0) daysToAdd = 3;       // Day 1 → Day 4
+            else if (currentReviewCount === 1) daysToAdd = 7;  // Day 4 → Day 11
+            else if (currentReviewCount === 2) daysToAdd = 15; // Day 11 → Day 26
+            else if (currentReviewCount === 3) daysToAdd = 30; // Day 26 → Day 56
+            else daysToAdd = 90;                               // Day 56+ → 3 months
           }
 
           const nextDate = new Date(today);
@@ -489,20 +503,28 @@ export const useStore = create<AppState>()(
           return nextDate.toISOString();
         };
 
-        const nextReviewDate = calculateNextReviewDate(stats);
-
         return {
-          words: state.words.map(w =>
-            w.id === wordId
-              ? {
-                  ...w,
-                  reviewStats: stats,
-                  learned: !stats.skipped && stats.retryCount < 3,
-                  nextReviewDate,
-                  lastPracticed: new Date().toISOString()
-                }
-              : w
-          )
+          words: state.words.map(w => {
+            if (w.id === wordId) {
+              const currentReviewCount = w.reviewCount || 0;
+              const nextReviewDate = calculateNextReviewDate(stats, currentReviewCount);
+
+              // Increment review count only if performance is good (not skipped, retry < 3)
+              const newReviewCount = (!stats.skipped && stats.retryCount < 3)
+                ? currentReviewCount + 1
+                : currentReviewCount;
+
+              return {
+                ...w,
+                reviewStats: stats,
+                learned: !stats.skipped && stats.retryCount < 3,
+                nextReviewDate,
+                lastPracticed: new Date().toISOString(),
+                reviewCount: newReviewCount
+              };
+            }
+            return w;
+          })
         };
       }),
 

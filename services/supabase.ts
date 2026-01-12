@@ -148,6 +148,7 @@ export const syncWords = async (words: any[]) => {
         user_sentences: w.userSentences ? JSON.stringify(w.userSentences) : null, // ✅ Store as JSON
         review_stats: w.reviewStats || null,
         next_review_date: w.nextReviewDate || null,
+        review_count: w.reviewCount || 0, // ✅ Track review count for Ebbinghaus intervals
       }))
     )
     .select();

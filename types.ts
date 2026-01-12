@@ -35,6 +35,7 @@ export interface Word {
   userSentences?: UserSentence[]; // ✅ User's created sentences (up to 3)
   reviewStats?: ReviewStats; // ✅ Review statistics
   nextReviewDate?: string; // ✅ Next review date (ISO string) - for spaced repetition
+  reviewCount?: number; // ✅ Number of successful reviews (for Ebbinghaus intervals)
 }
 
 export type WordStep = 'explanation' | 'shadowing' | 'creation';
