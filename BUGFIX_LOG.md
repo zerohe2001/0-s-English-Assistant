@@ -1,0 +1,104 @@
+# Bug Fix Log
+
+记录项目中发现和修复的问题，避免重复发生。
+
+---
+
+## 2026-01-12
+
+### 1. Review页面显示错误单词
+**时间**: 2026-01-12
+**问题**: Review页面显示正在学习的单词（甚至未完成3个句子），而应该复习的单词却没有显示
+**原因**: `isDueForReview`逻辑中，`if (!word.nextReviewDate) return true` 导致任何没有复习日期的单词都会显示
+**解决**: 改为 `if (!word.learned || !word.nextReviewDate) return false`，只显示已学习且有复习日期的单词
+**提交**: d87fc20
+
+### 2. Library已学习单词显示优化
+**时间**: 2026-01-12
+**改进**: Library的learned单词列表显示添加日期，不够实用
+**原因**: 用户更关心下次复习时间而非添加时间
+**解决**: 已学习单词显示"Review on [日期]"，未学习单词显示"Added [日期]"
+**提交**: 3d6b325
+
+### 3. Vocabulary选择单词后跳转错误页面
+**时间**: 2026-01-12
+**问题**: 在Vocabulary选择单词后点击"Start Learning"，跳转到Today页面而非Learn页面
+**原因**: 历史遗留bug，代码注释写"Navigate to Learn page"但实际是`navigate('/')`
+**解决**: 改为`navigate('/learn')`
+**提交**: 1c72db7
+**注意**: 这是从最早版本就存在的bug
+
+---
+
+## 2026-01-11
+
+### 4. Sentence 2显示"已保存"错误
+**时间**: 2026-01-11
+**问题**: 进入Sentence 2时显示"This sentence was previously saved"，但实际是新句子
+**原因**: `saveUserSentence`保存的是字符串而非数组，导致`userSentences[wordId][1]`访问到字符串的第2个字符（空格），判断为truthy
+**解决**: 修改`saveUserSentence`使用数组结构，通过`currentSentenceIndex`索引保存
+**提交**: 50be0ce
+**教训**: 数据结构要一致，字符串索引和数组索引完全不同
+
+### 5. Review翻译显示为句号
+**时间**: 2026-01-11
+**问题**: Review页面中文翻译只显示一个句号"。"而非完整中文
+**原因**: `ClickableText`组件使用`/\w/`正则表达式，只匹配ASCII字符，中文被当作标点符号
+**解决**: 移除ClickableText包装，直接渲染中文文本
+**提交**: 85639a7
+**教训**: ClickableText仅适用于英文文本，不要用于中文
+
+### 6. Review性能优化
+**时间**: 2026-01-11
+**改进**: 每次Review都调用AI比较，即使句子完全相同
+**原因**: 未做快速检查，直接调用AI
+**解决**: 添加`compareWithOriginal`函数，先检查精确匹配（忽略大小写/空格/标点），相同则跳过AI调用
+**提交**: 2d5185c
+**效果**: 节省API成本，提升响应速度
+
+---
+
+## 2026-01-09
+
+### 7. Vocabulary选择的单词未被使用
+**时间**: 2026-01-09
+**问题**: 在Vocabulary选择5个单词开始学习，但系统使用的是默认选择的单词
+**原因**: `handleStartSession`总是重新选择单词，忽略了`learningQueue`
+**解决**: 先检查`learningQueue`是否存在，存在则使用，否则才选择新单词
+**提交**: 5dce588
+
+### 8. Back按钮导航错误
+**时间**: 2026-01-09
+**问题**: 在Sentence 2完成后点Back返回，显示输入界面而非完成结果
+**原因**: `handleGoBack`清除了transcript/evaluation状态，然后useEffect才尝试恢复
+**解决**: 移除`handleGoBack`中的状态清除，让useEffect根据保存的数据决定是恢复还是清除
+**提交**: be01524, 5eaba5f
+
+---
+
+## 重要提醒
+
+### 数据结构一致性
+- `userSentences`应该是数组，按索引0/1/2存储三个句子
+- 不要混用字符串和数组结构
+- 访问前检查数据类型
+
+### 组件使用限制
+- `ClickableText`仅用于英文文本（基于`/\w/`正则）
+- 中文文本直接渲染，不要包装
+
+### 导航路径
+- Today页面: `/`
+- Learn页面: `/learn`
+- Review页面: `/review`
+- Vocabulary页面: `/vocabulary`
+- Library页面: `/library`
+
+### Review逻辑
+- 只显示 `learned=true` 且有 `nextReviewDate` 的单词
+- 必须 `today >= nextReviewDate`
+- 不显示正在学习中的单词
+
+### 性能优化
+- 相同输入先做快速比较再调用AI
+- 减少不必要的API调用
