@@ -46,6 +46,10 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
   const [userSentence, setUserSentence] = useState('');
   const transcriptRef = useRef<string>(''); // ✅ Use ref to store latest transcript immediately
+  const transcriptPromiseRef = useRef<{
+    resolve: (value: string) => void;
+    reject: (error: Error) => void;
+  } | null>(null); // ✅ Promise to wait for transcript
   const [textInput, setTextInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -97,31 +101,43 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       }
       setIsRecording(false);
 
-      // Note: With DeepgramRecorder, the transcript callback will be called
-      // automatically after stop(), so we wait for it to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        // ✅ Wait for transcript with timeout (max 5 seconds)
+        console.log('⏳ Waiting for Deepgram transcript...');
+        const finalTranscript = await Promise.race([
+          new Promise<string>((resolve, reject) => {
+            transcriptPromiseRef.current = { resolve, reject };
+          }),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout')), 5000)
+          )
+        ]);
 
-      // ✅ Use ref to get the latest transcript (state update is async)
-      const finalTranscript = transcriptRef.current;
-      console.log('📝 Final transcript:', finalTranscript);
+        console.log('📝 Final transcript:', finalTranscript);
 
-      // Analyze sentence if we have transcript
-      if (finalTranscript.trim()) {
-        setIsAnalyzing(true);
-        try {
-          const result = await compareWithOriginal(originalSentence, finalTranscript.trim());
-          setComparison(result);
-          setReviewStep('comparing'); // ✅ Use store setter instead of local state
-          setReviewComparison(result); // ✅ Save to store
-        } catch (error) {
-          console.error('Failed to analyze sentence:', error);
-          showToast('分析失败，请重试', 'error');
-        } finally {
-          setIsAnalyzing(false);
+        // Analyze sentence if we have transcript
+        if (finalTranscript.trim()) {
+          setIsAnalyzing(true);
+          try {
+            const result = await compareWithOriginal(originalSentence, finalTranscript.trim());
+            setComparison(result);
+            setReviewStep('comparing'); // ✅ Use store setter instead of local state
+            setReviewComparison(result); // ✅ Save to store
+          } catch (error) {
+            console.error('Failed to analyze sentence:', error);
+            showToast('分析失败，请重试', 'error');
+          } finally {
+            setIsAnalyzing(false);
+          }
+        } else {
+          console.warn('⚠️ Empty transcript received');
+          showToast('No speech detected. Please try again or type your answer.', 'warning');
         }
-      } else {
-        console.warn('⚠️ No transcript received after recording');
-        showToast('No speech detected. Please try again or type your answer.', 'warning');
+      } catch (error) {
+        console.error('⚠️ Timeout or error waiting for transcript:', error);
+        showToast('Speech recognition timed out. Please try again or type your answer.', 'warning');
+      } finally {
+        transcriptPromiseRef.current = null;
       }
     } else {
       // Start recording
@@ -134,6 +150,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
         setIsRecording(true);
         setUserSentence(''); // Clear previous attempt
         transcriptRef.current = ''; // Clear ref
+        transcriptPromiseRef.current = null; // Clear promise
 
         // Re-initialize recorder (in case stream was cleaned up)
         await recorderRef.current.initialize();
@@ -146,11 +163,21 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
             // Update both state and ref
             transcriptRef.current = transcript;
             setUserSentence(transcript);
+
+            // ✅ Resolve the waiting promise
+            if (transcriptPromiseRef.current) {
+              transcriptPromiseRef.current.resolve(transcript);
+            }
           },
           (error: Error) => {
             console.error('❌ Deepgram error:', error);
             showToast(`Speech recognition failed: ${error.message}`, 'error');
             setIsRecording(false);
+
+            // ✅ Reject the waiting promise
+            if (transcriptPromiseRef.current) {
+              transcriptPromiseRef.current.reject(error);
+            }
           }
         );
       } catch (error) {
