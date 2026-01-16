@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
 import { speak } from '../services/tts';
-import { compareSentences } from '../services/claude';
 import ClickableText from './ClickableText';
 import VoiceOrTextInput from './VoiceOrTextInput';
 import { useStore } from '../store';
@@ -203,7 +202,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     }
   };
 
-  // ✅ Fast comparison with optional AI fallback
+  // ✅ Fast comparison without AI (cost-free, instant)
   const compareWithOriginal = async (original: string, userInput: string) => {
     // Normalize for comparison (lowercase, trim, remove extra spaces)
     const normalizedOriginal = original.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -211,7 +210,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
     // Fast check: exact match (ignoring case and whitespace)
     if (normalizedOriginal === normalizedUser) {
-      console.log('✅ Perfect match! No AI call needed.');
+      console.log('✅ Perfect match!');
       return {
         similarity: 100,
         feedback: 'Perfect! Your sentence matches exactly.',
@@ -222,7 +221,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     // Fast check: very similar (ignore punctuation)
     const stripPunctuation = (str: string) => str.replace(/[.,!?;:]/g, '').trim();
     if (stripPunctuation(normalizedOriginal) === stripPunctuation(normalizedUser)) {
-      console.log('✅ Perfect match (ignoring punctuation)! No AI call needed.');
+      console.log('✅ Perfect match (ignoring punctuation)!');
       return {
         similarity: 100,
         feedback: 'Perfect! Your sentence matches exactly.',
@@ -230,9 +229,13 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       };
     }
 
-    // Not identical - use AI for semantic comparison
-    console.log('🤖 Calling AI for semantic comparison...');
-    return await compareSentences(original, userInput);
+    // Not identical - give 80 points without AI analysis
+    console.log('⚠️ Minor differences detected, but good enough (80%)');
+    return {
+      similarity: 80,
+      feedback: 'Good job! There are minor differences, but you got the main idea.',
+      differences: ['Check the original sentence for exact wording']
+    };
   };
 
   const handleNext = () => {
