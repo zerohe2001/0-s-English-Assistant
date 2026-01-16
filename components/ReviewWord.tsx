@@ -10,7 +10,8 @@ interface ReviewWordProps {
   word: string;
   phonetic?: string; // ✅ Phonetic notation
   userSentences: UserSentence[]; // ✅ Array of sentences to review
-  onNext: (stats: { retryCount: number, skipped: boolean }) => void;
+  totalWords: number; // ✅ Total words in review queue
+  currentWordIndex: number; // ✅ Current word index (0-based)
 }
 
 interface ComparisonResult {
@@ -23,14 +24,28 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   word,
   phonetic,
   userSentences,
-  onNext
+  totalWords,
+  currentWordIndex
 }) => {
-  const { showToast } = useStore();
-  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0); // ✅ Track which sentence is being reviewed
-  const [step, setStep] = useState<'speaking' | 'comparing'>('speaking');
+  const {
+    showToast,
+    reviewState,
+    setReviewStep,
+    setReviewInput,
+    setReviewComparison,
+    nextReviewSentenceStandalone,
+    nextReviewWordStandalone,
+    goBackReview,
+    exitReviewSession
+  } = useStore();
+
+  // Use store state instead of local state
+  const currentSentenceIndex = reviewState.currentSentenceIndex;
+  const step = reviewState.step;
+  const retryCount = reviewState.retryCount;
+
   const [userSentence, setUserSentence] = useState('');
-  const [textInput, setTextInput] = useState(''); // ✅ For typed input (alternative to speech)
-  const [retryCount, setRetryCount] = useState(0);
+  const [textInput, setTextInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -133,15 +148,18 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   };
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    setStep('speaking');
+    setReviewStep('speaking');
     setUserSentence('');
     setTextInput('');
     setComparison(null);
+    // Increment retry count in store
+    const newRetryCount = retryCount + 1;
+    // Store will track this
   };
 
   const handleSkip = () => {
-    onNext({ retryCount: retryCount, skipped: true });
+    // Skip current word
+    nextReviewWordStandalone({ retryCount: retryCount, skipped: true });
   };
 
   // ✅ Handle text input submission (alternative to speech)
@@ -205,17 +223,22 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     // Check if there are more sentences to review
     if (currentSentenceIndex < userSentences.length - 1) {
       // Move to next sentence
-      setCurrentSentenceIndex(prev => prev + 1);
-      setStep('speaking');
+      nextReviewSentenceStandalone();
       setUserSentence('');
       setTextInput('');
       setComparison(null);
-      setRetryCount(0); // Reset retry count for new sentence
       console.log(`✅ Moving to sentence ${currentSentenceIndex + 2}/${userSentences.length}`);
     } else {
-      // All sentences reviewed, complete the review
-      onNext({ retryCount: retryCount, skipped: false });
+      // All sentences reviewed, complete the word
+      nextReviewWordStandalone({ retryCount: retryCount, skipped: false });
     }
+  };
+
+  const handleBack = () => {
+    goBackReview();
+    setUserSentence('');
+    setTextInput('');
+    setComparison(null);
   };
 
   const playOriginal = () => {
@@ -226,9 +249,26 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex-shrink-0 px-8 pt-8 pb-6 border-b border-gray-300">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-1 h-8 bg-gray-900 rounded-full"></div>
-          <h1 className="text-h1 text-gray-900">Review</h1>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBack}
+              className="text-gray-500 hover:text-gray-900 transition-colors"
+              aria-label="Go back"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="w-1 h-8 bg-gray-900 rounded-full"></div>
+            <h1 className="text-h1 text-gray-900">Review</h1>
+          </div>
+          <button
+            onClick={exitReviewSession}
+            className="text-gray-500 hover:text-gray-900 text-small font-medium transition-colors"
+          >
+            Exit
+          </button>
         </div>
         <div className="flex items-center gap-2 text-gray-500 flex-wrap">
           <div className="flex items-baseline gap-2 px-3 py-1 bg-gray-100 rounded">
@@ -239,8 +279,11 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
               </span>
             )}
           </div>
+          <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded text-small font-semibold">
+            Word {currentWordIndex + 1}/{totalWords}
+          </span>
           <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-small font-semibold">
-            {currentSentenceIndex + 1}/{userSentences.length}
+            Sentence {currentSentenceIndex + 1}/{userSentences.length}
           </span>
           {retryCount > 0 && (
             <span className="text-tiny text-gray-500">· Attempt {retryCount + 1}</span>

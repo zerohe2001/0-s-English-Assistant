@@ -1,12 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import ReviewWord from '../components/ReviewWord';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 
 export const Review = () => {
-  const { words, updateReviewStats } = useStore();
-  const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
+  const {
+    words,
+    updateReviewStats,
+    reviewState,
+    startReviewSession,
+    exitReviewSession
+  } = useStore();
 
   // Check if word should be reviewed today
   const isDueForReview = (word: typeof words[0]): boolean => {
@@ -35,27 +40,15 @@ export const Review = () => {
     new Date(w.nextReviewDate) > new Date()
   ).length;
 
-  const handleReviewComplete = (stats: { retryCount: number, skipped: boolean }) => {
-    if (currentWordIndex === null) return;
+  // Review mode - using store state
+  if (reviewState.isActive && reviewState.currentWordIndex !== null) {
+    const word = reviewState.reviewQueue[reviewState.currentWordIndex];
 
-    const currentWord = reviewWords[currentWordIndex];
-    updateReviewStats(currentWord.id, stats);
-
-    if (currentWordIndex < reviewWords.length - 1) {
-      setCurrentWordIndex(currentWordIndex + 1);
-    } else {
-      setCurrentWordIndex(null);
+    if (!word) {
+      // Safety check - exit if word not found
+      exitReviewSession();
+      return null;
     }
-  };
-
-  // Review mode
-  if (currentWordIndex !== null && reviewWords[currentWordIndex]) {
-    const word = reviewWords[currentWordIndex];
-
-    // 🐛 DEBUG: Log what we're passing to ReviewWord
-    console.log('=== Review.tsx Debug ===');
-    console.log('Word:', word.text);
-    console.log('User sentences being passed:', word.userSentences);
 
     return (
       <>
@@ -63,7 +56,8 @@ export const Review = () => {
           word={word.text}
           phonetic={word.phonetic}
           userSentences={word.userSentences || []}
-          onNext={handleReviewComplete}
+          totalWords={reviewState.reviewQueue.length}
+          currentWordIndex={reviewState.currentWordIndex}
         />
         <DictionaryModal />
       </>
@@ -110,7 +104,7 @@ export const Review = () => {
               )}
             </div>
             <button
-              onClick={() => setCurrentWordIndex(0)}
+              onClick={() => startReviewSession(reviewWords)}
               className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-small font-medium rounded transition-colors"
             >
               Start Review
@@ -123,7 +117,7 @@ export const Review = () => {
               <div
                 key={word.id}
                 className="p-4 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors cursor-pointer"
-                onClick={() => setCurrentWordIndex(idx)}
+                onClick={() => startReviewSession(reviewWords.slice(idx))}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
