@@ -46,6 +46,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const retryCount = reviewState.retryCount;
 
   const [userSentence, setUserSentence] = useState('');
+  const transcriptRef = useRef<string>(''); // ✅ Use ref to store latest transcript immediately
   const [textInput, setTextInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -98,14 +99,18 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       setIsRecording(false);
 
       // Note: With DeepgramRecorder, the transcript callback will be called
-      // automatically after stop(), so we wait a bit for it to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // automatically after stop(), so we wait for it to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Analyze sentence
-      if (userSentence.trim()) {
+      // ✅ Use ref to get the latest transcript (state update is async)
+      const finalTranscript = transcriptRef.current;
+      console.log('📝 Final transcript:', finalTranscript);
+
+      // Analyze sentence if we have transcript
+      if (finalTranscript.trim()) {
         setIsAnalyzing(true);
         try {
-          const result = await compareWithOriginal(originalSentence, userSentence.trim());
+          const result = await compareWithOriginal(originalSentence, finalTranscript.trim());
           setComparison(result);
           setReviewStep('comparing'); // ✅ Use store setter instead of local state
           setReviewComparison(result); // ✅ Save to store
@@ -115,6 +120,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
         } finally {
           setIsAnalyzing(false);
         }
+      } else {
+        console.warn('⚠️ No transcript received after recording');
+        showToast('No speech detected. Please try again or type your answer.', 'warning');
       }
     } else {
       // Start recording
@@ -126,6 +134,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       try {
         setIsRecording(true);
         setUserSentence(''); // Clear previous attempt
+        transcriptRef.current = ''; // Clear ref
 
         // Re-initialize recorder (in case stream was cleaned up)
         await recorderRef.current.initialize();
@@ -135,7 +144,8 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
             // ✅ Transcript from Deepgram (received after stop)
             console.log(`✅ Review transcript:`, transcript);
 
-            // Update display with transcribed text
+            // Update both state and ref
+            transcriptRef.current = transcript;
             setUserSentence(transcript);
           },
           (error: Error) => {
