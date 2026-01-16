@@ -5,8 +5,11 @@ interface VoiceOrTextInputProps {
   isRecording: boolean;
   isTranscribing?: boolean;
   transcript?: string;
-  onStartRecording: () => void;
-  onStopRecording: () => void;
+
+  // Recording callbacks - use EITHER toggle OR separate start/stop
+  onToggleRecording?: () => void; // ✅ Single button toggle (Learn style)
+  onStartRecording?: () => void;  // Legacy: separate start button
+  onStopRecording?: () => void;   // Legacy: separate stop button
 
   // Text input state
   textInput: string;
@@ -31,6 +34,7 @@ const VoiceOrTextInput: React.FC<VoiceOrTextInputProps> = ({
   isRecording,
   isTranscribing = false,
   transcript,
+  onToggleRecording,
   onStartRecording,
   onStopRecording,
   textInput,
@@ -42,13 +46,88 @@ const VoiceOrTextInput: React.FC<VoiceOrTextInputProps> = ({
   onSecondaryAction,
   secondaryActionLabel,
 }) => {
+  // ✅ Use toggle mode if provided, otherwise fall back to separate callbacks
+  const handleRecordingClick = onToggleRecording || onStartRecording;
+
   return (
     <div className="space-y-6">
-      {/* Recording UI */}
-      {!isRecording && !transcript && (
+      {/* Recording UI - Toggle mode (single button) */}
+      {onToggleRecording && (
         <div className="flex flex-col items-center py-12">
           <button
-            onClick={onStartRecording}
+            onClick={onToggleRecording}
+            disabled={disabled}
+            className={`w-24 h-24 rounded-full transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                : 'bg-gray-900 hover:bg-gray-700'
+            }`}
+          >
+            {isRecording ? (
+              // Stop icon (square)
+              <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            ) : (
+              // Microphone icon
+              <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            )}
+          </button>
+          <p className="mt-4 text-small text-gray-500">
+            {isRecording ? "Recording... Tap to Stop" : recordingPrompt}
+          </p>
+
+          {/* Live transcript during recording */}
+          {isRecording && transcript && (
+            <div className="mt-4 p-4 bg-gray-100 rounded border border-gray-300 max-w-md">
+              <div className="text-tiny text-gray-500 mb-2">Recognizing...</div>
+              <div className="text-gray-900">"{transcript}"</div>
+            </div>
+          )}
+
+          {/* Text Input Alternative (only when not recording) */}
+          {!isRecording && (
+            <div className="w-full max-w-md mt-8">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-px bg-gray-300"></div>
+                <span className="text-tiny text-gray-500 uppercase">Or Type</span>
+                <div className="flex-1 h-px bg-gray-300"></div>
+              </div>
+              <div className="space-y-2">
+                <textarea
+                  value={textInput}
+                  onChange={(e) => onTextInputChange(e.target.value)}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
+                  disabled={disabled}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      onTextSubmit();
+                    }
+                  }}
+                />
+                <button
+                  onClick={onTextSubmit}
+                  disabled={disabled || !textInput.trim()}
+                  className="w-full py-2 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Legacy mode - Separate start/stop buttons */}
+      {!onToggleRecording && !isRecording && !transcript && (
+        <div className="flex flex-col items-center py-12">
+          <button
+            onClick={handleRecordingClick}
             disabled={disabled}
             className="w-20 h-20 rounded-full bg-gray-900 hover:bg-gray-700 transition-all flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -92,8 +171,8 @@ const VoiceOrTextInput: React.FC<VoiceOrTextInputProps> = ({
         </div>
       )}
 
-      {/* Recording in progress */}
-      {isRecording && (
+      {/* Legacy mode - Recording in progress (separate stop button) */}
+      {!onToggleRecording && isRecording && (
         <div className="space-y-4">
           <div className="flex items-center justify-center py-8">
             <div className="w-16 h-16 rounded-full bg-red-500 animate-pulse flex items-center justify-center">

@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-01-16
+
+### 0. Review录音交互bug修复（两个关键问题）
+**时间**: 2026-01-16
+**问题1**: 录音后没有Retry/Next/Skip按钮
+**原因**: `stopRecording`和`handleTextSubmit`调用`setStep('comparing')`更新了本地state，但组件读取的是`reviewState.step`（store state），状态不同步
+**解决**: 改为`setReviewStep('comparing')`更新store state
+
+**问题2**: Review使用两个按钮（Start/Stop），Learn使用一个toggle按钮，交互不一致
+**原因**: VoiceOrTextInput设计时使用了分离的`onStartRecording`/`onStopRecording`回调
+**解决**:
+- VoiceOrTextInput增加`onToggleRecording`可选prop（单按钮toggle模式）
+- 保留legacy的分离回调模式向后兼容
+- ReviewWord改用`toggleRecording`单函数处理开始/停止
+- 按钮样式根据`isRecording`动态变化（黑色→红色闪烁）
+- 文字提示从"Click to start"变为"Recording... Tap to Stop"
+**提交**: 7b89e97
+**教训**:
+1. 组件状态管理要统一（要么都用store，要么都用local state）
+2. 相同交互流程应该使用相同的UI模式（单按钮toggle）
+
 ## 2026-01-12
 
 ### 0. Review页面添加进度保存和Back按钮

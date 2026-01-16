@@ -88,62 +88,66 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     };
   }, []);
 
-  const startRecording = async () => {
-    if (!recorderRef.current) {
-      showToast('Speech recognition not available. Please check your microphone permissions.', 'error');
-      return;
-    }
-
-    try {
-      setIsRecording(true);
-      setUserSentence(''); // Clear previous attempt
-
-      // Re-initialize recorder (in case stream was cleaned up)
-      await recorderRef.current.initialize();
-
-      recorderRef.current.start(
-        (transcript: string) => {
-          // ✅ Transcript from Deepgram (received after stop)
-          console.log(`✅ Review transcript:`, transcript);
-
-          // Update display with transcribed text
-          setUserSentence(transcript);
-        },
-        (error: Error) => {
-          console.error('❌ Deepgram error:', error);
-          showToast(`Speech recognition failed: ${error.message}`, 'error');
-          setIsRecording(false);
-        }
-      );
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      showToast('Failed to access microphone. Please check your browser permissions.', 'error');
+  // ✅ Single toggle function for start/stop recording (like Learn page)
+  const toggleRecording = async () => {
+    if (isRecording) {
+      // Stop recording
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+      }
       setIsRecording(false);
-    }
-  };
 
-  const stopRecording = async () => {
-    if (recorderRef.current) {
-      recorderRef.current.stop();
-    }
-    setIsRecording(false);
+      // Note: With DeepgramRecorder, the transcript callback will be called
+      // automatically after stop(), so we wait a bit for it to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Note: With DeepgramRecorder, the transcript callback will be called
-    // automatically after stop(), so we wait a bit for it to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+      // Analyze sentence
+      if (userSentence.trim()) {
+        setIsAnalyzing(true);
+        try {
+          const result = await compareWithOriginal(originalSentence, userSentence.trim());
+          setComparison(result);
+          setReviewStep('comparing'); // ✅ Use store setter instead of local state
+          setReviewComparison(result); // ✅ Save to store
+        } catch (error) {
+          console.error('Failed to analyze sentence:', error);
+          showToast('分析失败，请重试', 'error');
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    } else {
+      // Start recording
+      if (!recorderRef.current) {
+        showToast('Speech recognition not available. Please check your microphone permissions.', 'error');
+        return;
+      }
 
-    // Analyze sentence
-    if (userSentence.trim()) {
-      setIsAnalyzing(true);
       try {
-        const result = await compareWithOriginal(originalSentence, userSentence.trim());
-        setComparison(result);
-        setStep('comparing');
+        setIsRecording(true);
+        setUserSentence(''); // Clear previous attempt
+
+        // Re-initialize recorder (in case stream was cleaned up)
+        await recorderRef.current.initialize();
+
+        recorderRef.current.start(
+          (transcript: string) => {
+            // ✅ Transcript from Deepgram (received after stop)
+            console.log(`✅ Review transcript:`, transcript);
+
+            // Update display with transcribed text
+            setUserSentence(transcript);
+          },
+          (error: Error) => {
+            console.error('❌ Deepgram error:', error);
+            showToast(`Speech recognition failed: ${error.message}`, 'error');
+            setIsRecording(false);
+          }
+        );
       } catch (error) {
-        console.error('Failed to analyze sentence:', error);
-        showToast('分析失败，请重试', 'error');
-      } finally {
-        setIsAnalyzing(false);
+        console.error('Failed to start recording:', error);
+        showToast('Failed to access microphone. Please check your browser permissions.', 'error');
+        setIsRecording(false);
       }
     }
   };
@@ -179,7 +183,8 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     try {
       const result = await compareWithOriginal(originalSentence, text);
       setComparison(result);
-      setStep('comparing');
+      setReviewStep('comparing'); // ✅ Use store setter
+      setReviewComparison(result); // ✅ Save to store
     } catch (error) {
       console.error('Failed to analyze sentence:', error);
       showToast('分析失败，请重试', 'error');
@@ -309,23 +314,15 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
           <VoiceOrTextInput
             isRecording={isRecording}
             transcript={userSentence}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
+            onToggleRecording={toggleRecording}
             textInput={textInput}
             onTextInputChange={setTextInput}
             onTextSubmit={handleTextSubmit}
             placeholder="Type your translation here..."
-            recordingPrompt="Click to start recording"
+            recordingPrompt="Tap to Start Recording"
             disabled={false}
             onSecondaryAction={playOriginal}
-            secondaryActionLabel={
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-                Listen to original
-              </>
-            }
+            secondaryActionLabel="Listen to original"
           />
         )}
 
