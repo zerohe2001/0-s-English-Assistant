@@ -3,6 +3,7 @@ import { DeepgramRecorder } from '../services/deepgram-recorder';
 import { speak } from '../services/tts';
 import { compareSentences } from '../services/claude';
 import ClickableText from './ClickableText';
+import VoiceOrTextInput from './VoiceOrTextInput';
 import { useStore } from '../store';
 import { UserSentence } from '../types';
 
@@ -305,90 +306,27 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
         {/* Speaking Step */}
         {step === 'speaking' && !isAnalyzing && (
-          <div className="space-y-6">
-            {!isRecording && !userSentence && (
-              <div className="flex flex-col items-center py-12">
-                <button
-                  onClick={startRecording}
-                  className="w-20 h-20 rounded-full bg-gray-900 hover:bg-gray-700 transition-all flex items-center justify-center group"
-                >
-                  <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                  </svg>
-                </button>
-                <p className="mt-4 text-small text-gray-500">Click to start recording</p>
-
-                {/* Text Input Alternative */}
-                <div className="w-full max-w-md mt-8">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex-1 h-px bg-gray-300"></div>
-                    <span className="text-tiny text-gray-500 uppercase">Or Type</span>
-                    <div className="flex-1 h-px bg-gray-300"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Type your translation here..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleTextSubmit();
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={handleTextSubmit}
-                      disabled={!textInput.trim()}
-                      className="w-full py-2 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Submit
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isRecording && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-red-500 animate-pulse flex items-center justify-center">
-                    <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                    </svg>
-                  </div>
-                </div>
-
-                {userSentence && (
-                  <div className="p-4 bg-gray-100 rounded border border-gray-300">
-                    <div className="text-tiny text-gray-500 mb-2">Recognizing...</div>
-                    <div className="text-gray-900">"{userSentence}"</div>
-                  </div>
-                )}
-
-                <button
-                  onClick={stopRecording}
-                  className="w-full py-2 bg-gray-900 hover:bg-gray-700 text-white rounded text-small font-medium transition-colors"
-                >
-                  Stop Recording
-                </button>
-              </div>
-            )}
-
-            {/* Hint */}
-            <button
-              onClick={playOriginal}
-              className="flex items-center gap-2 text-small text-gray-500 hover:text-gray-700 transition-colors mx-auto"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              </svg>
-              Listen to original
-            </button>
-          </div>
+          <VoiceOrTextInput
+            isRecording={isRecording}
+            transcript={userSentence}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            textInput={textInput}
+            onTextInputChange={setTextInput}
+            onTextSubmit={handleTextSubmit}
+            placeholder="Type your translation here..."
+            recordingPrompt="Click to start recording"
+            disabled={false}
+            onSecondaryAction={playOriginal}
+            secondaryActionLabel={
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                Listen to original
+              </>
+            }
+          />
         )}
 
         {/* Analyzing */}
