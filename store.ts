@@ -67,6 +67,17 @@ interface AppState {
   setWordExplanation: (wordId: string, explanation: import('./types').WordExplanation) => void; // ✅ Store explanation
   saveUserSentence: (wordId: string, sentence: string) => void; // ✅ Save user's created sentence
 
+  // Standalone Review Session
+  reviewState: import('./types').ReviewState;
+  startReviewSession: (words: Word[]) => void;
+  setReviewStep: (step: 'speaking' | 'comparing') => void;
+  setReviewInput: (input: string) => void;
+  setReviewComparison: (result: { similarity: number; feedback: string; differences: string[] }) => void;
+  nextReviewSentenceStandalone: () => void;
+  nextReviewWordStandalone: (stats: import('./types').ReviewStats) => void;
+  goBackReview: () => void;
+  exitReviewSession: () => void;
+
   // Dictionary
   dictionary: DictionaryState;
   openDictionary: (word: string) => Promise<void>;
@@ -857,6 +868,130 @@ export const useStore = create<AppState>()(
       })),
 
       // Reading
+      // Standalone Review Session
+      reviewState: {
+        isActive: false,
+        reviewQueue: [],
+        currentWordIndex: null,
+        currentSentenceIndex: 0,
+        step: 'speaking',
+        retryCount: 0,
+      },
+      startReviewSession: (words) => set(() => ({
+        reviewState: {
+          isActive: true,
+          reviewQueue: words,
+          currentWordIndex: 0,
+          currentSentenceIndex: 0,
+          step: 'speaking',
+          userInput: undefined,
+          comparisonResult: undefined,
+          retryCount: 0,
+        }
+      })),
+      setReviewStep: (step) => set((state) => ({
+        reviewState: { ...state.reviewState, step }
+      })),
+      setReviewInput: (input) => set((state) => ({
+        reviewState: { ...state.reviewState, userInput: input }
+      })),
+      setReviewComparison: (result) => set((state) => ({
+        reviewState: { ...state.reviewState, comparisonResult: result, step: 'comparing' }
+      })),
+      nextReviewSentenceStandalone: () => set((state) => ({
+        reviewState: {
+          ...state.reviewState,
+          currentSentenceIndex: state.reviewState.currentSentenceIndex + 1,
+          step: 'speaking',
+          userInput: undefined,
+          comparisonResult: undefined,
+          retryCount: 0,
+        }
+      })),
+      nextReviewWordStandalone: (stats) => {
+        const state = get();
+        const { currentWordIndex, reviewQueue } = state.reviewState;
+
+        if (currentWordIndex === null) return;
+
+        // Update word stats
+        const wordId = reviewQueue[currentWordIndex].id;
+        state.updateReviewStats(wordId, stats);
+
+        // Move to next word or finish
+        if (currentWordIndex < reviewQueue.length - 1) {
+          set({
+            reviewState: {
+              ...state.reviewState,
+              currentWordIndex: currentWordIndex + 1,
+              currentSentenceIndex: 0,
+              step: 'speaking',
+              userInput: undefined,
+              comparisonResult: undefined,
+              retryCount: 0,
+            }
+          });
+        } else {
+          // Review complete
+          set({
+            reviewState: {
+              isActive: false,
+              reviewQueue: [],
+              currentWordIndex: null,
+              currentSentenceIndex: 0,
+              step: 'speaking',
+              retryCount: 0,
+            }
+          });
+        }
+      },
+      goBackReview: () => set((state) => {
+        const { currentSentenceIndex, currentWordIndex } = state.reviewState;
+
+        if (currentSentenceIndex > 0) {
+          // Go back to previous sentence
+          return {
+            reviewState: {
+              ...state.reviewState,
+              currentSentenceIndex: currentSentenceIndex - 1,
+              step: 'speaking',
+              userInput: undefined,
+              comparisonResult: undefined,
+              retryCount: 0,
+            }
+          };
+        } else if (currentWordIndex !== null && currentWordIndex > 0) {
+          // Go back to previous word's last sentence
+          const prevWord = state.reviewState.reviewQueue[currentWordIndex - 1];
+          const lastSentenceIndex = (prevWord.userSentences?.length || 1) - 1;
+
+          return {
+            reviewState: {
+              ...state.reviewState,
+              currentWordIndex: currentWordIndex - 1,
+              currentSentenceIndex: lastSentenceIndex,
+              step: 'speaking',
+              userInput: undefined,
+              comparisonResult: undefined,
+              retryCount: 0,
+            }
+          };
+        }
+
+        // Can't go back further
+        return state;
+      }),
+      exitReviewSession: () => set({
+        reviewState: {
+          isActive: false,
+          reviewQueue: [],
+          currentWordIndex: null,
+          currentSentenceIndex: 0,
+          step: 'speaking',
+          retryCount: 0,
+        }
+      }),
+
       readingState: {
         articles: [],
         currentArticleId: null,

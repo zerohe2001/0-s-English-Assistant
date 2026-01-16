@@ -76,6 +76,22 @@ export interface LearnState {
   conversation?: ConversationState; // ✅ Text-based conversation state
 }
 
+// ✅ Independent Review State (for standalone Review page)
+export interface ReviewState {
+  isActive: boolean; // Whether review session is active
+  reviewQueue: Word[]; // Words due for review
+  currentWordIndex: number | null; // Current word being reviewed
+  currentSentenceIndex: number; // Current sentence (0-2)
+  step: 'speaking' | 'comparing'; // Current step
+  userInput?: string; // User's spoken/typed input
+  comparisonResult?: {
+    similarity: number;
+    feedback: string;
+    differences: string[];
+  };
+  retryCount: number; // Number of retries for current sentence
+}
+
 export interface WordExplanation {
   meaning: string;
   example: string;
