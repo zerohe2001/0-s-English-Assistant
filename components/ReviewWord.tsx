@@ -229,6 +229,40 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     }
   };
 
+  // ✅ Calculate similarity using Levenshtein distance
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const len1 = str1.length;
+    const len2 = str2.length;
+    const matrix: number[][] = [];
+
+    // Initialize matrix
+    for (let i = 0; i <= len1; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= len2; j++) {
+      matrix[0][j] = j;
+    }
+
+    // Fill matrix
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1, // substitution
+            matrix[i][j - 1] + 1,     // insertion
+            matrix[i - 1][j] + 1      // deletion
+          );
+        }
+      }
+    }
+
+    const distance = matrix[len1][len2];
+    const maxLen = Math.max(len1, len2);
+    return Math.round(((maxLen - distance) / maxLen) * 100);
+  };
+
   // ✅ Fast comparison without AI (cost-free, instant)
   const compareWithOriginal = async (original: string, userInput: string) => {
     // Normalize for comparison (lowercase, trim, remove extra spaces)
@@ -247,7 +281,10 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
     // Fast check: very similar (ignore punctuation)
     const stripPunctuation = (str: string) => str.replace(/[.,!?;:]/g, '').trim();
-    if (stripPunctuation(normalizedOriginal) === stripPunctuation(normalizedUser)) {
+    const originalNoPunc = stripPunctuation(normalizedOriginal);
+    const userNoPunc = stripPunctuation(normalizedUser);
+
+    if (originalNoPunc === userNoPunc) {
       console.log('✅ Perfect match (ignoring punctuation)!');
       return {
         similarity: 100,
@@ -256,13 +293,29 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       };
     }
 
-    // Not identical - give 80 points without AI analysis
-    console.log('⚠️ Minor differences detected, but good enough (80%)');
-    return {
-      similarity: 80,
-      feedback: 'Good job! There are minor differences, but you got the main idea.',
-      differences: ['Check the original sentence for exact wording']
-    };
+    // Calculate similarity using Levenshtein distance
+    const similarity = calculateSimilarity(originalNoPunc, userNoPunc);
+    console.log(`📊 Similarity: ${similarity}%`);
+
+    if (similarity >= 80) {
+      return {
+        similarity,
+        feedback: 'Great! Very close to the original sentence.',
+        differences: ['Minor differences in wording']
+      };
+    } else if (similarity >= 60) {
+      return {
+        similarity,
+        feedback: 'Good effort, but there are some differences. Try again?',
+        differences: ['Check the original sentence carefully']
+      };
+    } else {
+      return {
+        similarity,
+        feedback: 'Not quite right. Please try again or check the original sentence.',
+        differences: ['Significant differences detected']
+      };
+    }
   };
 
   const handleNext = () => {
