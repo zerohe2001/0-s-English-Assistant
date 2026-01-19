@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserProfile, SavedContext, Word } from '../types';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 
@@ -21,6 +22,7 @@ export const ContextInput: React.FC<ContextInputProps> = ({
   openDictionary,
   showToast,
 }) => {
+  const navigate = useNavigate();
   const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
   const [manualContext, setManualContext] = useState('');
 
@@ -78,6 +80,18 @@ export const ContextInput: React.FC<ContextInputProps> = ({
   return (
     <div className="max-w-lg mx-auto p-6 flex flex-col h-full overflow-y-auto pb-24">
       <header className="mb-6">
+        {/* Back button */}
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4"
+          aria-label="Go back to home"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-small font-medium">Back</span>
+        </button>
+
         <h2 className="text-h1 text-gray-900 mb-2">What's the plan?</h2>
         <p className="text-body text-gray-500">Describe your day or choose a saved scenario.</p>
       </header>
