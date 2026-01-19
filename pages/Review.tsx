@@ -1,10 +1,12 @@
 import React, { useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import ReviewWord from '../components/ReviewWord';
 import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 
 export const Review = () => {
+  const navigate = useNavigate();
   const {
     words,
     updateReviewStats,
@@ -76,16 +78,32 @@ export const Review = () => {
       {reviewWords.length === 0 ? (
         // Empty state
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <h2 className="text-h2 text-gray-900 mb-2">All caught up</h2>
-          <p className="text-small text-gray-500 max-w-sm mb-4">
+          {/* Celebration icon */}
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          <h2 className="text-h2 text-gray-900 mb-2">All caught up! 🎉</h2>
+          <p className="text-small text-gray-500 max-w-sm mb-6">
             No words to review today. Come back tomorrow!
           </p>
+
           {totalWithSentences > 0 && (
-            <div className="flex gap-6 text-tiny text-gray-500 mt-4">
+            <div className="flex gap-6 text-tiny text-gray-500 mb-6">
               <span>{masteredWords} mastered</span>
               <span>{totalWithSentences} total</span>
             </div>
           )}
+
+          {/* Back to Home button */}
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white rounded text-small font-medium transition-colors"
+          >
+            Back to Home
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
