@@ -193,6 +193,7 @@ SELECT
   SUM(CASE
     WHEN next_review_date IS NULL
       OR user_sentences IS NULL
+      OR jsonb_typeof(user_sentences) != 'array'
       OR (jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) < 3)
       OR review_count IS NULL
       OR review_count = 0
