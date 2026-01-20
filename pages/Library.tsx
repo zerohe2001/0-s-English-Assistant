@@ -14,7 +14,7 @@ export const Library = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const {
-    words,
+    getActiveWords,
     addWord,
     removeWord,
     bulkAddWords,
@@ -26,6 +26,8 @@ export const Library = () => {
     updateArticleAudioStatus,
     showToast,
   } = useStore();
+
+  const words = getActiveWords(); // ✅ Only show non-deleted words
 
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
@@ -63,6 +65,7 @@ export const Library = () => {
     if (isBulk) {
       // Bulk mode: check for duplicates and show modal if found
       const result = await bulkAddWords(newWord);
+      console.log('📊 Bulk add result:', result);
 
       if (result.duplicates.length > 0) {
         // Show success message for new words that were added

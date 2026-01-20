@@ -31,7 +31,7 @@ export const Learn = () => {
     nextReviewWord, // ✅ Move to next word in review
     updateReviewStats, // ✅ Update review statistics
     resetSession,
-    words,
+    getActiveWords,
     addSavedContext,
     setWordExplanation, // ✅ Add method to store explanations
     markWordAsLearned, // ✅ Mark word as learned
@@ -40,6 +40,8 @@ export const Learn = () => {
     addUserSentence, // ✅ Add sentence to Word's userSentences array
     showToast
   } = useStore();
+
+  const words = getActiveWords(); // ✅ Only show non-deleted words
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);

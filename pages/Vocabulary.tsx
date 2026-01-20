@@ -5,7 +5,9 @@ import ClickableText from '../components/ClickableText';
 import DictionaryModal from '../components/DictionaryModal';
 
 export const Vocabulary = () => {
-  const { words, addWord, removeWord, bulkAddWords, startLearningWithWords, setDailyContext, showToast } = useStore();
+  const { getActiveWords, addWord, removeWord, bulkAddWords, startLearningWithWords, setDailyContext, showToast } = useStore();
+  const words = getActiveWords(); // ✅ Only show non-deleted words
+
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [activeTab, setActiveTab] = useState<'unlearned' | 'learned'>('unlearned');

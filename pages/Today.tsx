@@ -4,7 +4,8 @@ import { useStore } from '../store';
 
 export const Today = () => {
   const navigate = useNavigate();
-  const { profile, words, learnState, startLearning, startReviewPhase, readingState, resetSession, showToast } = useStore();
+  const { profile, getActiveWords, learnState, startLearning, startReviewPhase, readingState, resetSession, showToast } = useStore();
+  const words = getActiveWords(); // ✅ Only show non-deleted words
 
   // Calculate today's tasks
   const unlearnedWords = words.filter(w => !w.learned);

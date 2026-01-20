@@ -8,12 +8,14 @@ import DictionaryModal from '../components/DictionaryModal';
 export const Review = () => {
   const navigate = useNavigate();
   const {
-    words,
+    getActiveWords,
     updateReviewStats,
     reviewState,
     startReviewSession,
     exitReviewSession
   } = useStore();
+
+  const words = getActiveWords(); // ✅ Only show non-deleted words
 
   // Check if word should be reviewed today
   const isDueForReview = (word: typeof words[0]): boolean => {
