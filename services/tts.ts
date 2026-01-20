@@ -8,14 +8,12 @@
  * @param text - Text to speak
  * @param voiceName - Voice name (default: 'en-US-AvaMultilingualNeural')
  */
-export async function speak(text: string, voiceName: string = 'en-US-AvaNeural'): Promise<void> {
+export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
   try {
-    console.log('🎤 Trying Edge TTS API (faster voice) for:', text.substring(0, 50));
+    console.log('🎤 Using Edge TTS API for:', text.substring(0, 50));
 
-    // Use simpler/faster voice to avoid timeout
-    // Changed from: en-US-AvaMultilingualNeural (slow, high quality)
-    // To: en-US-AvaNeural (faster, still good quality)
-    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=en-US-AvaNeural`;
+    // Call our Vercel serverless function with original high-quality voice
+    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
     const response = await fetch(apiUrl);
 
     if (!response.ok) {

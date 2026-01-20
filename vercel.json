@@ -5,6 +5,11 @@
       "destination": "/index.html"
     }
   ],
+  "functions": {
+    "api/tts.ts": {
+      "maxDuration": 60
+    }
+  },
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite"
