@@ -10,28 +10,36 @@
  */
 export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
   try {
-    console.log('🎤 Using Edge TTS API for:', text.substring(0, 50));
+    console.log('🎤 Trying Edge TTS API for:', text.substring(0, 50));
 
     // Call our Vercel serverless function
     const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
     console.log('🌐 Fetching from:', apiUrl);
 
-    // Add timeout to prevent hanging forever
+    // Race between API call and 5-second timeout
+    // If API is slow, immediately use fallback instead of waiting
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.warn('⏱️ TTS request timed out after 60s, aborting...');
-      controller.abort();
-    }, 60000); // 60 second timeout (Edge TTS can be slow)
 
-    const response = await fetch(apiUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    console.log('✅ TTS API response received:', response.status);
+    const apiPromise = fetch(apiUrl, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ TTS API failed:', response.status, response.statusText, errorText);
+          throw new Error(`TTS API failed: ${response.status}`);
+        }
+        console.log('✅ TTS API response received:', response.status);
+        return response;
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ TTS API failed:', response.status, response.statusText, errorText);
-      throw new Error(`TTS API failed: ${response.status} ${response.statusText}`);
-    }
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        console.warn('⏱️ TTS API taking too long (>5s), using instant fallback...');
+        controller.abort();
+        reject(new Error('TTS_TIMEOUT'));
+      }, 5000); // Only wait 5 seconds max
+    });
+
+    const response = await Promise.race([apiPromise, timeoutPromise]);
 
     // Get audio blob (MP3 format)
     const audioBlob = await response.blob();
