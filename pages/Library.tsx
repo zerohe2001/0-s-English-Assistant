@@ -597,7 +597,7 @@ export const Library = () => {
             </p>
             <ul className="text-tiny text-gray-600 mb-4 list-disc ml-5">
               <li>3 placeholder sentences</li>
-              <li>Review plan (next review in 7 days)</li>
+              <li>Review plan (next review in 1 day)</li>
               <li>Marked as "Learned"</li>
             </ul>
             <textarea

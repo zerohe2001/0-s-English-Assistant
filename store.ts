@@ -633,7 +633,7 @@ export const useStore = create<AppState>()(
         // Add new learned words with complete data
         if (newWords.length > 0) {
           const now = new Date();
-          const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          const oneDayLater = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
           const wordObjects = await Promise.all(
             newWords.map(async (wordText) => {
@@ -672,8 +672,8 @@ export const useStore = create<AppState>()(
                 addedAt: now.toISOString(),
                 learned: true,
                 userSentences,
-                reviewCount: 1,
-                nextReviewDate: sevenDaysLater.toISOString(),
+                reviewCount: 0,
+                nextReviewDate: oneDayLater.toISOString(),
                 reviewStats: { retryCount: 0, skipped: false }
               };
             })
