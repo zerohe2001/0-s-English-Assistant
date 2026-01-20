@@ -18,10 +18,14 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
 
     // Add timeout to prevent hanging forever
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => {
+      console.warn('⏱️ TTS request timed out after 60s, aborting...');
+      controller.abort();
+    }, 60000); // 60 second timeout (Edge TTS can be slow)
 
     const response = await fetch(apiUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
+    console.log('✅ TTS API response received:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
