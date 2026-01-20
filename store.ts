@@ -590,6 +590,101 @@ export const useStore = create<AppState>()(
         set((state) => ({ words: [...wordObjects, ...state.words] }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
+      quickAddLearnedWords: async (text: string) => {
+        // Helper function to clean raw word input (reuse from bulkAddWords)
+        const cleanWord = (rawText: string): string => {
+          let cleaned = rawText;
+          cleaned = cleaned.replace(/\[.*?\]/g, '');
+          cleaned = cleaned.replace(/\/.*?\//g, '');
+          cleaned = cleaned.replace(/[\u4e00-\u9fa5].*$/g, '');
+          cleaned = cleaned.split('=')[0];
+          cleaned = cleaned.split('+')[0];
+          cleaned = cleaned.replace(/\b(adj|adv|v|n|prep|conj|pron|interj|det|aux)\b\.?/gi, '');
+          cleaned = cleaned.replace(/\(.*?\)/g, '');
+          cleaned = cleaned.replace(/（.*?）/g, '');
+          const words = cleaned.trim().split(/\s+/).filter(w => /^[a-zA-Z'-]+$/.test(w));
+          if (words.length === 0) return '';
+          if (words.length <= 4) {
+            cleaned = words.join(' ');
+          } else {
+            cleaned = words[0];
+          }
+          cleaned = cleaned.toLowerCase().trim();
+          return cleaned;
+        };
+
+        const rawWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+        const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0);
+
+        // Check for duplicates
+        const state = get();
+        const duplicates: string[] = [];
+        const newWords: string[] = [];
+
+        for (const word of cleanedWords) {
+          const existing = state.words.find(w => w.text.toLowerCase() === word.toLowerCase());
+          if (existing) {
+            duplicates.push(word);
+          } else {
+            newWords.push(word);
+          }
+        }
+
+        // Add new learned words with complete data
+        if (newWords.length > 0) {
+          const now = new Date();
+          const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+          const wordObjects = await Promise.all(
+            newWords.map(async (wordText) => {
+              // Fetch phonetic
+              let phonetic = '';
+              try {
+                const dictEntry = await fetchWordDefinition(wordText);
+                phonetic = dictEntry?.phonetic || '';
+              } catch (error) {
+                console.warn(`⚠️ Failed to fetch phonetic for "${wordText}"`);
+              }
+
+              // Generate 3 placeholder sentences
+              const userSentences = [
+                {
+                  sentence: `I learned the word "${wordText}" today.`,
+                  translation: `我今天学习了"${wordText}"这个词。`,
+                  createdAt: now.toISOString()
+                },
+                {
+                  sentence: `The word "${wordText}" is useful in conversations.`,
+                  translation: `"${wordText}"这个词在对话中很有用。`,
+                  createdAt: now.toISOString()
+                },
+                {
+                  sentence: `I need to practice using "${wordText}" more often.`,
+                  translation: `我需要更多地练习使用"${wordText}"。`,
+                  createdAt: now.toISOString()
+                }
+              ];
+
+              return {
+                id: crypto.randomUUID(),
+                text: wordText,
+                phonetic,
+                addedAt: now.toISOString(),
+                learned: true,
+                userSentences,
+                reviewCount: 1,
+                nextReviewDate: sevenDaysLater.toISOString(),
+                reviewStats: { retryCount: 0, skipped: false }
+              };
+            })
+          );
+
+          set((state) => ({ words: [...wordObjects, ...state.words] }));
+          setTimeout(() => get().syncDataToCloud(), 100);
+        }
+
+        return { added: newWords.length, duplicates };
+      },
       markWordAsLearned: (wordId) => {
         const now = new Date();
         const oneDayLater = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);

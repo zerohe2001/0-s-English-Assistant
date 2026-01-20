@@ -19,6 +19,7 @@ export const Library = () => {
     removeWord,
     bulkAddWords,
     bulkAddWordsForce,
+    quickAddLearnedWords,
     readingState,
     addArticle,
     removeArticle,
@@ -32,6 +33,11 @@ export const Library = () => {
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [wordFilter, setWordFilter] = useState<'all' | 'learned' | 'unlearned'>('all');
+
+  // Quick Add Learned Words states
+  const [showLearnedModal, setShowLearnedModal] = useState(false);
+  const [learnedWordsInput, setLearnedWordsInput] = useState('');
+  const [isAddingLearned, setIsAddingLearned] = useState(false);
 
   // Duplicate detection states
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -140,6 +146,40 @@ export const Library = () => {
     setSelectedDuplicates(prev =>
       prev.includes(word) ? prev.filter(w => w !== word) : [...prev, word]
     );
+  };
+
+  const handleQuickAddLearned = async () => {
+    if (!learnedWordsInput.trim()) {
+      showToast('Please enter at least one word!', 'error');
+      return;
+    }
+
+    setIsAddingLearned(true);
+    try {
+      const result = await quickAddLearnedWords(learnedWordsInput);
+
+      if (result.added > 0) {
+        showToast(
+          `Added ${result.added} learned word${result.added > 1 ? 's' : ''}!${
+            result.duplicates.length > 0
+              ? ` Skipped ${result.duplicates.length} duplicate${result.duplicates.length > 1 ? 's' : ''}.`
+              : ''
+          }`,
+          'success'
+        );
+      } else if (result.duplicates.length > 0) {
+        showToast(`All ${result.duplicates.length} words already exist.`, 'info');
+      }
+
+      // Reset and close modal
+      setLearnedWordsInput('');
+      setShowLearnedModal(false);
+    } catch (error) {
+      console.error('Failed to add learned words:', error);
+      showToast('Failed to add words. Please try again.', 'error');
+    } finally {
+      setIsAddingLearned(false);
+    }
   };
 
   const handleAddArticle = async (title: string, content: string) => {
@@ -317,6 +357,14 @@ export const Library = () => {
               Add {isBulk ? 'Words' : 'Word'}
             </button>
           </form>
+
+          {/* Quick Add Learned Words Button */}
+          <button
+            onClick={() => setShowLearnedModal(true)}
+            className="w-full py-2 bg-blue-600 text-white text-small font-medium rounded hover:bg-blue-700 transition-colors"
+          >
+            Quick Add Learned Words
+          </button>
 
           {/* Word Filter & Actions */}
           <div className="flex items-center justify-between gap-2">
@@ -534,6 +582,49 @@ export const Library = () => {
                   Add Selected
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Learned Words Modal */}
+      {showLearnedModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-h2 text-gray-900 mb-4">Quick Add Learned Words</h2>
+            <p className="text-small text-gray-600 mb-4">
+              Enter words you've already learned (one per line). Each word will be added with:
+            </p>
+            <ul className="text-tiny text-gray-600 mb-4 list-disc ml-5">
+              <li>3 placeholder sentences</li>
+              <li>Review plan (next review in 7 days)</li>
+              <li>Marked as "Learned"</li>
+            </ul>
+            <textarea
+              value={learnedWordsInput}
+              onChange={(e) => setLearnedWordsInput(e.target.value)}
+              placeholder="ambitious&#10;resilient&#10;meticulous&#10;..."
+              className="w-full px-3 py-2 border border-gray-300 rounded text-small outline-none focus:border-gray-500 h-40 mb-4"
+              disabled={isAddingLearned}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLearnedModal(false);
+                  setLearnedWordsInput('');
+                }}
+                className="flex-1 py-2 px-4 border border-gray-300 rounded text-small font-medium hover:bg-gray-50 transition-colors"
+                disabled={isAddingLearned}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickAddLearned}
+                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded text-small font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                disabled={isAddingLearned}
+              >
+                {isAddingLearned ? 'Adding...' : 'Add Words'}
+              </button>
             </div>
           </div>
         </div>
