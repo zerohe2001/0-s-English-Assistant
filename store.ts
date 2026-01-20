@@ -42,6 +42,10 @@ interface AppState {
 
   // Vocabulary
   words: Word[];
+  getActiveWords: () => Word[]; // ✅ Get all non-deleted words
+  getDeletedWords: () => Word[]; // ✅ Get all deleted words
+  restoreWord: (id: string) => void; // ✅ Restore a deleted word
+  permanentlyDeleteWord: (id: string) => void; // ✅ Permanently delete a word
   addWord: (text: string) => Promise<{ duplicate: boolean; existingWord?: Word }>;
   removeWord: (id: string) => void;
   bulkAddWords: (text: string) => Promise<{ duplicates: Array<{ word: string; existingWord: Word }>; newWords: string[]; totalProcessed: number }>;
@@ -356,6 +360,28 @@ export const useStore = create<AppState>()(
       })),
 
       words: [],
+      getActiveWords: () => {
+        return get().words.filter(w => !w.deleted);
+      },
+      getDeletedWords: () => {
+        return get().words.filter(w => w.deleted);
+      },
+      restoreWord: (id) => {
+        set((state) => ({
+          words: state.words.map(w =>
+            w.id === id
+              ? { ...w, deleted: false, deletedAt: undefined }
+              : w
+          )
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
+      permanentlyDeleteWord: (id) => {
+        set((state) => ({
+          words: state.words.filter(w => w.id !== id)
+        }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
       addWord: async (text) => {
         const word = text.trim().toLowerCase();
 
@@ -393,8 +419,13 @@ export const useStore = create<AppState>()(
         return { duplicate: false };
       },
       removeWord: (id) => {
+        // ✅ Soft delete: mark as deleted instead of removing
         set((state) => ({
-          words: state.words.filter((w) => w.id !== id)
+          words: state.words.map(w =>
+            w.id === id
+              ? { ...w, deleted: true, deletedAt: new Date().toISOString() }
+              : w
+          )
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
@@ -451,11 +482,13 @@ export const useStore = create<AppState>()(
         for (const word of cleanedWords) {
           const existing = state.words.find(w => w.text.toLowerCase() === word.toLowerCase());
           if (existing) {
+            console.log(`🔍 Found duplicate: "${word}" (existing: "${existing.text}")`);
             duplicates.push({ word, existingWord: existing });
           } else {
             newWords.push(word);
           }
         }
+        console.log(`📋 Cleaned words: ${cleanedWords.length}, New: ${newWords.length}, Duplicates: ${duplicates.length}`);
 
         // Add new words first (even if there are duplicates)
         if (newWords.length > 0) {

@@ -36,6 +36,8 @@ export interface Word {
   reviewStats?: ReviewStats; // ✅ Review statistics
   nextReviewDate?: string; // ✅ Next review date (ISO string) - for spaced repetition
   reviewCount?: number; // ✅ Number of successful reviews (for Ebbinghaus intervals)
+  deleted?: boolean; // ✅ Soft delete flag
+  deletedAt?: string; // ✅ When the word was deleted (ISO string)
 }
 
 export type WordStep = 'explanation' | 'shadowing' | 'creation';
