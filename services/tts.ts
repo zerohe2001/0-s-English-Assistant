@@ -10,43 +10,19 @@
  */
 export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
   try {
-    console.log('🎤 Trying Edge TTS API for:', text.substring(0, 50));
+    console.log('🎤 Using Edge TTS API for:', text.substring(0, 50));
 
     // Call our Vercel serverless function
     const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
-    console.log('🌐 Fetching from:', apiUrl);
+    const response = await fetch(apiUrl);
 
-    // Race between API call and 5-second timeout
-    // If API is slow, immediately use fallback instead of waiting
-    const controller = new AbortController();
-
-    const apiPromise = fetch(apiUrl, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ TTS API failed:', response.status, response.statusText, errorText);
-          throw new Error(`TTS API failed: ${response.status}`);
-        }
-        console.log('✅ TTS API response received:', response.status);
-        return response;
-      });
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        console.warn('⏱️ TTS API taking too long (>5s), using instant fallback...');
-        controller.abort();
-        reject(new Error('TTS_TIMEOUT'));
-      }, 5000); // Only wait 5 seconds max
-    });
-
-    const response = await Promise.race([apiPromise, timeoutPromise]);
+    if (!response.ok) {
+      throw new Error(`TTS API failed: ${response.status} ${response.statusText}`);
+    }
 
     // Get audio blob (MP3 format)
     const audioBlob = await response.blob();
-    console.log('📦 Audio blob received:', audioBlob.size, 'bytes, type:', audioBlob.type);
-
     const audioUrl = URL.createObjectURL(audioBlob);
-    console.log('🔗 Audio URL created:', audioUrl);
 
     // Play using HTML5 Audio element (best mobile compatibility)
     return new Promise((resolve, reject) => {
@@ -68,13 +44,7 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
         reject(new Error('Audio playback failed'));
       };
 
-      console.log('▶️ Starting audio playback...');
-      audio.play()
-        .then(() => console.log('✅ Audio.play() succeeded'))
-        .catch((err) => {
-          console.error('❌ Audio.play() failed:', err);
-          reject(err);
-        });
+      audio.play().catch(reject);
     });
   } catch (error) {
     console.error('❌ Edge TTS failed, using browser fallback:', error);
