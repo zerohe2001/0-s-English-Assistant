@@ -8,7 +8,7 @@
 -- Run this first to get your user_id:
 -- SELECT id FROM auth.users WHERE email = 'your-email@example.com';
 
--- STEP 2: Replace YOUR_USER_ID_HERE below with the ID from step 1
+-- STEP 2: Replace 9fb717d0-3d44-44ef-bffb-307b1864712a below with the ID from step 1
 
 -- Update word: controversy
 UPDATE words
@@ -24,7 +24,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'controversy';
 
 -- Update word: agenda
@@ -41,7 +41,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'agenda';
 
 -- Update word: quantitative
@@ -58,7 +58,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'quantitative';
 
 -- Update word: tilting
@@ -75,7 +75,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'tilting';
 
 -- Update word: ergonomic
@@ -92,7 +92,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'ergonomic';
 
 -- Update word: procedures
@@ -109,7 +109,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'procedures';
 
 -- Update word: perhaps
@@ -126,7 +126,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'perhaps';
 
 -- Update word: vent
@@ -143,7 +143,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'vent';
 
 -- Update word: occupational
@@ -160,7 +160,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'occupational';
 
 -- Update word: tension
@@ -177,7 +177,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'tension';
 
 -- Update word: incident
@@ -194,7 +194,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'incident';
 
 -- Update word: legislation
@@ -211,7 +211,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'legislation';
 
 -- Update word: symptoms
@@ -228,7 +228,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'symptoms';
 
 -- Update word: plural
@@ -245,7 +245,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'plural';
 
 -- Update word: penalty
@@ -262,7 +262,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'penalty';
 
 -- Update word: ample
@@ -279,7 +279,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'ample';
 
 -- Update word: calories
@@ -296,7 +296,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'calories';
 
 -- Update word: value
@@ -313,7 +313,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'value';
 
 -- Update word: containing
@@ -330,7 +330,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'containing';
 
 -- Update word: keen
@@ -347,7 +347,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'keen';
 
 -- Update word: workstation
@@ -364,7 +364,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'workstation';
 
 -- Update word: further
@@ -381,7 +381,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'further';
 
 -- Update word: crash
@@ -398,7 +398,7 @@ SET
   review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
   updated_at = NOW()
 WHERE
-  user_id = 'YOUR_USER_ID_HERE'::uuid
+  user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text = 'crash';
 
 -- =====================================================
@@ -412,7 +412,7 @@ SELECT
   next_review_date,
   jsonb_array_length(user_sentences) as sentence_count
 FROM words
-WHERE user_id = 'YOUR_USER_ID_HERE'::uuid
+WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND text IN ('controversy', 'agenda', 'quantitative', 'tilting', 'ergonomic', 'procedures', 'perhaps', 'vent', 'occupational', 'tension', 'incident', 'legislation', 'symptoms', 'plural', 'penalty', 'ample', 'calories', 'value', 'containing', 'keen', 'workstation', 'further', 'crash')
 ORDER BY text;
 
