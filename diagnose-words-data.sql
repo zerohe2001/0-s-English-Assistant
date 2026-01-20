@@ -38,20 +38,28 @@ FROM words
 WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND learned = TRUE
   AND deleted = FALSE
-  AND (user_sentences IS NULL OR user_sentences = '[]'::jsonb OR jsonb_array_length(user_sentences) = 0);
+  AND (user_sentences IS NULL
+       OR user_sentences = '[]'::jsonb
+       OR (jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) = 0));
 
 -- Check 2 Details: List the words
 SELECT
   text,
   learned,
-  jsonb_array_length(user_sentences) as sentence_count,
+  CASE
+    WHEN user_sentences IS NULL THEN 0
+    WHEN jsonb_typeof(user_sentences) = 'array' THEN jsonb_array_length(user_sentences)
+    ELSE 0
+  END as sentence_count,
   user_sentences,
   created_at
 FROM words
 WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND learned = TRUE
   AND deleted = FALSE
-  AND (user_sentences IS NULL OR user_sentences = '[]'::jsonb OR jsonb_array_length(user_sentences) = 0)
+  AND (user_sentences IS NULL
+       OR user_sentences = '[]'::jsonb
+       OR (jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) = 0))
 ORDER BY text;
 
 -- Check 3: Learned words with incomplete sentences (< 3 sentences)
@@ -63,6 +71,7 @@ WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND learned = TRUE
   AND deleted = FALSE
   AND user_sentences IS NOT NULL
+  AND jsonb_typeof(user_sentences) = 'array'
   AND jsonb_array_length(user_sentences) > 0
   AND jsonb_array_length(user_sentences) < 3;
 
@@ -70,13 +79,18 @@ WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
 SELECT
   text,
   learned,
-  jsonb_array_length(user_sentences) as sentence_count,
+  CASE
+    WHEN user_sentences IS NULL THEN 0
+    WHEN jsonb_typeof(user_sentences) = 'array' THEN jsonb_array_length(user_sentences)
+    ELSE 0
+  END as sentence_count,
   created_at
 FROM words
 WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
   AND learned = TRUE
   AND deleted = FALSE
   AND user_sentences IS NOT NULL
+  AND jsonb_typeof(user_sentences) = 'array'
   AND jsonb_array_length(user_sentences) > 0
   AND jsonb_array_length(user_sentences) < 3
 ORDER BY text;
@@ -155,7 +169,7 @@ SELECT
   '📊 Learned Words Data Completeness' as summary_type,
   COUNT(*) as total_learned_words,
   SUM(CASE WHEN next_review_date IS NOT NULL THEN 1 ELSE 0 END) as has_review_date,
-  SUM(CASE WHEN user_sentences IS NOT NULL AND jsonb_array_length(user_sentences) >= 3 THEN 1 ELSE 0 END) as has_3_sentences,
+  SUM(CASE WHEN user_sentences IS NOT NULL AND jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) >= 3 THEN 1 ELSE 0 END) as has_3_sentences,
   SUM(CASE WHEN review_count IS NOT NULL AND review_count > 0 THEN 1 ELSE 0 END) as has_review_count,
   SUM(CASE WHEN review_stats IS NOT NULL THEN 1 ELSE 0 END) as has_review_stats,
   SUM(CASE WHEN phonetic IS NOT NULL AND phonetic != '' THEN 1 ELSE 0 END) as has_phonetic
@@ -169,6 +183,7 @@ SELECT
   SUM(CASE
     WHEN next_review_date IS NOT NULL
       AND user_sentences IS NOT NULL
+      AND jsonb_typeof(user_sentences) = 'array'
       AND jsonb_array_length(user_sentences) >= 3
       AND review_count IS NOT NULL
       AND review_count > 0
@@ -178,7 +193,7 @@ SELECT
   SUM(CASE
     WHEN next_review_date IS NULL
       OR user_sentences IS NULL
-      OR jsonb_array_length(user_sentences) < 3
+      OR (jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) < 3)
       OR review_count IS NULL
       OR review_count = 0
       OR review_stats IS NULL
