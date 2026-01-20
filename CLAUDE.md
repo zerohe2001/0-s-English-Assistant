@@ -141,4 +141,15 @@ This ensures transparency, allows real-time testing, and maintains a clean commi
 
 ---
 
+## 👤 User Information
+
+**Email**: lin.hecafa@gmail.com
+
+**Query user_id**:
+```sql
+SELECT id FROM auth.users WHERE email = 'lin.hecafa@gmail.com';
+```
+
+---
+
 **Last Updated**: 2026-01-20
