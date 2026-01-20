@@ -17,12 +17,17 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ TTS API failed:', response.status, response.statusText, errorText);
       throw new Error(`TTS API failed: ${response.status} ${response.statusText}`);
     }
 
     // Get audio blob (MP3 format)
     const audioBlob = await response.blob();
+    console.log('📦 Audio blob received:', audioBlob.size, 'bytes, type:', audioBlob.type);
+
     const audioUrl = URL.createObjectURL(audioBlob);
+    console.log('🔗 Audio URL created:', audioUrl);
 
     // Play using HTML5 Audio element (best mobile compatibility)
     return new Promise((resolve, reject) => {
@@ -44,7 +49,13 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
         reject(new Error('Audio playback failed'));
       };
 
-      audio.play().catch(reject);
+      console.log('▶️ Starting audio playback...');
+      audio.play()
+        .then(() => console.log('✅ Audio.play() succeeded'))
+        .catch((err) => {
+          console.error('❌ Audio.play() failed:', err);
+          reject(err);
+        });
     });
   } catch (error) {
     console.error('❌ Edge TTS failed, using browser fallback:', error);
