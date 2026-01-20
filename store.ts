@@ -616,13 +616,13 @@ export const useStore = create<AppState>()(
         const rawWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
         const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0);
 
-        // Check for duplicates
+        // Check for duplicates (only check non-deleted words)
         const state = get();
         const duplicates: string[] = [];
         const newWords: string[] = [];
 
         for (const word of cleanedWords) {
-          const existing = state.words.find(w => w.text.toLowerCase() === word.toLowerCase());
+          const existing = state.words.find(w => !w.deleted && w.text.toLowerCase() === word.toLowerCase());
           if (existing) {
             duplicates.push(word);
           } else {
