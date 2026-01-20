@@ -87,7 +87,10 @@ WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
 SELECT
   text,
   jsonb_typeof(user_sentences) as json_type,
-  jsonb_array_length(user_sentences) as sentence_count,
+  CASE
+    WHEN jsonb_typeof(user_sentences) = 'array' THEN jsonb_array_length(user_sentences)
+    ELSE 0
+  END as sentence_count,
   next_review_date,
   review_count
 FROM words
@@ -99,7 +102,7 @@ ORDER BY text;
 -- Summary
 SELECT
   COUNT(*) as total_learned_words,
-  SUM(CASE WHEN jsonb_array_length(user_sentences) = 3 THEN 1 ELSE 0 END) as words_with_3_sentences,
+  SUM(CASE WHEN jsonb_typeof(user_sentences) = 'array' AND jsonb_array_length(user_sentences) = 3 THEN 1 ELSE 0 END) as words_with_3_sentences,
   SUM(CASE WHEN next_review_date IS NOT NULL THEN 1 ELSE 0 END) as words_with_review_date
 FROM words
 WHERE user_id = '9fb717d0-3d44-44ef-bffb-307b1864712a'::uuid
