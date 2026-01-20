@@ -321,19 +321,27 @@ export const Library = () => {
           {/* Word Filter & Actions */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex gap-2">
-              {(['all', 'unlearned', 'learned'] as const).map(filter => (
-                <button
-                  key={filter}
-                  onClick={() => setWordFilter(filter)}
-                  className={`px-3 py-1 text-tiny rounded transition-colors ${
-                    wordFilter === filter
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {filter === 'all' ? 'All' : filter === 'learned' ? 'Learned' : 'To Learn'}
-                </button>
-              ))}
+              {(['unlearned', 'learned', 'all'] as const).map(filter => {
+                const count = filter === 'all'
+                  ? words.length
+                  : filter === 'learned'
+                    ? words.filter(w => w.learned).length
+                    : words.filter(w => !w.learned).length;
+
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setWordFilter(filter)}
+                    className={`px-3 py-1 text-tiny rounded transition-colors ${
+                      wordFilter === filter
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {filter === 'all' ? `All (${count})` : filter === 'learned' ? `Learned (${count})` : `To Learn (${count})`}
+                  </button>
+                );
+              })}
             </div>
 
             <button
