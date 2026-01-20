@@ -457,36 +457,35 @@ export const useStore = create<AppState>()(
           }
         }
 
-        // Return duplicate info so caller can handle it
-        if (duplicates.length > 0) {
-          return { duplicates, newWords, totalProcessed: cleanedWords.length };
+        // Add new words first (even if there are duplicates)
+        if (newWords.length > 0) {
+          const now = new Date().toISOString();
+          const wordObjects = await Promise.all(
+            newWords.map(async (wordText) => {
+              let phonetic = '';
+              try {
+                const dictEntry = await fetchWordDefinition(wordText);
+                phonetic = dictEntry?.phonetic || '';
+              } catch (error) {
+                console.warn(`⚠️ Failed to fetch phonetic for "${wordText}"`);
+              }
+
+              return {
+                id: crypto.randomUUID(),
+                text: wordText,
+                phonetic,
+                addedAt: now,
+                learned: false
+              };
+            })
+          );
+
+          set((state) => ({ words: [...wordObjects, ...state.words] }));
+          setTimeout(() => get().syncDataToCloud(), 100);
         }
 
-        // No duplicates - proceed with adding all words
-        const now = new Date().toISOString();
-        const wordObjects = await Promise.all(
-          newWords.map(async (wordText) => {
-            let phonetic = '';
-            try {
-              const dictEntry = await fetchWordDefinition(wordText);
-              phonetic = dictEntry?.phonetic || '';
-            } catch (error) {
-              console.warn(`⚠️ Failed to fetch phonetic for "${wordText}"`);
-            }
-
-            return {
-              id: crypto.randomUUID(),
-              text: wordText,
-              phonetic,
-              addedAt: now,
-              learned: false
-            };
-          })
-        );
-
-        set((state) => ({ words: [...wordObjects, ...state.words] }));
-        setTimeout(() => get().syncDataToCloud(), 100);
-        return { duplicates: [], newWords, totalProcessed: cleanedWords.length };
+        // Return result with duplicate info
+        return { duplicates, newWords, totalProcessed: cleanedWords.length };
       },
       bulkAddWordsForce: async (wordsToAdd: string[]) => {
         // Force add words without duplicate checking (user has already confirmed)
