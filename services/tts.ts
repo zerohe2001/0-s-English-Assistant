@@ -8,10 +8,49 @@
  * @param text - Text to speak
  * @param voiceName - Voice name (default: 'en-US-AvaMultilingualNeural')
  */
-export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
-  // Temporarily use browser TTS directly until Edge TTS 504 timeout issue is resolved
-  console.log('🎤 Using browser TTS for:', text.substring(0, 50));
-  return fallbackToSpeechSynthesis(text);
+export async function speak(text: string, voiceName: string = 'en-US-AvaNeural'): Promise<void> {
+  try {
+    console.log('🎤 Trying Edge TTS API (faster voice) for:', text.substring(0, 50));
+
+    // Use simpler/faster voice to avoid timeout
+    // Changed from: en-US-AvaMultilingualNeural (slow, high quality)
+    // To: en-US-AvaNeural (faster, still good quality)
+    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=en-US-AvaNeural`;
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      throw new Error(`TTS API failed: ${response.status} ${response.statusText}`);
+    }
+
+    // Get audio blob (MP3 format)
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Play using HTML5 Audio element (best mobile compatibility)
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(audioUrl);
+
+      // ✅ Standardize volume to 0.85 (85%) for consistent playback
+      audio.volume = 0.85;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        console.log('✅ Edge TTS playback completed');
+        resolve();
+      };
+
+      audio.onerror = (e) => {
+        URL.revokeObjectURL(audioUrl);
+        console.error('❌ Audio playback failed:', e);
+        reject(new Error('Audio playback failed'));
+      };
+
+      audio.play().catch(reject);
+    });
+  } catch (error) {
+    console.error('❌ Edge TTS failed, using browser fallback:', error);
+    return fallbackToSpeechSynthesis(text);
+  }
 }
 
 /**
