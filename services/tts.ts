@@ -14,7 +14,14 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
 
     // Call our Vercel serverless function
     const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
-    const response = await fetch(apiUrl);
+    console.log('🌐 Fetching from:', apiUrl);
+
+    // Add timeout to prevent hanging forever
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    const response = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
