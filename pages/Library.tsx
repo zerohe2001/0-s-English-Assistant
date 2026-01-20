@@ -65,6 +65,10 @@ export const Library = () => {
       const result = await bulkAddWords(newWord);
 
       if (result.duplicates.length > 0) {
+        // Show success message for new words that were added
+        if (result.newWords.length > 0) {
+          showToast(`Added ${result.newWords.length} new words! Found ${result.duplicates.length} duplicates.`, 'info');
+        }
         // Show duplicate selection modal
         setDuplicateInfo(result);
         setSelectedDuplicates([]); // Default: none selected (skip all duplicates)
