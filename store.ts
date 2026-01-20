@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { UserProfile, Word, LearnState, DictionaryState, SavedContext, TokenUsage, ReadingArticle, ReadingState, ConversationMessage } from './types';
 import { fetchWordDefinition } from './services/dictionary';
-import { supabase, getCurrentUser, syncProfile, syncWords, syncWordExplanations, syncTokenUsage, fetchProfile, fetchWords, fetchWordExplanations, fetchTokenUsage } from './services/supabase';
+import { supabase, getCurrentUser, syncProfile, syncWords, syncWordExplanations, syncTokenUsage, syncReadingArticles, fetchProfile, fetchWords, fetchWordExplanations, fetchTokenUsage, fetchReadingArticles } from './services/supabase';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -135,11 +135,12 @@ export const useStore = create<AppState>()(
           set({ isSyncing: true });
 
           // Fetch all data in parallel
-          const [profileData, wordsData, explanationsData, tokenData] = await Promise.all([
+          const [profileData, wordsData, explanationsData, tokenData, articlesData] = await Promise.all([
             fetchProfile(),
             fetchWords(),
             fetchWordExplanations(),
-            fetchTokenUsage()
+            fetchTokenUsage(),
+            fetchReadingArticles()
           ]);
 
           // Update profile
@@ -231,6 +232,27 @@ export const useStore = create<AppState>()(
             });
           }
 
+          // Update reading articles
+          if (articlesData.data && articlesData.data.length > 0) {
+            set({
+              readingState: {
+                ...get().readingState,
+                articles: articlesData.data.map((a: any) => ({
+                  id: a.id,
+                  title: a.title,
+                  content: a.content,
+                  sentences: JSON.parse(a.sentences), // Parse JSONB
+                  createdAt: new Date(a.created_at).getTime(),
+                  lastPlayedAt: a.last_played_at ? new Date(a.last_played_at).getTime() : undefined,
+                  audioStatus: a.audio_status,
+                  audioBlobKey: a.audio_blob_key || undefined,
+                  audioDuration: a.audio_duration || undefined,
+                  sentenceTimes: a.sentence_times ? JSON.parse(a.sentence_times) : undefined, // Parse JSONB
+                }))
+              }
+            });
+          }
+
           console.log('✅ Data loaded from cloud');
         } catch (error) {
           console.error('❌ Failed to load data from cloud:', error);
@@ -251,7 +273,8 @@ export const useStore = create<AppState>()(
             syncProfile(state.profile),
             syncWords(state.words),
             syncWordExplanations(state.learnState.wordExplanations || {}),
-            syncTokenUsage(state.tokenUsage)
+            syncTokenUsage(state.tokenUsage),
+            syncReadingArticles(state.readingState.articles)
           ]);
 
           console.log('✅ Data synced to cloud');

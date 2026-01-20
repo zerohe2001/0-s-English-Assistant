@@ -71,6 +71,21 @@ export interface DbTokenUsage {
   updated_at: string;
 }
 
+export interface DbReadingArticle {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  sentences: string; // JSONB stored as string
+  created_at: string;
+  last_played_at: string | null;
+  audio_status: string;
+  audio_blob_key: string | null;
+  audio_duration: number | null;
+  sentence_times: string | null; // JSONB stored as string
+  updated_at: string;
+}
+
 // Helper functions for auth
 export const signUp = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signUp({
@@ -281,6 +296,70 @@ export const fetchTokenUsage = async () => {
     .select('*')
     .eq('user_id', user.id)
     .single();
+
+  return { data, error };
+};
+
+export const syncReadingArticles = async (articles: any[]) => {
+  const user = await getCurrentUser();
+  if (!user) return { error: new Error('Not authenticated') };
+
+  // ✅ Safety check: If local has no articles, don't attempt sync
+  if (articles.length === 0) {
+    console.warn('⚠️ syncReadingArticles: No articles to sync');
+    return { data: [], error: null };
+  }
+
+  // ✅ Use UPSERT for safe syncing
+  const { data, error } = await supabase
+    .from('reading_articles')
+    .upsert(
+      articles.map(a => ({
+        user_id: user.id,
+        id: a.id,
+        title: a.title,
+        content: a.content,
+        sentences: JSON.stringify(a.sentences), // JSONB field
+        created_at: new Date(a.createdAt).toISOString(),
+        last_played_at: a.lastPlayedAt ? new Date(a.lastPlayedAt).toISOString() : null,
+        audio_status: a.audioStatus,
+        audio_blob_key: a.audioBlobKey || null,
+        audio_duration: a.audioDuration || null,
+        sentence_times: a.sentenceTimes ? JSON.stringify(a.sentenceTimes) : null, // JSONB field
+      })),
+      {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      }
+    )
+    .select();
+
+  if (data) {
+    console.log(`✅ syncReadingArticles: Successfully synced ${data.length} articles to cloud`);
+  }
+  if (error) {
+    console.error('❌ syncReadingArticles error:', error);
+  }
+
+  return { data, error };
+};
+
+export const fetchReadingArticles = async () => {
+  const user = await getCurrentUser();
+  if (!user) return { data: null, error: new Error('Not authenticated') };
+
+  const { data, error } = await supabase
+    .from('reading_articles')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false }); // Most recent first
+
+  if (data) {
+    console.log(`✅ fetchReadingArticles: Loaded ${data.length} articles from cloud`);
+  }
+  if (error) {
+    console.error('❌ fetchReadingArticles error:', error);
+  }
 
   return { data, error };
 };
