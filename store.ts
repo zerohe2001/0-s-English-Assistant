@@ -148,9 +148,13 @@ export const useStore = create<AppState>()(
             set({
               profile: {
                 name: p.name,
-                level: p.level,
-                target: p.target,
-                nativeLanguage: p.native_language,
+                city: p.city || '', // ✅ NEW
+                occupation: p.occupation || '', // ✅ NEW
+                hobbies: p.hobbies || '', // ✅ NEW
+                frequentPlaces: p.frequent_places || '', // ✅ NEW
+                level: p.level || '', // ⚠️ DEPRECATED
+                target: p.target || '', // ⚠️ DEPRECATED
+                nativeLanguage: p.native_language || 'zh-CN', // ⚠️ DEPRECATED
                 savedContexts: p.saved_contexts || []
               },
               isProfileSet: true

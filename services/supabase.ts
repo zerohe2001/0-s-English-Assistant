@@ -20,9 +20,13 @@ export interface DbUserProfile {
   id: string;
   user_id: string;
   name: string;
-  level: string;
-  target: string;
-  native_language: string;
+  city: string; // ✅ NEW: User's city
+  occupation: string; // ✅ NEW: User's occupation
+  hobbies: string; // ✅ NEW: User's hobbies/interests
+  frequent_places: string; // ✅ NEW: Places user frequently visits
+  level: string; // ⚠️ DEPRECATED: kept for backward compatibility
+  target: string; // ⚠️ DEPRECATED: kept for backward compatibility
+  native_language: string; // ⚠️ DEPRECATED: kept for backward compatibility
   saved_contexts: any[];
   created_at: string;
   updated_at: string;
@@ -104,14 +108,25 @@ export const syncProfile = async (profile: any) => {
     .upsert({
       user_id: user.id,
       name: profile.name,
-      level: profile.level,
-      target: profile.target,
-      native_language: profile.nativeLanguage,
+      city: profile.city || '', // ✅ NEW
+      occupation: profile.occupation || '', // ✅ NEW
+      hobbies: profile.hobbies || '', // ✅ NEW
+      frequent_places: profile.frequentPlaces || '', // ✅ NEW
+      level: profile.level || '', // ⚠️ DEPRECATED: kept for compatibility
+      target: profile.target || '', // ⚠️ DEPRECATED: kept for compatibility
+      native_language: profile.nativeLanguage || 'zh-CN', // ⚠️ DEPRECATED: kept for compatibility
       saved_contexts: profile.savedContexts || [],
       updated_at: new Date().toISOString(),
     })
     .select()
     .single();
+
+  if (data) {
+    console.log('✅ syncProfile: Profile synced to cloud');
+  }
+  if (error) {
+    console.error('❌ syncProfile error:', error);
+  }
 
   return { data, error };
 };

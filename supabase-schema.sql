@@ -9,9 +9,13 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
-  level TEXT NOT NULL,
-  target TEXT NOT NULL,
-  native_language TEXT NOT NULL DEFAULT 'zh-CN',
+  city TEXT, -- ✅ NEW: User's city
+  occupation TEXT, -- ✅ NEW: User's occupation
+  hobbies TEXT, -- ✅ NEW: User's hobbies/interests
+  frequent_places TEXT, -- ✅ NEW: Places user frequently visits
+  level TEXT, -- ⚠️ DEPRECATED: kept for backward compatibility
+  target TEXT, -- ⚠️ DEPRECATED: kept for backward compatibility
+  native_language TEXT DEFAULT 'zh-CN', -- ⚠️ DEPRECATED: kept for backward compatibility
   saved_contexts JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
