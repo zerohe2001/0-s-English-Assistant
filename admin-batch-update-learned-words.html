@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Update Learned Words - Admin Tool</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px 20px;
+      max-width: 900px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #111;
+    }
+
+    .description {
+      color: #666;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #111;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 150px;
+    }
+
+    .hint {
+      color: #666;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    button {
+      background: #111;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #333;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    #output {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      display: none;
+    }
+
+    #output.show {
+      display: block;
+    }
+
+    .success {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .error {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    pre {
+      background: #111;
+      color: #0f0;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 15px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .warning {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .step {
+      margin-top: 20px;
+      padding: 15px;
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      border-radius: 4px;
+    }
+
+    .step h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .step ol {
+      margin-left: 20px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Batch Update Learned Words</h1>
+    <p class="description">
+      This admin tool generates SQL to batch update your learned words with:<br>
+      • 3 user-created sentences for each word<br>
+      • Review stats and next review date (Ebbinghaus intervals)<br>
+      • All necessary metadata
+    </p>
+
+    <div class="warning">
+      ⚠️ <strong>Important:</strong> This tool generates SQL that you need to run in Supabase SQL Editor.
+      It does NOT automatically update your database.
+    </div>
+
+    <label for="wordList">Enter your learned words (one per line):</label>
+    <textarea
+      id="wordList"
+      placeholder="tilting&#10;procrastination&#10;resilient&#10;meticulous&#10;..."
+    ></textarea>
+    <p class="hint">Enter one word per line. Duplicates will be automatically removed.</p>
+
+    <button id="generateBtn" onclick="generateSQL()">Generate SQL</button>
+
+    <div id="output">
+      <h3 id="outputTitle"></h3>
+      <p id="outputMessage"></p>
+      <pre id="sqlOutput"></pre>
+
+      <div class="step">
+        <h3>📋 How to use the generated SQL:</h3>
+        <ol>
+          <li>Copy the SQL code above</li>
+          <li>Go to <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a></li>
+          <li>Select your project → SQL Editor</li>
+          <li>Paste the SQL and click <strong>Run</strong></li>
+          <li>Refresh your app to see the updated words</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function generateSQL() {
+      const wordListText = document.getElementById('wordList').value;
+      const output = document.getElementById('output');
+      const outputTitle = document.getElementById('outputTitle');
+      const outputMessage = document.getElementById('outputMessage');
+      const sqlOutput = document.getElementById('sqlOutput');
+
+      // Parse words
+      const words = wordListText
+        .split('\n')
+        .map(w => w.trim().toLowerCase())
+        .filter(w => w.length > 0);
+
+      // Remove duplicates
+      const uniqueWords = [...new Set(words)];
+
+      if (uniqueWords.length === 0) {
+        alert('Please enter at least one word!');
+        return;
+      }
+
+      // Generate SQL
+      const sql = generateUpdateSQL(uniqueWords);
+
+      // Display result
+      output.classList.add('show');
+      outputTitle.textContent = '✅ SQL Generated Successfully!';
+      outputTitle.className = 'success';
+      outputMessage.textContent = `Generated update statements for ${uniqueWords.length} words.`;
+      sqlOutput.textContent = sql;
+
+      // Auto-scroll to output
+      output.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function generateUpdateSQL(words) {
+      const now = new Date().toISOString();
+      const nextReviewDate = getNextReviewDate(7); // 7 days from now
+
+      let sql = `-- =====================================================
+-- Batch Update Learned Words
+-- Generated: ${now}
+-- Total words: ${words.length}
+-- =====================================================
+
+-- IMPORTANT: Update YOUR_USER_ID_HERE with your actual user_id from Supabase
+-- You can find it by running: SELECT id FROM auth.users WHERE email = 'your-email@example.com';
+
+`;
+
+      words.forEach((word, index) => {
+        const sentences = generateSentences(word);
+        const sentencesJSON = JSON.stringify(sentences).replace(/'/g, "''"); // Escape single quotes
+
+        sql += `
+-- Update word: ${word}
+UPDATE words
+SET
+  learned = TRUE,
+  user_sentences = '${sentencesJSON}'::jsonb,
+  review_count = 1,
+  next_review_date = '${nextReviewDate}'::timestamp,
+  review_stats = '{"retryCount": 0, "skipped": false}'::jsonb,
+  updated_at = NOW()
+WHERE
+  user_id = 'YOUR_USER_ID_HERE'::uuid
+  AND text = '${word}';
+
+`;
+      });
+
+      sql += `
+-- =====================================================
+-- Verification Query (Run this after the updates)
+-- =====================================================
+
+SELECT
+  text,
+  learned,
+  review_count,
+  next_review_date,
+  jsonb_array_length(user_sentences) as sentence_count
+FROM words
+WHERE user_id = 'YOUR_USER_ID_HERE'::uuid
+  AND text IN (${words.map(w => `'${w}'`).join(', ')})
+ORDER BY text;
+
+-- Expected: All words should have learned=true, sentence_count=3
+`;
+
+      return sql;
+    }
+
+    function generateSentences(word) {
+      // Generate 3 placeholder sentences
+      // These are generic placeholders - you should replace them with your actual sentences later
+      const now = new Date().toISOString();
+      return [
+        {
+          sentence: `I learned the word "${word}" today.`,
+          translation: `我今天学习了"${word}"这个词。`,
+          createdAt: now
+        },
+        {
+          sentence: `The word "${word}" is useful in conversations.`,
+          translation: `"${word}"这个词在对话中很有用。`,
+          createdAt: now
+        },
+        {
+          sentence: `I need to practice using "${word}" more often.`,
+          translation: `我需要更多地练习使用"${word}"。`,
+          createdAt: now
+        }
+      ];
+    }
+
+    function getNextReviewDate(daysFromNow) {
+      const date = new Date();
+      date.setDate(date.getDate() + daysFromNow);
+      return date.toISOString();
+    }
+  </script>
+</body>
+</html>
