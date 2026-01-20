@@ -60,11 +60,7 @@ export const Library = () => {
 
   const handleSubmitWord = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔍 handleSubmitWord called, newWord:', newWord);
-    if (!newWord.trim()) {
-      console.log('❌ Empty word, returning');
-      return;
-    }
+    if (!newWord.trim()) return;
 
     if (isBulk) {
       // Bulk mode: check for duplicates and show modal if found
@@ -88,9 +84,7 @@ export const Library = () => {
       }
     } else {
       // Single mode: show confirmation dialog if duplicate
-      console.log('📝 Single mode: calling addWord with:', newWord);
       const result = await addWord(newWord);
-      console.log('📝 addWord result:', result);
 
       if (result.duplicate && result.existingWord) {
         const existingDate = new Date(result.existingWord.addedAt).toLocaleDateString();
@@ -104,11 +98,9 @@ export const Library = () => {
           showToast('Word added!', 'success');
         }
       } else {
-        console.log('✅ Word added successfully (not duplicate)');
         showToast('Word added!', 'success');
       }
 
-      console.log('🧹 Clearing input and resetting bulk mode');
       setNewWord('');
       setIsBulk(false);
     }
