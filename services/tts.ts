@@ -1,30 +1,37 @@
 /**
- * Text-to-Speech service using Microsoft Edge TTS
- * Completely replaces Gemini TTS for better quality and mobile compatibility
+ * Text-to-Speech service using Google Cloud TTS
+ * Fast (2-5s), high-quality Neural2 voices, reliable
  */
 
 /**
- * Speak text using Microsoft Edge TTS API
+ * Speak text using Google Cloud TTS
  * @param text - Text to speak
- * @param voiceName - Voice name (default: 'en-US-AvaMultilingualNeural')
+ * @param voiceName - Voice name (default: 'en-US-Neural2-F')
+ *
+ * Switched from Edge TTS to Google Cloud TTS:
+ * - Edge TTS was timing out (>60s) on Vercel
+ * - Google TTS is fast (2-5s), high quality, and reliable
+ * - Uses Neural2 voices (very natural, human-like)
  */
-export async function speak(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
+export async function speak(text: string, voiceName: string = 'en-US-Neural2-F'): Promise<void> {
   try {
-    console.log('🎤 Using Edge TTS API for:', text.substring(0, 50));
+    console.log('🎤 Using Google Cloud TTS for:', text.substring(0, 50));
 
-    // Call our Vercel serverless function with original high-quality voice
-    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+    // Call our Google TTS API endpoint
+    const apiUrl = `/api/google-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      throw new Error(`TTS API failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Google TTS API failed:', response.status, errorText);
+      throw new Error(`TTS API failed: ${response.status}`);
     }
 
     // Get audio blob (MP3 format)
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
 
-    // Play using HTML5 Audio element (best mobile compatibility)
+    // Play using HTML5 Audio element
     return new Promise((resolve, reject) => {
       const audio = new Audio(audioUrl);
 
@@ -33,7 +40,7 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
 
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        console.log('✅ Edge TTS playback completed');
+        console.log('✅ Google TTS playback completed');
         resolve();
       };
 
@@ -46,7 +53,7 @@ export async function speak(text: string, voiceName: string = 'en-US-AvaMultilin
       audio.play().catch(reject);
     });
   } catch (error) {
-    console.error('❌ Edge TTS failed, using browser fallback:', error);
+    console.error('❌ Google TTS failed, using browser fallback:', error);
     return fallbackToSpeechSynthesis(text);
   }
 }
