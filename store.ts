@@ -42,9 +42,10 @@ interface AppState {
 
   // Vocabulary
   words: Word[];
-  addWord: (text: string) => void;
+  addWord: (text: string) => Promise<{ duplicate: boolean; existingWord?: Word }>;
   removeWord: (id: string) => void;
-  bulkAddWords: (text: string) => void;
+  bulkAddWords: (text: string) => Promise<{ duplicates: Array<{ word: string; existingWord: Word }>; newWords: string[]; totalProcessed: number }>;
+  bulkAddWordsForce: (words: string[]) => Promise<void>; // ✅ Force add words (even duplicates)
   markWordAsLearned: (wordId: string) => void; // ✅ Mark word as learned
   addUserSentence: (wordId: string, sentence: string, translation: string) => void; // ✅ Add a sentence to Word's userSentences array
   updateReviewStats: (wordId: string, stats: import('./types').ReviewStats) => void; // ✅ Update review stats
@@ -356,7 +357,15 @@ export const useStore = create<AppState>()(
 
       words: [],
       addWord: async (text) => {
-        const word = text.trim();
+        const word = text.trim().toLowerCase();
+
+        // Check for duplicate
+        const state = get();
+        const existing = state.words.find(w => w.text.toLowerCase() === word);
+        if (existing) {
+          // Return existing word info so caller can handle duplicate
+          return { duplicate: true, existingWord: existing };
+        }
 
         // Fetch phonetic from dictionary API
         let phonetic = '';
@@ -381,6 +390,7 @@ export const useStore = create<AppState>()(
           ]
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
+        return { duplicate: false };
       },
       removeWord: (id) => {
         set((state) => ({
@@ -389,7 +399,7 @@ export const useStore = create<AppState>()(
         setTimeout(() => get().syncDataToCloud(), 100);
       },
       bulkAddWords: async (text) => {
-        // ✅ Helper function to clean raw word input
+        // ✅ Enhanced helper function to clean raw word input
         const cleanWord = (rawText: string): string => {
           let cleaned = rawText;
 
@@ -397,29 +407,92 @@ export const useStore = create<AppState>()(
           cleaned = cleaned.replace(/\[.*?\]/g, '');
           cleaned = cleaned.replace(/\/.*?\//g, '');
 
-          // 2. Remove everything after = (Chinese translations)
+          // 2. Remove Chinese characters and everything after them
+          cleaned = cleaned.replace(/[\u4e00-\u9fa5].*$/g, '');
+
+          // 3. Remove everything after = (translations)
           cleaned = cleaned.split('=')[0];
 
-          // 3. Remove everything after + (grammar notes like "+ 从句")
+          // 4. Remove everything after + (grammar notes)
           cleaned = cleaned.split('+')[0];
 
-          // 4. Remove content in parentheses (notes)
+          // 5. Remove part-of-speech tags (adj. adv. v. n. etc.)
+          cleaned = cleaned.replace(/\b(adj|adv|v|n|prep|conj|pron|interj|det|aux)\b\.?/gi, '');
+
+          // 6. Remove content in parentheses (notes)
           cleaned = cleaned.replace(/\(.*?\)/g, '');
           cleaned = cleaned.replace(/（.*?）/g, ''); // Chinese parentheses
 
-          // 5. Remove extra whitespace and trim
-          cleaned = cleaned.trim().replace(/\s+/g, ' ');
+          // 7. Extract first English word or phrase (up to 4 words)
+          const words = cleaned.trim().split(/\s+/).filter(w => /^[a-zA-Z'-]+$/.test(w));
+          if (words.length === 0) return '';
+
+          // Keep phrases (2-4 words) or single words
+          if (words.length <= 4) {
+            cleaned = words.join(' ');
+          } else {
+            cleaned = words[0]; // Take first word only if more than 4 words
+          }
+
+          // 8. Convert to lowercase
+          cleaned = cleaned.toLowerCase().trim();
 
           return cleaned;
         };
 
         const rawWords = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
-        const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0 && /^[a-zA-Z\s-]+$/.test(w));
+        const cleanedWords = rawWords.map(cleanWord).filter(w => w.length > 0);
 
-        // Fetch phonetics for all words in parallel
+        // Check for duplicates
+        const state = get();
+        const duplicates: Array<{ word: string; existingWord: Word }> = [];
+        const newWords: string[] = [];
+
+        for (const word of cleanedWords) {
+          const existing = state.words.find(w => w.text.toLowerCase() === word.toLowerCase());
+          if (existing) {
+            duplicates.push({ word, existingWord: existing });
+          } else {
+            newWords.push(word);
+          }
+        }
+
+        // Return duplicate info so caller can handle it
+        if (duplicates.length > 0) {
+          return { duplicates, newWords, totalProcessed: cleanedWords.length };
+        }
+
+        // No duplicates - proceed with adding all words
         const now = new Date().toISOString();
         const wordObjects = await Promise.all(
-          cleanedWords.map(async (wordText) => {
+          newWords.map(async (wordText) => {
+            let phonetic = '';
+            try {
+              const dictEntry = await fetchWordDefinition(wordText);
+              phonetic = dictEntry?.phonetic || '';
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch phonetic for "${wordText}"`);
+            }
+
+            return {
+              id: crypto.randomUUID(),
+              text: wordText,
+              phonetic,
+              addedAt: now,
+              learned: false
+            };
+          })
+        );
+
+        set((state) => ({ words: [...wordObjects, ...state.words] }));
+        setTimeout(() => get().syncDataToCloud(), 100);
+        return { duplicates: [], newWords, totalProcessed: cleanedWords.length };
+      },
+      bulkAddWordsForce: async (wordsToAdd: string[]) => {
+        // Force add words without duplicate checking (user has already confirmed)
+        const now = new Date().toISOString();
+        const wordObjects = await Promise.all(
+          wordsToAdd.map(async (wordText) => {
             let phonetic = '';
             try {
               const dictEntry = await fetchWordDefinition(wordText);

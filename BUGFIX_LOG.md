@@ -4,6 +4,80 @@
 
 ---
 
+## 2026-01-20
+
+### 0. Library 重复单词检测与智能清洗
+**时间**: 2026-01-20
+**改进**: Library添加单词时缺少重复检测和单词清洗功能
+**问题**:
+1. 用户可以重复添加相同单词，导致列表混乱
+2. 批量添加时格式混乱（中文释义、音标、词性标注等）
+**解决**:
+
+**单词清洗逻辑** (bulkAddWords):
+```javascript
+// 支持的混乱格式示例：
+previous 之前的 → previous
+hint 暗示v. → hint
+resume ['rezumeɪ] 简历 → resume
+Unaware 无意识的 /ˌʌnəˈwer/ → unaware
+further adj.adv.v. 更远 → further
+popped into my head → popped into my head (保留短语)
+```
+
+清洗规则:
+- 移除音标 `[...]` 和 `/.../`
+- 移除中文字符及之后的所有内容
+- 移除词性标注 (adj. adv. v. n. 等)
+- 移除翻译符号 `=` 之后的内容
+- 提取前1-4个英文单词（保留短语）
+- 统一转小写
+
+**重复检测逻辑**:
+
+**单个添加模式**:
+1. 检测是否已存在（忽略大小写）
+2. 发现重复 → 弹窗确认
+3. 用户可选择"Add anyway"强制添加
+
+**批量添加模式**:
+1. 自动清洗所有单词
+2. 检测所有重复单词
+3. 显示重复词复选框列表（默认不勾选）
+4. 用户选择要添加的重复词
+5. 自动添加所有新词 + 用户选中的重复词
+
+**UI设计**:
+```
+Found Existing Words
+Select duplicates you want to add anyway
+
+☐ hello (added 2026-01-10)
+☐ world (added 2026-01-15)
+
+默认不勾选 = 跳过
+勾选 = 添加为新的一条
+
+[Cancel] [Add Selected]
+
+提示: "3 new words + 1 duplicate will be added"
+```
+
+**修改的文件**:
+- `store.ts` - addWord 返回 duplicate 信息
+- `store.ts` - bulkAddWords 返回 duplicates + newWords
+- `store.ts` - 新增 bulkAddWordsForce 强制添加
+- `store.ts` - 增强 cleanWord 清洗逻辑
+- `Library.tsx` - 添加 duplicate modal 和处理逻辑
+
+**提交**: [待提交]
+**教训**:
+1. 批量导入功能要考虑真实数据的混乱程度
+2. 重复检测要提供灵活的用户选择（不是简单的yes/no）
+3. 复选框默认状态要符合安全原则（不勾选=不添加重复）
+
+---
+
 ## 2026-01-16
 
 ### 0. Review录音交互bug修复（两个关键问题）

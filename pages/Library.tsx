@@ -18,6 +18,7 @@ export const Library = () => {
     addWord,
     removeWord,
     bulkAddWords,
+    bulkAddWordsForce,
     readingState,
     addArticle,
     removeArticle,
@@ -29,6 +30,14 @@ export const Library = () => {
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [wordFilter, setWordFilter] = useState<'all' | 'learned' | 'unlearned'>('all');
+
+  // Duplicate detection states
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    duplicates: Array<{ word: string; existingWord: any }>;
+    newWords: string[];
+  } | null>(null);
+  const [selectedDuplicates, setSelectedDuplicates] = useState<string[]>([]);
 
   // Initialize IndexedDB
   useEffect(() => {
@@ -47,17 +56,83 @@ export const Library = () => {
     return true;
   });
 
-  const handleSubmitWord = (e: React.FormEvent) => {
+  const handleSubmitWord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWord.trim()) return;
 
     if (isBulk) {
-      bulkAddWords(newWord);
+      // Bulk mode: check for duplicates and show modal if found
+      const result = await bulkAddWords(newWord);
+
+      if (result.duplicates.length > 0) {
+        // Show duplicate selection modal
+        setDuplicateInfo(result);
+        setSelectedDuplicates([]); // Default: none selected (skip all duplicates)
+        setShowDuplicateModal(true);
+      } else {
+        // No duplicates, show success
+        showToast(`Added ${result.newWords.length} words successfully!`, 'success');
+        setNewWord('');
+        setIsBulk(false);
+      }
     } else {
-      addWord(newWord);
+      // Single mode: show confirmation dialog if duplicate
+      const result = await addWord(newWord);
+
+      if (result.duplicate && result.existingWord) {
+        const existingDate = new Date(result.existingWord.addedAt).toLocaleDateString();
+        const confirmed = window.confirm(
+          `"${newWord.trim()}" already exists (added ${existingDate}).\n\nAdd it anyway?`
+        );
+
+        if (confirmed) {
+          // User confirmed - force add the word
+          await bulkAddWordsForce([newWord.trim().toLowerCase()]);
+          showToast('Word added!', 'success');
+        }
+      } else {
+        showToast('Word added!', 'success');
+      }
+
+      setNewWord('');
+      setIsBulk(false);
     }
+  };
+
+  const handleConfirmDuplicates = async () => {
+    if (!duplicateInfo) return;
+
+    // Add new words (non-duplicates) + selected duplicates
+    const wordsToAdd = [...duplicateInfo.newWords, ...selectedDuplicates];
+
+    if (wordsToAdd.length > 0) {
+      await bulkAddWordsForce(wordsToAdd);
+      showToast(
+        `Added ${wordsToAdd.length} words! Skipped ${duplicateInfo.duplicates.length - selectedDuplicates.length} duplicates.`,
+        'success'
+      );
+    } else {
+      showToast('No words added.', 'info');
+    }
+
+    // Reset states
+    setShowDuplicateModal(false);
+    setDuplicateInfo(null);
+    setSelectedDuplicates([]);
     setNewWord('');
     setIsBulk(false);
+  };
+
+  const handleCancelDuplicates = () => {
+    setShowDuplicateModal(false);
+    setDuplicateInfo(null);
+    setSelectedDuplicates([]);
+  };
+
+  const toggleDuplicateSelection = (word: string) => {
+    setSelectedDuplicates(prev =>
+      prev.includes(word) ? prev.filter(w => w !== word) : [...prev, word]
+    );
   };
 
   const handleAddArticle = async (title: string, content: string) => {
@@ -366,6 +441,88 @@ export const Library = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddArticle}
       />
+
+      {/* Duplicate Selection Modal */}
+      {showDuplicateModal && duplicateInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-300">
+              <h2 className="text-h2 text-gray-900">Found Existing Words</h2>
+              <p className="text-small text-gray-500 mt-2">
+                Select duplicates you want to add anyway (will create new entries)
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-2">
+              {duplicateInfo.duplicates.map(({ word, existingWord }) => (
+                <div
+                  key={word}
+                  onClick={() => toggleDuplicateSelection(word)}
+                  className={`p-4 rounded border cursor-pointer transition-all ${
+                    selectedDuplicates.includes(word)
+                      ? 'bg-gray-100 border-gray-900'
+                      : 'bg-white border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-start">
+                    <div
+                      className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center mr-3 ${
+                        selectedDuplicates.includes(word)
+                          ? 'bg-gray-900 border-gray-900'
+                          : 'border-gray-300'
+                      }`}
+                    >
+                      {selectedDuplicates.includes(word) && (
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{word}</div>
+                      <div className="text-tiny text-gray-500 mt-1">
+                        Already exists (added {new Date(existingWord.addedAt).toLocaleDateString()})
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 border-t border-gray-300 space-y-3">
+              <div className="text-tiny text-gray-500">
+                {duplicateInfo.newWords.length} new words will be added
+                {selectedDuplicates.length > 0 &&
+                  ` + ${selectedDuplicates.length} duplicate${selectedDuplicates.length > 1 ? 's' : ''}`}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDuplicates}
+                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-900 rounded text-small font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDuplicates}
+                  className="flex-1 py-2 px-4 bg-gray-900 text-white rounded text-small font-medium hover:bg-gray-700 transition-colors"
+                >
+                  Add Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dictionary Modal */}
       <DictionaryModal />
