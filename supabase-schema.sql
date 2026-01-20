@@ -23,11 +23,17 @@ CREATE TABLE IF NOT EXISTS words (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   text TEXT NOT NULL,
+  phonetic TEXT, -- ✅ American English pronunciation (e.g., /ˈtɪltɪŋ/)
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- ✅ When word was first added
   learned BOOLEAN DEFAULT FALSE,
-  user_sentence TEXT,
-  user_sentence_translation TEXT,
+  user_sentence TEXT, -- ⚠️ LEGACY: kept for backward compatibility
+  user_sentence_translation TEXT, -- ⚠️ LEGACY: kept for backward compatibility
+  user_sentences JSONB, -- ✅ NEW: Array of user-created sentences with translations
   review_stats JSONB,
   next_review_date TIMESTAMP WITH TIME ZONE,
+  review_count INTEGER DEFAULT 0, -- ✅ Number of successful reviews (Ebbinghaus intervals)
+  deleted BOOLEAN DEFAULT FALSE, -- ✅ Soft delete flag
+  deleted_at TIMESTAMP WITH TIME ZONE, -- ✅ When the word was deleted
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -59,6 +65,8 @@ CREATE TABLE IF NOT EXISTS token_usage (
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_words_user_id ON words(user_id);
 CREATE INDEX IF NOT EXISTS idx_words_learned ON words(user_id, learned);
+CREATE INDEX IF NOT EXISTS idx_words_deleted ON words(user_id, deleted); -- ✅ For filtering deleted words
+CREATE INDEX IF NOT EXISTS idx_words_next_review ON words(user_id, next_review_date) WHERE deleted = FALSE; -- ✅ For review scheduling
 CREATE INDEX IF NOT EXISTS idx_word_explanations_user_id ON word_explanations(user_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_user_id ON token_usage(user_id);
 

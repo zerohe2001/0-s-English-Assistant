@@ -163,18 +163,22 @@ export const useStore = create<AppState>()(
                   userSentences = [{
                     sentence: w.user_sentence,
                     translation: w.user_sentence_translation,
-                    createdAt: w.added_at || new Date().toISOString()
+                    createdAt: w.added_at || w.created_at || new Date().toISOString()
                   }];
                 }
 
                 return {
                   id: w.id,
                   text: w.text,
+                  phonetic: w.phonetic || undefined, // ✅ NEW: pronunciation
+                  addedAt: w.added_at || w.created_at, // ✅ NEW: when word was added
                   learned: w.learned,
                   userSentences,
                   reviewStats: w.review_stats,
                   nextReviewDate: w.next_review_date,
-                  reviewCount: w.review_count || 0
+                  reviewCount: w.review_count || 0,
+                  deleted: w.deleted || false, // ✅ NEW: soft delete flag
+                  deletedAt: w.deleted_at || undefined, // ✅ NEW: when word was deleted
                 };
               })
             });
@@ -1247,9 +1251,21 @@ export const useStore = create<AppState>()(
           return cleaned;
         };
 
+        // ✅ CLOUD-FIRST STRATEGY:
+        // If currentState has data (just loaded from cloud), use it
+        // Otherwise use persistedState (from localStorage)
+        const useCloudWords = currentState.words && currentState.words.length > 0;
+        const useCloudProfile = currentState.isAuthenticated && currentState.profile && currentState.profile.name;
+
+        console.log(`🔄 Persist merge: ${useCloudWords ? 'Using cloud words' : 'Using localStorage words'}, ${useCloudProfile ? 'Using cloud profile' : 'Using localStorage profile'}`);
+
         return {
           ...currentState,
           ...persistedState,
+          // ✅ Cloud-first: If cloud data exists (currentState), use it
+          words: useCloudWords ? currentState.words : (persistedState.words || []),
+          profile: useCloudProfile ? currentState.profile : (persistedState.profile || currentState.profile),
+          isProfileSet: useCloudProfile ? currentState.isProfileSet : (persistedState.isProfileSet || false),
           tokenUsage: persistedState.tokenUsage || {
             inputTokens: 0,
             outputTokens: 0,

@@ -32,11 +32,17 @@ export interface DbWord {
   id: string;
   user_id: string;
   text: string;
+  phonetic: string | null; // ✅ American English pronunciation
+  added_at: string; // ✅ When word was first added
   learned: boolean;
-  user_sentence: string | null;
-  user_sentence_translation: string | null;
+  user_sentence: string | null; // ⚠️ LEGACY: kept for backward compatibility
+  user_sentence_translation: string | null; // ⚠️ LEGACY: kept for backward compatibility
+  user_sentences: string | null; // ✅ NEW: JSON string of UserSentence[]
   review_stats: any | null;
   next_review_date: string | null;
+  review_count: number; // ✅ Number of successful reviews
+  deleted: boolean; // ✅ Soft delete flag
+  deleted_at: string | null; // ✅ When the word was deleted
   created_at: string;
   updated_at: string;
 }
@@ -127,31 +133,43 @@ export const syncWords = async (words: any[]) => {
   const user = await getCurrentUser();
   if (!user) return { error: new Error('Not authenticated') };
 
-  // Delete existing words and insert new ones
-  const { error: deleteError } = await supabase
-    .from('words')
-    .delete()
-    .eq('user_id', user.id);
+  // ✅ Safety check: If local has no words, don't delete cloud data!
+  // This prevents data loss when localStorage is cleared
+  if (words.length === 0) {
+    console.warn('⚠️ syncWords: Local storage is empty, skipping sync to prevent cloud data loss');
+    return { data: [], error: null };
+  }
 
-  if (deleteError) return { error: deleteError };
-
-  if (words.length === 0) return { data: [], error: null };
-
+  // ✅ Use UPSERT instead of DELETE + INSERT
+  // This is much safer - it updates existing records or inserts new ones
+  // No risk of deleting all data if something goes wrong
   const { data, error } = await supabase
     .from('words')
-    .insert(
+    .upsert(
       words.map(w => ({
         user_id: user.id,
         id: w.id,
         text: w.text,
+        phonetic: w.phonetic || null, // ✅ NEW: pronunciation
+        added_at: w.addedAt || new Date().toISOString(), // ✅ NEW: when word was added
         learned: w.learned || false,
-        user_sentences: w.userSentences ? JSON.stringify(w.userSentences) : null, // ✅ Store as JSON
+        user_sentences: w.userSentences ? JSON.stringify(w.userSentences) : null, // ✅ Store as JSON array
         review_stats: w.reviewStats || null,
         next_review_date: w.nextReviewDate || null,
         review_count: w.reviewCount || 0, // ✅ Track review count for Ebbinghaus intervals
-      }))
+        deleted: w.deleted || false, // ✅ NEW: soft delete flag
+        deleted_at: w.deletedAt || null, // ✅ NEW: when word was deleted
+      })),
+      {
+        onConflict: 'id', // ✅ If word with same ID exists, update it
+        ignoreDuplicates: false // ✅ Always update existing records
+      }
     )
     .select();
+
+  if (data) {
+    console.log(`✅ syncWords: Successfully synced ${data.length} words to cloud`);
+  }
 
   return { data, error };
 };
@@ -160,11 +178,18 @@ export const fetchWords = async () => {
   const user = await getCurrentUser();
   if (!user) return { data: null, error: new Error('Not authenticated') };
 
+  // ✅ Fetch ALL words including deleted ones
+  // Filtering is done in the frontend using getActiveWords()
+  // This allows for future "Trash" feature to restore deleted words
   const { data, error } = await supabase
     .from('words')
     .select('*')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: true });
+    .order('added_at', { ascending: true }); // ✅ Use added_at instead of created_at
+
+  if (data) {
+    console.log(`✅ fetchWords: Loaded ${data.length} words from cloud (${data.filter((w: any) => !w.deleted).length} active)`);
+  }
 
   return { data, error };
 };
