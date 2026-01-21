@@ -27,7 +27,7 @@ export const BackfillCheckIn = () => {
       let skippedCount = 0;
 
       for (const data of backfillData) {
-        // Check if already exists
+        // Check if already exists (re-check each time to get latest state)
         const existing = getCheckInRecord(data.date);
 
         if (existing) {
@@ -39,8 +39,8 @@ export const BackfillCheckIn = () => {
           console.log(`✅ Added check-in for ${data.date} (${data.groups} group)`);
           addedCount++;
 
-          // Small delay to ensure state updates
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Longer delay to ensure state updates and sync completes
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
 
