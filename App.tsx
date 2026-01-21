@@ -9,6 +9,7 @@ import { Learn } from './pages/Learn';
 import { Review } from './pages/Review';
 import { ReadingDetail } from './pages/ReadingDetail';
 import { Auth } from './pages/Auth';
+import { BackfillCheckIn } from './pages/BackfillCheckIn';
 import { useStore } from './store';
 import DictionaryModal from './components/DictionaryModal';
 import ToastContainer from './components/ToastContainer';
@@ -154,6 +155,7 @@ export default function App() {
                 } />
                 <Route path="/review" element={<Review />} />
                 <Route path="/reading/:articleId" element={<ReadingDetail />} />
+                <Route path="/backfill-checkin" element={<BackfillCheckIn />} />
                 <Route path="/me" element={<Settings />} />
                 </Routes>
             </Layout>
