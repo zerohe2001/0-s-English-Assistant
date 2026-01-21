@@ -134,6 +134,9 @@ export const syncProfile = async (profile: any) => {
       saved_contexts: profile.savedContexts || [],
       check_in_history: profile.checkInHistory || [], // ✅ Sync check-in history
       updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id', // ✅ Update existing record when user_id conflicts
+      ignoreDuplicates: false
     })
     .select()
     .single();
