@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WordExplanation as WordExplanationType } from '../types';
 import { speak } from '../services/tts';
+import { speakWord } from '../services/wordPronunciation';
 import ClickableText from './ClickableText';
 
 interface WordExplanationProps {
@@ -39,9 +40,9 @@ export const WordExplanation: React.FC<WordExplanationProps> = ({
         <div className="flex items-center justify-center gap-3 mb-4">
           <span className="text-body text-gray-500 font-mono">{explanation.phonetic}</span>
           <button
-            onClick={() => speak(word)}
+            onClick={() => speakWord(word)}
             className="p-3 bg-gray-100 hover:bg-gray-200 rounded-full transition-all"
-            title="Play pronunciation"
+            title="Play pronunciation (native speaker)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-900" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
