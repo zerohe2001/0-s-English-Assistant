@@ -8,6 +8,9 @@
   "functions": {
     "api/tts.ts": {
       "maxDuration": 60
+    },
+    "api/openai-tts.ts": {
+      "maxDuration": 10
     }
   },
   "buildCommand": "npm run build",

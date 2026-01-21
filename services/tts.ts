@@ -1,29 +1,36 @@
 /**
- * Text-to-Speech service using Google Cloud TTS
- * Fast (2-5s), high-quality Neural2 voices, reliable
+ * Text-to-Speech service using OpenAI TTS
+ * Industry-leading natural voices with excellent pronunciation
+ * Fast (200ms latency), highly realistic, reliable
  */
 
 /**
- * Speak text using Google Cloud TTS
+ * Speak text using OpenAI TTS
  * @param text - Text to speak
- * @param voiceName - Voice name (default: 'en-US-Neural2-F')
+ * @param voiceName - Voice name (default: 'nova')
  *
- * Switched from Edge TTS to Google Cloud TTS:
- * - Edge TTS was timing out (>60s) on Vercel
- * - Google TTS is fast (2-5s), high quality, and reliable
- * - Uses Neural2 voices (very natural, human-like)
+ * Voice history:
+ * - Edge TTS: Timed out (>60s) on Vercel
+ * - Google Cloud TTS: API key permission issues, less natural
+ * - OpenAI TTS: Fast, most realistic, simple setup ✅
+ *
+ * Available voices:
+ * - nova: Female, warm and natural (default - most human-like)
+ * - alloy: Neutral and balanced
+ * - echo: Male, warm and engaging
+ * - shimmer: Female, bright and energetic
  */
-export async function speak(text: string, voiceName: string = 'en-US-Neural2-F'): Promise<void> {
+export async function speak(text: string, voiceName: string = 'nova'): Promise<void> {
   try {
-    console.log('🎤 Using Google Cloud TTS for:', text.substring(0, 50));
+    console.log('🎤 Using OpenAI TTS for:', text.substring(0, 50));
 
-    // Call our Google TTS API endpoint
-    const apiUrl = `/api/google-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+    // Call our OpenAI TTS API endpoint
+    const apiUrl = `/api/openai-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Google TTS API failed:', response.status, errorText);
+      console.error('❌ OpenAI TTS API failed:', response.status, errorText);
       throw new Error(`TTS API failed: ${response.status}`);
     }
 
@@ -40,7 +47,7 @@ export async function speak(text: string, voiceName: string = 'en-US-Neural2-F')
 
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        console.log('✅ Google TTS playback completed');
+        console.log('✅ OpenAI TTS playback completed');
         resolve();
       };
 
@@ -53,7 +60,7 @@ export async function speak(text: string, voiceName: string = 'en-US-Neural2-F')
       audio.play().catch(reject);
     });
   } catch (error) {
-    console.error('❌ Google TTS failed, using browser fallback:', error);
+    console.error('❌ OpenAI TTS failed, using browser fallback:', error);
     return fallbackToSpeechSynthesis(text);
   }
 }
