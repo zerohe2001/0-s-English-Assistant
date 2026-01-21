@@ -83,14 +83,17 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-h3 text-gray-900 font-semibold">Study Streak</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-semibold text-gray-900">{totalDays}</span>
+            <span className="text-small text-gray-500">days</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-semibold text-gray-900">{totalDays}</span>
-          <span className="text-small text-gray-500">days</span>
-        </div>
+        <p className="text-small text-gray-500">
+          Last 12 weeks of daily learning activity
+        </p>
       </div>
 
       {/* Calendar Grid */}
@@ -100,7 +103,7 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
           {monthLabels.map((label, index) => (
             <div
               key={index}
-              className="text-tiny text-gray-600 font-medium"
+              className="text-tiny text-gray-500"
               style={{
                 marginLeft: index === 0 ? `${label.weekIndex * 16}px` : '0',
                 flex: index === monthLabels.length - 1 ? '1' : 'none'
@@ -111,29 +114,42 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
           ))}
         </div>
 
-        <div className="flex gap-1">
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-1">
-              {week.map((date, dayIndex) => {
-                const dateStr = date.toISOString().split('T')[0];
-                const checkIn = getCheckInForDate(date);
-                const groups = checkIn?.groupsCompleted || 0;
-                const isToday = dateStr === new Date().toISOString().split('T')[0];
+        {/* Weekday Labels */}
+        <div className="flex gap-1 mb-1">
+          <div className="flex flex-col gap-1 text-tiny text-gray-500 w-6 text-right pr-2">
+            <div className="h-3">M</div>
+            <div className="h-3"></div>
+            <div className="h-3">W</div>
+            <div className="h-3"></div>
+            <div className="h-3">F</div>
+            <div className="h-3"></div>
+            <div className="h-3">S</div>
+          </div>
 
-                return (
-                  <div
-                    key={dayIndex}
-                    className={`w-3 h-3 rounded-sm ${getColor(groups)} ${
-                      isToday ? 'ring-1 ring-gray-900' : ''
-                    } hover:ring-1 hover:ring-gray-400 transition-all cursor-pointer`}
-                    onMouseEnter={() => setHoveredDate(dateStr)}
-                    onMouseLeave={() => setHoveredDate(null)}
-                    title={`${date.toLocaleDateString()} - ${groups} group${groups === 1 ? '' : 's'}`}
-                  />
-                );
-              })}
-            </div>
-          ))}
+          <div className="flex gap-1 flex-1">
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="flex flex-col gap-1">
+                {week.map((date, dayIndex) => {
+                  const dateStr = date.toISOString().split('T')[0];
+                  const checkIn = getCheckInForDate(date);
+                  const groups = checkIn?.groupsCompleted || 0;
+                  const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                  return (
+                    <div
+                      key={dayIndex}
+                      className={`w-3 h-3 rounded-sm ${getColor(groups)} ${
+                        isToday ? 'ring-1 ring-blue-500' : ''
+                      } hover:ring-1 hover:ring-gray-400 transition-all cursor-pointer`}
+                      onMouseEnter={() => setHoveredDate(dateStr)}
+                      onMouseLeave={() => setHoveredDate(null)}
+                      title={`${date.toLocaleDateString()} - ${groups} group${groups === 1 ? '' : 's'}`}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Hover Tooltip */}
@@ -159,13 +175,31 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-2 mt-4 text-tiny text-gray-500">
-        <span>Less</span>
-        <div className="w-3 h-3 bg-gray-200 rounded-sm" />
-        <div className="w-3 h-3 bg-green-300 rounded-sm" />
-        <div className="w-3 h-3 bg-green-500 rounded-sm" />
-        <div className="w-3 h-3 bg-green-700 rounded-sm" />
-        <span>More</span>
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between text-tiny text-gray-500">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-gray-200 rounded-sm" />
+              <span>No study</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-green-300 rounded-sm" />
+              <span>1 group</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-green-500 rounded-sm" />
+              <span>2 groups</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 bg-green-700 rounded-sm" />
+              <span>3+ groups</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-white border border-blue-500 rounded-sm" />
+            <span>Today</span>
+          </div>
+        </div>
       </div>
     </div>
   );
