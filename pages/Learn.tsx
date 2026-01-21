@@ -13,6 +13,7 @@ import { WordExplanation as WordExplanationComponent } from '../components/WordE
 import { ShadowingPractice } from '../components/ShadowingPractice';
 import { SentenceCreation } from '../components/SentenceCreation';
 import { ReviewMode } from '../components/ReviewMode';
+import { MakeupCheckInModal } from '../components/MakeupCheckInModal'; // ✅ Check-in modal
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { WordExplanation, SentenceEvaluation } from '../types';
 import { DeepgramRecorder } from '../services/deepgram-recorder';
@@ -38,6 +39,10 @@ export const Learn = () => {
     openDictionary, // ✅ Open dictionary modal for word lookup
     saveUserSentence, // ✅ Save user's created sentence (for scene generation)
     addUserSentence, // ✅ Add sentence to Word's userSentences array
+    addCheckIn, // ✅ Record daily check-in
+    getCheckInRecord, // ✅ Get check-in for a date
+    getMakeupEligibleDates, // ✅ Get dates eligible for makeup
+    makeupCheckIn, // ✅ Perform makeup check-in
     showToast
   } = useStore();
 
@@ -47,6 +52,11 @@ export const Learn = () => {
   const [loadingProgress, setLoadingProgress] = useState<{ current: number; total: number } | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null); // ✅ Track copied text for feedback
   const [isPending, startTransition] = useTransition(); // ✅ React 19 concurrent feature
+
+  // ✅ Check-in modal state
+  const [showMakeupModal, setShowMakeupModal] = useState(false);
+  const [eligibleDates, setEligibleDates] = useState<string[]>([]);
+  const [extraGroups, setExtraGroups] = useState(0);
 
   // ✅ Read explanation from store instead of local state
   const currentWord = learnState.learningQueue?.[learnState.currentWordIndex];
@@ -693,6 +703,25 @@ export const Learn = () => {
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
         // All review done, complete session
         showToast("Review completed!", "success");
+
+        // ✅ Record check-in
+        const today = new Date().toISOString().split('T')[0];
+        const wordIds = learnState.learningQueue.map(w => w.id);
+        const existingCheckIn = getCheckInRecord(today);
+        const newGroupCount = (existingCheckIn?.groupsCompleted || 0) + 1;
+
+        addCheckIn(today, newGroupCount, wordIds);
+
+        // ✅ Check if eligible for makeup check-in (2+ groups today)
+        if (newGroupCount >= 2) {
+          const eligible = getMakeupEligibleDates();
+          if (eligible.length > 0) {
+            setEligibleDates(eligible);
+            setExtraGroups(newGroupCount - 1);
+            setShowMakeupModal(true);
+          }
+        }
+
         resetSession();
         navigate('/');
       } else {
@@ -712,6 +741,17 @@ export const Learn = () => {
           onSkipWord={() => nextReviewWord(false)}
         />
         <DictionaryModal />
+        {/* ✅ Makeup Check-in Modal */}
+        <MakeupCheckInModal
+          isOpen={showMakeupModal}
+          onClose={() => setShowMakeupModal(false)}
+          eligibleDates={eligibleDates}
+          onConfirm={(targetDate) => {
+            makeupCheckIn(targetDate);
+            setShowMakeupModal(false);
+          }}
+          extraGroups={extraGroups}
+        />
       </>
     );
   }

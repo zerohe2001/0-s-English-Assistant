@@ -1,10 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { CheckInCalendar } from '../components/CheckInCalendar'; // ✅ Check-in calendar
 
 export const Today = () => {
   const navigate = useNavigate();
-  const { profile, getActiveWords, learnState, startLearning, startReviewPhase, readingState, resetSession, showToast } = useStore();
+  const {
+    profile,
+    getActiveWords,
+    learnState,
+    startLearning,
+    startReviewPhase,
+    readingState,
+    resetSession,
+    showToast,
+    getTotalCheckInDays // ✅ Get total check-in days
+  } = useStore();
   const words = getActiveWords(); // ✅ Only show non-deleted words
 
   // Calculate today's tasks
@@ -36,9 +47,12 @@ export const Today = () => {
   };
 
   // Calculate progress (out of 7 tasks per day)
+  // ✅ Check if today's planned words are all learned (not if there are no more unlearned words)
+  const todayWordsAllLearned = wordsToLearn.every(w => w.learned);
+
   const tasksCompleted = [
-    wordsToLearn.length === 0,
-    wordsToReview.length === 0,
+    todayWordsAllLearned,  // ✅ Today's 5 words are all learned
+    wordsToReview.length === 0,  // ✅ No reviews due today
   ].filter(Boolean).length;
   const totalTasks = 2;
 
@@ -236,6 +250,14 @@ export const Today = () => {
           <p className="text-h2 text-gray-900">{readingState.articles.length}</p>
           <p className="text-tiny text-gray-500 mt-1">Articles</p>
         </div>
+      </div>
+
+      {/* ✅ Check-in Calendar */}
+      <div className="mt-8">
+        <CheckInCalendar
+          checkInHistory={profile.checkInHistory || []}
+          totalDays={getTotalCheckInDays()}
+        />
       </div>
     </div>
   );

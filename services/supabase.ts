@@ -28,6 +28,7 @@ export interface DbUserProfile {
   target: string; // ⚠️ DEPRECATED: kept for backward compatibility
   native_language: string; // ⚠️ DEPRECATED: kept for backward compatibility
   saved_contexts: any[];
+  check_in_history: any[]; // ✅ Daily check-in records (CheckInRecord[])
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +132,7 @@ export const syncProfile = async (profile: any) => {
       target: profile.target || '', // ⚠️ DEPRECATED: kept for compatibility
       native_language: profile.nativeLanguage || 'zh-CN', // ⚠️ DEPRECATED: kept for compatibility
       saved_contexts: profile.savedContexts || [],
+      check_in_history: profile.checkInHistory || [], // ✅ Sync check-in history
       updated_at: new Date().toISOString(),
     })
     .select()

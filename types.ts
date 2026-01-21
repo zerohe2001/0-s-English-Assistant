@@ -5,6 +5,14 @@ export interface SavedContext {
   createdAt: string;
 }
 
+// ✅ Check-in record for daily study tracking
+export interface CheckInRecord {
+  date: string; // ISO date string (YYYY-MM-DD)
+  groupsCompleted: number; // Number of 5-word groups completed
+  wordsLearned: string[]; // Word IDs learned on this day
+  createdAt: string; // Timestamp when check-in was created
+}
+
 export interface UserProfile {
   name: string;
   city: string;
@@ -12,6 +20,7 @@ export interface UserProfile {
   hobbies: string;
   frequentPlaces: string;
   savedContexts: SavedContext[]; // Added
+  checkInHistory: CheckInRecord[]; // ✅ Daily check-in records
 }
 
 export interface ReviewStats {

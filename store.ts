@@ -35,6 +35,14 @@ interface AppState {
   removeSavedContext: (id: string) => void;
   isProfileSet: boolean;
 
+  // Check-in System
+  addCheckIn: (date: string, groupsCompleted: number, wordIds: string[]) => void;
+  getCheckInRecord: (date: string) => import('./types').CheckInRecord | undefined;
+  getTotalCheckInDays: () => number;
+  getRecentCheckIns: (days: number) => import('./types').CheckInRecord[];
+  getMakeupEligibleDates: () => string[];
+  makeupCheckIn: (targetDate: string) => boolean;
+
   // Token Usage Tracking
   tokenUsage: TokenUsage;
   addTokenUsage: (inputTokens: number, outputTokens: number) => void;
@@ -156,7 +164,8 @@ export const useStore = create<AppState>()(
                 level: p.level || '', // ⚠️ DEPRECATED
                 target: p.target || '', // ⚠️ DEPRECATED
                 nativeLanguage: p.native_language || 'zh-CN', // ⚠️ DEPRECATED
-                savedContexts: p.saved_contexts || []
+                savedContexts: p.saved_contexts || [],
+                checkInHistory: p.check_in_history || [] // ✅ Load check-in history
               },
               isProfileSet: true
             });
@@ -299,6 +308,7 @@ export const useStore = create<AppState>()(
             hobbies: '',
             frequentPlaces: '',
             savedContexts: [],
+            checkInHistory: [], // ✅ Clear check-in history on logout
           },
           isProfileSet: false,
           words: [],
@@ -343,6 +353,7 @@ export const useStore = create<AppState>()(
         hobbies: '',
         frequentPlaces: '',
         savedContexts: [],
+        checkInHistory: [], // ✅ Initialize check-in history
       },
       isProfileSet: false,
       updateProfile: (profile) => {
@@ -402,6 +413,113 @@ export const useStore = create<AppState>()(
             savedContexts: (state.profile.savedContexts || []).filter(c => c.id !== id)
         }
       })),
+
+      // ✅ Check-in System Methods
+      addCheckIn: (date, groupsCompleted, wordIds) => {
+        set((state) => {
+          const history = state.profile.checkInHistory || [];
+          const existingIndex = history.findIndex(record => record.date === date);
+
+          if (existingIndex >= 0) {
+            // Update existing record
+            const updated = [...history];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              groupsCompleted,
+              wordsLearned: [...new Set([...updated[existingIndex].wordsLearned, ...wordIds])], // Merge word IDs
+            };
+            return {
+              profile: {
+                ...state.profile,
+                checkInHistory: updated
+              }
+            };
+          } else {
+            // Create new record
+            return {
+              profile: {
+                ...state.profile,
+                checkInHistory: [
+                  {
+                    date,
+                    groupsCompleted,
+                    wordsLearned: wordIds,
+                    createdAt: new Date().toISOString()
+                  },
+                  ...history
+                ]
+              }
+            };
+          }
+        });
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
+
+      getCheckInRecord: (date) => {
+        const history = get().profile.checkInHistory || [];
+        return history.find(record => record.date === date);
+      },
+
+      getTotalCheckInDays: () => {
+        const history = get().profile.checkInHistory || [];
+        return history.filter(record => record.groupsCompleted > 0).length;
+      },
+
+      getRecentCheckIns: (days) => {
+        const history = get().profile.checkInHistory || [];
+        const today = new Date();
+        const cutoffDate = new Date(today);
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        return history
+          .filter(record => {
+            const recordDate = new Date(record.date);
+            return recordDate >= cutoffDate && recordDate <= today;
+          })
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      },
+
+      getMakeupEligibleDates: () => {
+        const today = new Date();
+        const eligibleDates: string[] = [];
+
+        for (let i = 1; i <= 7; i++) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+
+          const checkIn = get().getCheckInRecord(dateStr);
+          if (!checkIn || checkIn.groupsCompleted === 0) {
+            eligibleDates.push(dateStr);
+          }
+        }
+
+        return eligibleDates;
+      },
+
+      makeupCheckIn: (targetDate) => {
+        const today = new Date().toISOString().split('T')[0];
+        const todayCheckIn = get().getCheckInRecord(today);
+
+        if (!todayCheckIn || todayCheckIn.groupsCompleted < 2) {
+          get().showToast('今天还没有多余的组数可以补卡', 'error');
+          return false;
+        }
+
+        // Deduct 1 group from today
+        get().addCheckIn(today, todayCheckIn.groupsCompleted - 1, todayCheckIn.wordsLearned);
+
+        // Add 1 group to target date
+        const targetCheckIn = get().getCheckInRecord(targetDate);
+        get().addCheckIn(
+          targetDate,
+          (targetCheckIn?.groupsCompleted || 0) + 1,
+          todayCheckIn.wordsLearned
+        );
+
+        get().showToast('补卡成功！', 'success');
+        return true;
+      },
 
       words: [],
       getActiveWords: () => {
