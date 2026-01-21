@@ -68,19 +68,22 @@ export async function speak(text: string, voiceName: string = 'nova'): Promise<v
 /**
  * Preload audio for a text (non-blocking)
  * This fetches and caches audio in the background
+ * Called when user clicks Start to preload all audio for instant playback
  */
-export async function preloadAudio(text: string, voiceName: string = 'en-US-AvaMultilingualNeural'): Promise<void> {
+export async function preloadAudio(text: string, voiceName: string = 'nova'): Promise<void> {
   try {
     console.log('🔄 Preloading audio for:', text.substring(0, 30));
 
-    // Fetch audio (browser will cache it automatically)
-    const apiUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+    // Fetch audio from OpenAI TTS (browser will cache it automatically)
+    const apiUrl = `/api/openai-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
     const response = await fetch(apiUrl);
 
     if (response.ok) {
       // Just fetching is enough - browser HTTP cache will handle the rest
       await response.blob();
-      console.log('✅ Audio preloaded successfully');
+      console.log('✅ Audio preloaded successfully for:', text.substring(0, 30));
+    } else {
+      console.warn('⚠️ Preload failed (non-critical):', response.status);
     }
   } catch (error) {
     // Preload failures are non-critical, just log
