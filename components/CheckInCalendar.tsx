@@ -7,52 +7,71 @@ interface CheckInCalendarProps {
 }
 
 /**
- * Simple list view of recent check-ins
- * Shows last 7 days of learning activity
+ * Monthly calendar view showing check-in activity
+ * Displays current month with visual indicators for studied days
  */
 export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
   checkInHistory,
   totalDays,
 }) => {
-  // Generate last 7 days
-  const getLast7Days = () => {
-    const days: { date: Date; dateStr: string; checkIn: CheckInRecord | undefined }[] = [];
+  // Generate calendar grid for current month
+  const generateMonthCalendar = () => {
     const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
 
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const checkIn = checkInHistory.find(record => record.date === dateStr);
-      days.push({ date, dateStr, checkIn });
+    // Get first and last day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    // Get day of week for first day (0 = Sunday)
+    const startDayOfWeek = firstDay.getDay();
+
+    // Calculate total cells needed (including padding)
+    const daysInMonth = lastDay.getDate();
+    const totalCells = Math.ceil((startDayOfWeek + daysInMonth) / 7) * 7;
+
+    const calendar: Array<{ date: Date | null; dateStr: string | null; checkIn: CheckInRecord | undefined }> = [];
+
+    // Add padding for days before month starts
+    for (let i = 0; i < startDayOfWeek; i++) {
+      calendar.push({ date: null, dateStr: null, checkIn: undefined });
     }
 
-    return days;
+    // Add all days in month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dateStr = date.toISOString().split('T')[0];
+      const checkIn = checkInHistory.find(record => record.date === dateStr);
+      calendar.push({ date, dateStr, checkIn });
+    }
+
+    // Add padding for days after month ends
+    const remainingCells = totalCells - calendar.length;
+    for (let i = 0; i < remainingCells; i++) {
+      calendar.push({ date: null, dateStr: null, checkIn: undefined });
+    }
+
+    return calendar;
   };
 
-  const last7Days = getLast7Days();
+  const calendar = generateMonthCalendar();
+  const today = new Date();
+  const monthName = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const todayStr = today.toISOString().split('T')[0];
 
-  // Format date display
-  const formatDate = (date: Date, dateStr: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    if (dateStr === today) return 'Today';
-    if (dateStr === yesterdayStr) return 'Yesterday';
-
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return `${weekdays[date.getDay()]}, ${date.getMonth() + 1}/${date.getDate()}`;
-  };
+  // Group calendar into weeks
+  const weeks: typeof calendar[] = [];
+  for (let i = 0; i < calendar.length; i += 7) {
+    weeks.push(calendar.slice(i, i + 7));
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-h3 text-gray-900 font-semibold">Study Streak</h3>
-          <p className="text-tiny text-gray-500 mt-1">Last 7 days</p>
+          <h3 className="text-h3 text-gray-900 font-semibold">{monthName}</h3>
         </div>
         <div className="text-center">
           <div className="text-2xl font-semibold text-gray-900">{totalDays}</div>
@@ -60,54 +79,40 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
         </div>
       </div>
 
-      {/* List of last 7 days */}
-      <div className="space-y-2">
-        {last7Days.map(({ date, dateStr, checkIn }) => {
-          const groups = checkIn?.groupsCompleted || 0;
-          const isToday = dateStr === new Date().toISOString().split('T')[0];
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+          <div key={day} className="text-center text-tiny text-gray-500 font-medium py-1">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {calendar.map((cell, index) => {
+          if (!cell.date || !cell.dateStr) {
+            // Empty cell for padding
+            return <div key={`empty-${index}`} className="aspect-square" />;
+          }
+
+          const hasStudied = cell.checkIn && cell.checkIn.groupsCompleted > 0;
+          const isToday = cell.dateStr === todayStr;
 
           return (
             <div
-              key={dateStr}
-              className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                isToday ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+              key={cell.dateStr}
+              className={`aspect-square rounded-lg flex items-center justify-center text-small font-medium transition-all ${
+                isToday
+                  ? hasStudied
+                    ? 'bg-gray-900 text-white ring-2 ring-blue-500'
+                    : 'bg-white ring-2 ring-blue-500 text-gray-900'
+                  : hasStudied
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-400'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className="text-small font-medium text-gray-900 w-28">
-                  {formatDate(date, dateStr)}
-                </div>
-                {groups > 0 && (
-                  <div className="text-small text-gray-600">
-                    {checkIn?.wordsLearned.map((_, i) => i < 5 ? '⭐' : '').join('')}
-                    {groups > 1 && (
-                      <span className="ml-2">
-                        {checkIn?.wordsLearned.slice(5, 10).map((_, i) => '⭐').join('')}
-                      </span>
-                    )}
-                    {groups > 2 && (
-                      <span className="ml-2">
-                        {checkIn?.wordsLearned.slice(10, 15).map((_, i) => '⭐').join('')}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {groups > 0 ? (
-                  <>
-                    <span className="text-small font-semibold text-green-600">
-                      {groups} {groups === 1 ? 'group' : 'groups'}
-                    </span>
-                    <span className="text-tiny text-gray-500">
-                      ({checkIn?.wordsLearned.length} words)
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-small text-gray-400">No study</span>
-                )}
-              </div>
+              {cell.date.getDate()}
             </div>
           );
         })}
