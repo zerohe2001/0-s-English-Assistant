@@ -81,16 +81,15 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
   const monthLabels = getMonthLabels();
 
   return (
-    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 p-6 shadow-sm">
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-h2 text-gray-900 font-bold">🔥 Study Streak</h3>
-          <p className="text-tiny text-gray-600 mt-1">Keep the momentum going!</p>
+          <h3 className="text-h3 text-gray-900 font-semibold">Study Streak</h3>
         </div>
-        <div className="flex flex-col items-end">
-          <span className="text-4xl font-bold text-green-600">{totalDays}</span>
-          <span className="text-tiny text-gray-500 uppercase tracking-wide">days</span>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-semibold text-gray-900">{totalDays}</span>
+          <span className="text-small text-gray-500">days</span>
         </div>
       </div>
 
@@ -124,9 +123,9 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
                 return (
                   <div
                     key={dayIndex}
-                    className={`w-3 h-3 rounded ${getColor(groups)} ${
-                      isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''
-                    } hover:ring-2 hover:ring-green-400 hover:scale-125 transition-all cursor-pointer`}
+                    className={`w-3 h-3 rounded-sm ${getColor(groups)} ${
+                      isToday ? 'ring-1 ring-gray-900' : ''
+                    } hover:ring-1 hover:ring-gray-400 transition-all cursor-pointer`}
                     onMouseEnter={() => setHoveredDate(dateStr)}
                     onMouseLeave={() => setHoveredDate(null)}
                     title={`${date.toLocaleDateString()} - ${groups} group${groups === 1 ? '' : 's'}`}
