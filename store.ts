@@ -123,18 +123,8 @@ export const useStore = create<AppState>()(
           // Load data from cloud on auth check
           await get().loadDataFromCloud();
 
-          // ✅ After loading, if localStorage has data but cloud is empty, sync it up
-          // This handles the case where user has local data that was never uploaded
-          const state = get();
-          const hasLocalProfile = state.profile && state.profile.name;
-          const hasLocalWords = state.words && state.words.length > 0;
-
-          // Trigger sync if we have local data
-          // syncDataToCloud will handle the upload logic
-          if (hasLocalProfile || hasLocalWords) {
-            console.log('🔄 Syncing local data to cloud after login');
-            setTimeout(() => get().syncDataToCloud(), 500);
-          }
+          // ✅ Don't auto-sync after login - cloud data is the source of truth
+          // User actions (like adding words, learning) will trigger sync as needed
         }
       },
 
