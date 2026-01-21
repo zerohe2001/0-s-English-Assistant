@@ -1502,12 +1502,20 @@ export const useStore = create<AppState>()(
 
         console.log(`🔄 Persist merge: ${useCloudWords ? 'Using cloud words' : 'Using localStorage words'}, ${useCloudProfile ? 'Using cloud profile' : 'Using localStorage profile'}`);
 
+        // ✅ For checkInHistory, ALWAYS prefer cloud data if authenticated
+        const finalProfile = useCloudProfile ? currentState.profile : (persistedState.profile || currentState.profile);
+
+        // If user is authenticated and cloud profile exists, use cloud's checkInHistory
+        if (currentState.isAuthenticated && currentState.profile && currentState.profile.checkInHistory) {
+          finalProfile.checkInHistory = currentState.profile.checkInHistory;
+        }
+
         return {
           ...currentState,
           ...persistedState,
           // ✅ Cloud-first: If cloud data exists (currentState), use it
           words: useCloudWords ? currentState.words : (persistedState.words || []),
-          profile: useCloudProfile ? currentState.profile : (persistedState.profile || currentState.profile),
+          profile: finalProfile,
           isProfileSet: useCloudProfile ? currentState.isProfileSet : (persistedState.isProfileSet || false),
           tokenUsage: persistedState.tokenUsage || {
             inputTokens: 0,
