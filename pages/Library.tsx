@@ -32,7 +32,7 @@ export const Library = () => {
 
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
-  const [wordFilter, setWordFilter] = useState<'all' | 'learned' | 'unlearned'>('all');
+  const [wordFilter, setWordFilter] = useState<'all' | 'learned' | 'unlearned'>('unlearned');
 
   // Quick Add Learned Words states
   const [showLearnedModal, setShowLearnedModal] = useState(false);

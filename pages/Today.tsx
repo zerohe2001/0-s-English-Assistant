@@ -53,7 +53,9 @@ export const Today = () => {
       showToast('No words to learn today. Add some words in Library!', 'info');
       return;
     }
-    startLearning();
+    // Use the specific words shown on Today page to ensure consistency
+    const { startLearningWithWords } = useStore.getState();
+    startLearningWithWords(wordsToLearn.map(w => w.id));
     navigate('/learn');
   };
 
