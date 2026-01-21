@@ -120,112 +120,46 @@ export const Today = () => {
         />
       </div>
 
-      {/* Action Buttons - Notion style */}
-      <div className="grid gap-2 mb-8">
+      {/* Action Buttons - Simple one-row layout */}
+      <div className="grid grid-cols-3 gap-3 mb-8">
         {/* Learn Button */}
         <button
           onClick={hasActiveSession ? handleResumeLearning : (wordsToLearn.length > 0 ? handleStartLearning : () => navigate('/library'))}
-          className={`rounded-lg p-4 text-left transition-all hover:bg-gray-50 active:bg-gray-100 ${
+          className={`py-3 px-4 rounded-lg text-center transition-all border font-medium text-small ${
             hasActiveSession
-              ? 'bg-blue-50 border border-blue-200'
+              ? 'bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100'
               : wordsToLearn.length > 0
-              ? 'bg-white border border-gray-200'
-              : 'bg-white border border-dashed border-gray-300'
+              ? 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+              : 'bg-white border-gray-300 text-gray-400 hover:bg-gray-50'
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{hasActiveSession ? '▶️' : wordsToLearn.length > 0 ? '📚' : '➕'}</span>
-              <h3 className="text-body font-semibold text-gray-900">
-                {hasActiveSession ? 'Resume Learning' : wordsToLearn.length > 0 ? 'Learn' : 'Add Words'}
-              </h3>
-            </div>
-            {(hasActiveSession || wordsToLearn.length > 0) && (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-tiny rounded font-medium">
-                {hasActiveSession ? sessionProgress : `${wordsToLearn.length}`}
-              </span>
-            )}
-          </div>
-
-          {hasActiveSession ? (
-            <div>
-              <p className="text-small text-gray-600 mb-2">
-                {learnState.learningQueue.map(w => w.text).join(', ')}
-              </p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEndSession();
-                }}
-                className="text-tiny text-gray-500 hover:text-gray-700 underline"
-              >
-                End Session
-              </button>
-            </div>
-          ) : wordsToLearn.length > 0 ? (
-            <p className="text-small text-gray-600">
-              {wordsToLearn.map(w => w.text).join(', ')}
-            </p>
-          ) : (
-            <p className="text-small text-gray-500">
-              Go to Library to select words
-            </p>
-          )}
+          {hasActiveSession
+            ? 'Resume'
+            : wordsToLearn.length > 0
+            ? `Learn (${wordsToLearn.length})`
+            : 'Learn'
+          }
         </button>
 
         {/* Review Button */}
         <button
           onClick={wordsToReview.length > 0 ? handleStartReview : undefined}
           disabled={wordsToReview.length === 0}
-          className={`rounded-lg p-4 text-left transition-all ${
+          className={`py-3 px-4 rounded-lg text-center transition-all border font-medium text-small ${
             wordsToReview.length > 0
-              ? 'bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100'
-              : 'bg-gray-50 border border-gray-200 cursor-not-allowed opacity-60'
+              ? 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+              : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{wordsToReview.length > 0 ? '🔄' : '✓'}</span>
-              <h3 className="text-body font-semibold text-gray-900">Review</h3>
-            </div>
-            {wordsToReview.length > 0 && (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-tiny rounded font-medium">
-                {wordsToReview.length}
-              </span>
-            )}
-          </div>
-
-          <p className="text-small text-gray-600">
-            {wordsToReview.length > 0
-              ? `${wordsToReview.slice(0, 3).map(w => w.text).join(', ')}${wordsToReview.length > 3 ? '...' : ''}`
-              : 'No reviews due today'
-            }
-          </p>
+          {wordsToReview.length > 0 ? `Review (${wordsToReview.length})` : 'Review'}
         </button>
 
         {/* Reading Button */}
         <button
           onClick={handleOpenReading}
-          className="rounded-lg p-4 bg-white border border-gray-200 text-left hover:bg-gray-50 active:bg-gray-100 transition-all"
+          className="py-3 px-4 rounded-lg text-center bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 transition-all font-medium text-small"
         >
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📖</span>
-              <h3 className="text-body font-semibold text-gray-900">Reading</h3>
-            </div>
-            {readingState.articles.length > 0 && (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-tiny rounded font-medium">
-                {readingState.articles.length}
-              </span>
-            )}
-          </div>
-
-          <p className="text-small text-gray-600">
-            {readingState.articles.length > 0
-              ? readingState.articles[0].title
-              : 'Add articles to practice'
-            }
-          </p>
+          {readingState.articles.length > 0 ? `Reading (${readingState.articles.length})` : 'Reading'}
         </button>
       </div>
 
