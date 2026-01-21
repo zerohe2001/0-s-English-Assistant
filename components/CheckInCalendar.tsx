@@ -57,19 +57,61 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
     ? checkInHistory.find(record => record.date === hoveredDate)
     : null;
 
+  // Get month labels for the calendar
+  const getMonthLabels = () => {
+    const labels: { month: string; weekIndex: number }[] = [];
+    let lastMonth = -1;
+
+    weeks.forEach((week, weekIndex) => {
+      const firstDay = week[0];
+      const month = firstDay.getMonth();
+
+      if (month !== lastMonth) {
+        labels.push({
+          month: firstDay.toLocaleDateString('en-US', { month: 'short' }),
+          weekIndex
+        });
+        lastMonth = month;
+      }
+    });
+
+    return labels;
+  };
+
+  const monthLabels = getMonthLabels();
+
   return (
-    <div className="bg-white rounded border border-gray-300 p-6">
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 p-6 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-h3 text-gray-900">Study Streak</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-h2 text-gray-900">{totalDays}</span>
-          <span className="text-small text-gray-500">days</span>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-h2 text-gray-900 font-bold">🔥 Study Streak</h3>
+          <p className="text-tiny text-gray-600 mt-1">Keep the momentum going!</p>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-4xl font-bold text-green-600">{totalDays}</span>
+          <span className="text-tiny text-gray-500 uppercase tracking-wide">days</span>
         </div>
       </div>
 
       {/* Calendar Grid */}
       <div className="relative">
+        {/* Month Labels */}
+        <div className="flex gap-1 mb-2 h-4">
+          {monthLabels.map((label, index) => (
+            <div
+              key={index}
+              className="text-tiny text-gray-600 font-medium"
+              style={{
+                marginLeft: index === 0 ? `${label.weekIndex * 16}px` : '0',
+                flex: index === monthLabels.length - 1 ? '1' : 'none'
+              }}
+            >
+              {label.month}
+            </div>
+          ))}
+        </div>
+
         <div className="flex gap-1">
           {weeks.map((week, weekIndex) => (
             <div key={weekIndex} className="flex flex-col gap-1">
@@ -82,9 +124,9 @@ export const CheckInCalendar: React.FC<CheckInCalendarProps> = ({
                 return (
                   <div
                     key={dayIndex}
-                    className={`w-3 h-3 rounded-sm ${getColor(groups)} ${
+                    className={`w-3 h-3 rounded ${getColor(groups)} ${
                       isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''
-                    } hover:ring-2 hover:ring-gray-400 transition-all cursor-pointer`}
+                    } hover:ring-2 hover:ring-green-400 hover:scale-125 transition-all cursor-pointer`}
                     onMouseEnter={() => setHoveredDate(dateStr)}
                     onMouseLeave={() => setHoveredDate(null)}
                     title={`${date.toLocaleDateString()} - ${groups} group${groups === 1 ? '' : 's'}`}

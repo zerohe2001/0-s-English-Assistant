@@ -103,7 +103,7 @@ export const Today = () => {
   return (
     <div className="max-w-2xl mx-auto px-6 py-8 pb-24">
       {/* Greeting Header */}
-      <header className="mb-8">
+      <header className="mb-6">
         <h1 className="text-h1 text-gray-900 mb-2">
           {getGreeting()}{profile.name ? `, ${profile.name}` : ''}
         </h1>
@@ -112,152 +112,170 @@ export const Today = () => {
         </p>
       </header>
 
-      {/* Task Cards */}
-      <div className="space-y-2">
-        {/* Learn New Words */}
-        <div
-          onClick={hasActiveSession ? handleResumeLearning : (wordsToLearn.length > 0 ? handleStartLearning : () => navigate('/library'))}
-          className={`bg-white rounded p-4 transition-colors cursor-pointer ${hasActiveSession ? 'border-2 border-blue-500 shadow-sm hover:bg-blue-50' : 'border border-gray-300 hover:bg-gray-50'}`}
-        >
-          <div className="flex items-start justify-between mb-2">
-            <h2 className="text-h3 text-gray-900">{hasActiveSession ? 'Resume Learning' : 'Learn'}</h2>
-            {hasActiveSession ? (
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-tiny rounded font-medium">
-                In Progress
-              </span>
-            ) : wordsToLearn.length > 0 ? (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-tiny rounded">
-                {wordsToLearn.length}
-              </span>
-            ) : null}
-          </div>
-
-          {hasActiveSession ? (
-            <div>
-              <p className="text-small text-gray-900 font-medium mb-1">
-                Continue from {sessionProgress}
-              </p>
-              <p className="text-tiny text-gray-500 mb-3">
-                {learnState.learningQueue.map(w => w.text).join(', ')}
-              </p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent card click
-                  handleEndSession();
-                }}
-                className="text-tiny text-gray-500 hover:text-red-600 underline transition-colors"
-              >
-                ✕ End Session
-              </button>
-            </div>
-          ) : wordsToLearn.length > 0 ? (
-            <p className="text-small text-gray-500">
-              {wordsToLearn.map(w => w.text).join(', ')}
-            </p>
-          ) : (
-            <div className="text-center py-2 px-3 bg-gray-50 rounded border border-gray-200">
-              <p className="text-small text-gray-500 mb-1">No words to learn</p>
-              <p className="text-tiny text-gray-700 font-medium">
-                Tap to add words in Library →
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Review Words */}
-        <div
-          onClick={wordsToReview.length > 0 ? handleStartReview : undefined}
-          className={`bg-white rounded p-4 transition-colors ${
-            wordsToReview.length > 0
-              ? 'border-2 border-orange-400 shadow-sm cursor-pointer hover:bg-orange-50'
-              : 'border border-gray-300'
-          }`}
-        >
-          <div className="flex items-start justify-between mb-2">
-            <h2 className="text-h3 text-gray-900">Review</h2>
-            {wordsToReview.length > 0 && (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-tiny rounded">
-                {wordsToReview.length}
-              </span>
-            )}
-          </div>
-
-          {wordsToReview.length > 0 ? (
-            <p className="text-small text-gray-500">
-              {`${wordsToReview.slice(0, 3).map(w => w.text).join(', ')}${wordsToReview.length > 3 ? '...' : ''}`}
-            </p>
-          ) : (
-            <div className="text-center py-2 px-3 bg-gray-50 rounded border border-gray-200">
-              <p className="text-small text-gray-500">No reviews due today. Great work!</p>
-            </div>
-          )}
-        </div>
-
-        {/* Reading Practice */}
-        <div
-          onClick={handleOpenReading}
-          className="bg-white border border-gray-300 rounded p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-start justify-between mb-2">
-            <h2 className="text-h3 text-gray-900">Reading</h2>
-            {readingState.articles.length > 0 && (
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-tiny rounded">
-                {readingState.articles.length}
-              </span>
-            )}
-          </div>
-
-          <p className="text-small text-gray-500">
-            {readingState.articles.length > 0
-              ? readingState.articles[0].title
-              : 'Add articles to practice listening'
-            }
-          </p>
-        </div>
-      </div>
-
-      {/* Progress Indicator */}
-      <div className="mt-8 pt-6 border-t border-gray-300">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-small text-gray-500">Today's Progress</p>
-          <p className="text-small text-gray-700 font-medium">
-            {tasksCompleted}/{totalTasks}
-          </p>
-        </div>
-        <div className="flex gap-1">
-          {Array.from({ length: totalTasks }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded ${
-                i < tasksCompleted ? 'bg-gray-900' : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="mt-6 grid grid-cols-3 gap-4">
-        <div className="text-center">
-          <p className="text-h2 text-gray-900">{words.filter(w => w.learned).length}</p>
-          <p className="text-tiny text-gray-500 mt-1">Learned</p>
-        </div>
-        <div className="text-center">
-          <p className="text-h2 text-gray-900">{words.length}</p>
-          <p className="text-tiny text-gray-500 mt-1">Total Words</p>
-        </div>
-        <div className="text-center">
-          <p className="text-h2 text-gray-900">{readingState.articles.length}</p>
-          <p className="text-tiny text-gray-500 mt-1">Articles</p>
-        </div>
-      </div>
-
-      {/* ✅ Check-in Calendar */}
-      <div className="mt-8">
+      {/* Study Streak Card - Prominent position */}
+      <div className="mb-8">
         <CheckInCalendar
           checkInHistory={profile.checkInHistory || []}
           totalDays={getTotalCheckInDays()}
         />
+      </div>
+
+      {/* Action Buttons - Modern button style */}
+      <div className="grid gap-3 mb-8">
+        {/* Learn Button */}
+        <button
+          onClick={hasActiveSession ? handleResumeLearning : (wordsToLearn.length > 0 ? handleStartLearning : () => navigate('/library'))}
+          className={`group relative overflow-hidden rounded-xl p-5 text-left transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+            hasActiveSession
+              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-200'
+              : wordsToLearn.length > 0
+              ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-200'
+              : 'bg-white border-2 border-dashed border-gray-300 text-gray-600 hover:border-gray-400'
+          }`}
+        >
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{hasActiveSession ? '▶️' : wordsToLearn.length > 0 ? '📚' : '➕'}</span>
+                <h3 className="text-h3 font-bold">
+                  {hasActiveSession ? 'Resume Learning' : wordsToLearn.length > 0 ? 'Learn New Words' : 'Add Words'}
+                </h3>
+              </div>
+              {(hasActiveSession || wordsToLearn.length > 0) && (
+                <span className={`px-3 py-1 rounded-full text-tiny font-bold ${
+                  hasActiveSession ? 'bg-white/20' : 'bg-white/30'
+                }`}>
+                  {hasActiveSession ? sessionProgress : `${wordsToLearn.length} words`}
+                </span>
+              )}
+            </div>
+
+            {hasActiveSession ? (
+              <div>
+                <p className="text-sm opacity-90 mb-2">
+                  {learnState.learningQueue.map(w => w.text).join(', ')}
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEndSession();
+                  }}
+                  className="text-tiny text-white/70 hover:text-white underline"
+                >
+                  ✕ End Session
+                </button>
+              </div>
+            ) : wordsToLearn.length > 0 ? (
+              <p className="text-sm opacity-90">
+                {wordsToLearn.map(w => w.text).join(', ')}
+              </p>
+            ) : (
+              <p className="text-sm">
+                Go to Library to select words to learn
+              </p>
+            )}
+          </div>
+        </button>
+
+        {/* Review Button */}
+        <button
+          onClick={wordsToReview.length > 0 ? handleStartReview : undefined}
+          disabled={wordsToReview.length === 0}
+          className={`group relative overflow-hidden rounded-xl p-5 text-left transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+            wordsToReview.length > 0
+              ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-lg shadow-orange-200'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{wordsToReview.length > 0 ? '🔄' : '✓'}</span>
+                <h3 className="text-h3 font-bold">Review Words</h3>
+              </div>
+              {wordsToReview.length > 0 && (
+                <span className="px-3 py-1 bg-white/30 rounded-full text-tiny font-bold">
+                  {wordsToReview.length} words
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm opacity-90">
+              {wordsToReview.length > 0
+                ? `${wordsToReview.slice(0, 3).map(w => w.text).join(', ')}${wordsToReview.length > 3 ? '...' : ''}`
+                : 'No reviews due today. Great work!'
+              }
+            </p>
+          </div>
+        </button>
+
+        {/* Reading Button */}
+        <button
+          onClick={handleOpenReading}
+          className="group relative overflow-hidden rounded-xl p-5 bg-gradient-to-br from-cyan-400 to-blue-500 text-white text-left shadow-lg shadow-cyan-200 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">📖</span>
+                <h3 className="text-h3 font-bold">Reading Practice</h3>
+              </div>
+              {readingState.articles.length > 0 && (
+                <span className="px-3 py-1 bg-white/30 rounded-full text-tiny font-bold">
+                  {readingState.articles.length} articles
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm opacity-90">
+              {readingState.articles.length > 0
+                ? readingState.articles[0].title
+                : 'Add articles to practice reading'
+              }
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* Progress & Stats Section */}
+      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border border-gray-200 p-6">
+        {/* Progress Indicator */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-body font-bold text-gray-900">Today's Progress</h3>
+            <span className="text-h3 font-bold text-green-600">
+              {tasksCompleted}/{totalTasks}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            {Array.from({ length: totalTasks }).map((_, i) => (
+              <div
+                key={i}
+                className={`h-2 flex-1 rounded-full transition-all ${
+                  i < tasksCompleted
+                    ? 'bg-gradient-to-r from-green-400 to-green-600'
+                    : 'bg-gray-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+            <p className="text-3xl font-bold text-green-600">{words.filter(w => w.learned).length}</p>
+            <p className="text-tiny text-gray-500 mt-1 uppercase tracking-wide">Learned</p>
+          </div>
+          <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+            <p className="text-3xl font-bold text-blue-600">{words.length}</p>
+            <p className="text-tiny text-gray-500 mt-1 uppercase tracking-wide">Total</p>
+          </div>
+          <div className="bg-white rounded-lg p-4 text-center border border-gray-200">
+            <p className="text-3xl font-bold text-purple-600">{readingState.articles.length}</p>
+            <p className="text-tiny text-gray-500 mt-1 uppercase tracking-wide">Articles</p>
+          </div>
+        </div>
       </div>
     </div>
   );
