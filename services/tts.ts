@@ -1,13 +1,44 @@
 /**
- * Text-to-Speech service using OpenAI TTS
+ * Text-to-Speech service using OpenAI TTS with IndexedDB caching
  * Industry-leading natural voices with excellent pronunciation
  * Fast (200ms latency), highly realistic, reliable
+ * Audio is permanently cached in IndexedDB for instant replay
  */
 
+import { audioCache } from './audioCache';
+
 /**
- * Speak text using OpenAI TTS
+ * Generate cache key for text + voice combination
+ */
+function getCacheKey(text: string, voiceName: string): string {
+  return `tts-${voiceName}-${text}`;
+}
+
+/**
+ * Fetch audio from OpenAI TTS API
+ */
+async function fetchAudioFromAPI(text: string, voiceName: string): Promise<Blob> {
+  const apiUrl = `/api/openai-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+  const response = await fetch(apiUrl);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ OpenAI TTS API failed:', response.status, errorText);
+    throw new Error(`TTS API failed: ${response.status}`);
+  }
+
+  return await response.blob();
+}
+
+/**
+ * Speak text using OpenAI TTS with IndexedDB caching
  * @param text - Text to speak
  * @param voiceName - Voice name (default: 'nova')
+ *
+ * Caching strategy:
+ * 1. Check IndexedDB cache first (instant if found)
+ * 2. If not cached, fetch from OpenAI TTS API
+ * 3. Save to IndexedDB for future use (permanent storage)
  *
  * Voice history:
  * - Edge TTS: Timed out (>60s) on Vercel
@@ -22,23 +53,27 @@
  */
 export async function speak(text: string, voiceName: string = 'nova'): Promise<void> {
   try {
-    console.log('🎤 Using OpenAI TTS for:', text.substring(0, 50));
+    const cacheKey = getCacheKey(text, voiceName);
 
-    // Call our OpenAI TTS API endpoint
-    const apiUrl = `/api/openai-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
-    const response = await fetch(apiUrl);
+    // Try to get from IndexedDB cache first
+    let audioBlob = await audioCache.getAudio(cacheKey);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ OpenAI TTS API failed:', response.status, errorText);
-      throw new Error(`TTS API failed: ${response.status}`);
+    if (audioBlob) {
+      console.log('🎵 Playing from cache:', text.substring(0, 50));
+    } else {
+      // Not in cache, fetch from API
+      console.log('🎤 Fetching from OpenAI TTS:', text.substring(0, 50));
+      audioBlob = await fetchAudioFromAPI(text, voiceName);
+
+      // Save to cache for future use (non-blocking)
+      audioCache.saveAudio(cacheKey, audioBlob).catch(err => {
+        console.warn('⚠️ Failed to cache audio (non-critical):', err);
+      });
     }
 
-    // Get audio blob (MP3 format)
-    const audioBlob = await response.blob();
+    // Play audio
     const audioUrl = URL.createObjectURL(audioBlob);
 
-    // Play using HTML5 Audio element
     return new Promise((resolve, reject) => {
       const audio = new Audio(audioUrl);
 
@@ -47,7 +82,7 @@ export async function speak(text: string, voiceName: string = 'nova'): Promise<v
 
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        console.log('✅ OpenAI TTS playback completed');
+        console.log('✅ TTS playback completed');
         resolve();
       };
 
@@ -67,24 +102,27 @@ export async function speak(text: string, voiceName: string = 'nova'): Promise<v
 
 /**
  * Preload audio for a text (non-blocking)
- * This fetches and caches audio in the background
- * Called when user clicks Start to preload all audio for instant playback
+ * Fetches from API and saves to IndexedDB cache for instant playback
+ * Called when user clicks Start to preload all audio
  */
 export async function preloadAudio(text: string, voiceName: string = 'nova'): Promise<void> {
   try {
-    console.log('🔄 Preloading audio for:', text.substring(0, 30));
+    const cacheKey = getCacheKey(text, voiceName);
 
-    // Fetch audio from OpenAI TTS (browser will cache it automatically)
-    const apiUrl = `/api/openai-tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
-    const response = await fetch(apiUrl);
-
-    if (response.ok) {
-      // Just fetching is enough - browser HTTP cache will handle the rest
-      await response.blob();
-      console.log('✅ Audio preloaded successfully for:', text.substring(0, 30));
-    } else {
-      console.warn('⚠️ Preload failed (non-critical):', response.status);
+    // Check if already in cache
+    const cached = await audioCache.getAudio(cacheKey);
+    if (cached) {
+      console.log('✅ Already cached:', text.substring(0, 30));
+      return;
     }
+
+    // Not in cache, fetch from API
+    console.log('🔄 Preloading audio for:', text.substring(0, 30));
+    const audioBlob = await fetchAudioFromAPI(text, voiceName);
+
+    // Save to IndexedDB cache
+    await audioCache.saveAudio(cacheKey, audioBlob);
+    console.log('✅ Audio preloaded and cached:', text.substring(0, 30));
   } catch (error) {
     // Preload failures are non-critical, just log
     console.warn('⚠️ Preload audio failed (non-critical):', error);
