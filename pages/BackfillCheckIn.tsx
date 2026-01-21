@@ -16,7 +16,7 @@ export const BackfillCheckIn = () => {
   const backfillData = [
     { date: '2025-01-19', groups: 1, description: 'Sunday, Jan 19' },
     { date: '2025-01-20', groups: 1, description: 'Monday, Jan 20' },
-    { date: '2025-01-21', groups: 1, description: 'Tuesday, Jan 21' },
+    { date: '2025-01-21', groups: 1, description: 'Tuesday, Jan 21 (Today)' },
   ];
 
   const handleBackfill = async () => {
