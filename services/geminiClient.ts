@@ -86,22 +86,23 @@ export const quickCheckSentence = (
     const allPartsPresent = wordParts.every(part => {
       // For each part, check:
       // 1. Exact match (e.g., "across" in "came across")
-      // 2. First 3 chars match (e.g., "com" matches "cam" for come/came)
-      // 3. Word appears with common suffixes (e.g., "coming", "came")
-
       if (sentenceLower.includes(part)) {
-        return true; // Exact match
+        return true;
       }
 
-      // Check if any word in sentence starts with first 2 chars of target word
-      // This catches: come → came, run → ran, etc.
-      const prefix2 = part.substring(0, Math.min(2, part.length));
-      const sentenceWords = sentenceLower.split(/\s+/);
+      // 2. For irregular verbs and inflections, check with very flexible matching
+      // Extract only alphanumeric characters from sentence for matching
+      const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
+      const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
 
-      return sentenceWords.some(w =>
-        w.startsWith(prefix2) &&
-        Math.abs(w.length - part.length) <= 2 // Similar length (within 2 chars)
-      );
+      // Check if any word matches with first 2-3 chars and similar length
+      return sentenceWords.some(w => {
+        // Match first 2 chars (catches come→came, run→ran)
+        const matches2Chars = w.substring(0, 2) === part.substring(0, 2);
+        const similarLength = Math.abs(w.length - part.length) <= 2;
+
+        return matches2Chars && similarLength;
+      });
     });
 
     if (!allPartsPresent) {
