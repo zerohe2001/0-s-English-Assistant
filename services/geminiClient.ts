@@ -76,20 +76,39 @@ export const quickCheckSentence = (
   const sentenceLower = trimmed.toLowerCase();
 
   // 1. Check for word presence with flexible matching
-  // Strategy: Check if the first 4+ characters of the word appear in the sentence
-  // This handles: "tilt" → "tilting", "tiltling", "tilted", etc.
-  const minMatchLength = Math.min(4, wordLower.length - 1); // At least 4 chars or word-1
-  const wordPrefix = wordLower.substring(0, minMatchLength);
+  // Strategy: Handle both single words and phrases (like "come across")
 
-  // Also check full word (for short words like "run", "go")
-  const hasWord = sentenceLower.includes(wordLower) ||
-                  sentenceLower.includes(wordPrefix);
+  // For phrases (contains space), check each word separately
+  const wordParts = wordLower.split(/\s+/);
 
-  if (!hasWord) {
-    return {
-      passed: false,
-      feedback: `Please use the word "${word}" in your sentence.`
-    };
+  if (wordParts.length > 1) {
+    // Phrase like "come across" - check if all parts (or their stems) are present
+    const allPartsPresent = wordParts.every(part => {
+      // Get first 3 chars of each word as stem (e.g., "come" → "com", "across" → "acr")
+      const stem = part.substring(0, Math.min(3, part.length));
+      return sentenceLower.includes(part) || sentenceLower.includes(stem);
+    });
+
+    if (!allPartsPresent) {
+      return {
+        passed: false,
+        feedback: `Please use the phrase "${word}" (or its variations like past tense) in your sentence.`
+      };
+    }
+  } else {
+    // Single word - use prefix matching for inflections
+    const minMatchLength = Math.min(4, wordLower.length - 1);
+    const wordPrefix = wordLower.substring(0, minMatchLength);
+
+    const hasWord = sentenceLower.includes(wordLower) ||
+                    sentenceLower.includes(wordPrefix);
+
+    if (!hasWord) {
+      return {
+        passed: false,
+        feedback: `Please use the word "${word}" in your sentence.`
+      };
+    }
   }
 
   // 2. Must be at least 4 words (very basic check)
