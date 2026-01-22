@@ -82,11 +82,26 @@ export const quickCheckSentence = (
   const wordParts = wordLower.split(/\s+/);
 
   if (wordParts.length > 1) {
-    // Phrase like "come across" - check if all parts (or their stems) are present
+    // Phrase like "come across" - check if all parts are present (with flexible matching)
     const allPartsPresent = wordParts.every(part => {
-      // Get first 3 chars of each word as stem (e.g., "come" → "com", "across" → "acr")
-      const stem = part.substring(0, Math.min(3, part.length));
-      return sentenceLower.includes(part) || sentenceLower.includes(stem);
+      // For each part, check:
+      // 1. Exact match (e.g., "across" in "came across")
+      // 2. First 3 chars match (e.g., "com" matches "cam" for come/came)
+      // 3. Word appears with common suffixes (e.g., "coming", "came")
+
+      if (sentenceLower.includes(part)) {
+        return true; // Exact match
+      }
+
+      // Check if any word in sentence starts with first 2 chars of target word
+      // This catches: come → came, run → ran, etc.
+      const prefix2 = part.substring(0, Math.min(2, part.length));
+      const sentenceWords = sentenceLower.split(/\s+/);
+
+      return sentenceWords.some(w =>
+        w.startsWith(prefix2) &&
+        Math.abs(w.length - part.length) <= 2 // Similar length (within 2 chars)
+      );
     });
 
     if (!allPartsPresent) {
