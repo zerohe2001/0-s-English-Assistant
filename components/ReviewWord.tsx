@@ -12,6 +12,7 @@ interface ReviewWordProps {
   userSentences: UserSentence[]; // ✅ Array of sentences to review
   totalWords: number; // ✅ Total words in review queue
   currentWordIndex: number; // ✅ Current word index (0-based)
+  onNext?: (stats: { retryCount: number; skipped: boolean }) => void; // ✅ Callback when word review completes (for Learn flow)
 }
 
 interface ComparisonResult {
@@ -25,7 +26,8 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   phonetic,
   userSentences,
   totalWords,
-  currentWordIndex
+  currentWordIndex,
+  onNext // ✅ Optional callback for Learn flow (triggers check-in)
 }) => {
   const {
     showToast,
@@ -200,7 +202,14 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
   const handleSkip = () => {
     // Skip current word
-    nextReviewWordStandalone({ retryCount: retryCount, skipped: true });
+    const stats = { retryCount: retryCount, skipped: true };
+    if (onNext) {
+      // ✅ Learn flow: use callback (triggers check-in)
+      onNext(stats);
+    } else {
+      // Standalone review flow: use store method
+      nextReviewWordStandalone(stats);
+    }
   };
 
   // ✅ Handle text input submission (alternative to speech)
@@ -332,7 +341,14 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       console.log(`✅ Moving to sentence ${currentSentenceIndex + 2}/${userSentences.length}`);
     } else {
       // All sentences reviewed, complete the word
-      nextReviewWordStandalone({ retryCount: retryCount, skipped: false });
+      const stats = { retryCount: retryCount, skipped: false };
+      if (onNext) {
+        // ✅ Learn flow: use callback (triggers check-in)
+        onNext(stats);
+      } else {
+        // Standalone review flow: use store method
+        nextReviewWordStandalone(stats);
+      }
     }
   };
 

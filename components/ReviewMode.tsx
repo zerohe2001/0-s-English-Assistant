@@ -13,6 +13,8 @@ interface ReviewModeProps {
 
 export const ReviewMode: React.FC<ReviewModeProps> = ({
   currentWord,
+  currentWordIndex,
+  totalWords,
   isLoading,
   onReviewComplete,
   onSkipWord,
@@ -38,7 +40,10 @@ export const ReviewMode: React.FC<ReviewModeProps> = ({
   return (
     <ReviewWord
       word={currentWord.text}
+      phonetic={currentWord.phonetic}
       userSentences={currentWord.userSentences}
+      totalWords={totalWords}
+      currentWordIndex={currentWordIndex}
       onNext={onReviewComplete}
     />
   );
