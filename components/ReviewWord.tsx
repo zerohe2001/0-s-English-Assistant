@@ -265,11 +265,24 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
   // ✅ Fast comparison without AI (cost-free, instant)
   const compareWithOriginal = async (original: string, userInput: string) => {
-    // Normalize for comparison (lowercase, trim, remove extra spaces)
-    const normalizedOriginal = original.toLowerCase().replace(/\s+/g, ' ').trim();
-    const normalizedUser = userInput.toLowerCase().replace(/\s+/g, ' ').trim();
+    // Normalize for comparison: lowercase, normalize quotes, remove ALL punctuation, normalize spaces
+    const normalizeForComparison = (str: string): string => {
+      return str
+        .toLowerCase()
+        // Normalize curly/smart quotes to straight quotes first
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // Single curly quotes → '
+        .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // Double curly quotes → "
+        // Remove ALL punctuation and symbols
+        .replace(/[.,!?;:'""`´''""()\[\]{}\-–—_\/\\@#$%^&*+=<>~|]/g, '')
+        // Normalize whitespace
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
-    // Fast check: exact match (ignoring case and whitespace)
+    const normalizedOriginal = normalizeForComparison(original);
+    const normalizedUser = normalizeForComparison(userInput);
+
+    // Fast check: exact match (ignoring case, whitespace, and punctuation)
     if (normalizedOriginal === normalizedUser) {
       console.log('✅ Perfect match!');
       return {
@@ -279,19 +292,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       };
     }
 
-    // Fast check: very similar (ignore punctuation)
-    const stripPunctuation = (str: string) => str.replace(/[.,!?;:]/g, '').trim();
-    const originalNoPunc = stripPunctuation(normalizedOriginal);
-    const userNoPunc = stripPunctuation(normalizedUser);
-
-    if (originalNoPunc === userNoPunc) {
-      console.log('✅ Perfect match (ignoring punctuation)!');
-      return {
-        similarity: 100,
-        feedback: 'Perfect! Your sentence matches exactly.',
-        differences: []
-      };
-    }
+    // For Levenshtein, use the already-normalized strings
+    const originalNoPunc = normalizedOriginal;
+    const userNoPunc = normalizedUser;
 
     // Calculate similarity using Levenshtein distance
     const similarity = calculateSimilarity(originalNoPunc, userNoPunc);
