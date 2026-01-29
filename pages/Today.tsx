@@ -58,6 +58,7 @@ export const Today = () => {
   ].filter(Boolean).length;
   const totalTasks = 2;
 
+
   // Check if there's an active learning session in progress
   const hasActiveSession = learnState.currentStep === 'learning' && learnState.learningQueue.length > 0;
   const sessionProgress = hasActiveSession

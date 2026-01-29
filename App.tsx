@@ -33,13 +33,14 @@ const NavLink = ({ to, icon, label, badge }: { to: string; icon: React.ReactNode
 };
 
 const Layout = ({ children }: PropsWithChildren) => {
-  const { words } = useStore();
+  const { getActiveWords } = useStore();
+  const words = getActiveWords();
   const location = useLocation();
 
   // Calculate words due for review today
   const isDueForReview = (word: typeof words[0]): boolean => {
     if (!word.userSentences || word.userSentences.length === 0) return false;
-    if (!word.nextReviewDate) return true;
+    if (!word.learned || !word.nextReviewDate) return false;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -50,6 +51,7 @@ const Layout = ({ children }: PropsWithChildren) => {
   };
 
   const reviewCount = words.filter(isDueForReview).length;
+
 
   return (
     <div className="h-full flex flex-col bg-white relative">

@@ -44,6 +44,7 @@ export const Review = () => {
     new Date(w.nextReviewDate) > new Date()
   ).length;
 
+
   // Review mode - using store state
   if (reviewState.isActive && reviewState.currentWordIndex !== null) {
     const word = reviewState.reviewQueue[reviewState.currentWordIndex];
