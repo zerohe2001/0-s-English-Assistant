@@ -233,7 +233,24 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
   const user = await getCurrentUser();
   if (!user) return { error: new Error('Not authenticated') };
 
-  // Delete existing explanations
+  const entries = Object.entries(explanations);
+  if (entries.length === 0) return { data: [], error: null };
+
+  const validEntries = entries.filter(([, exp]) => {
+    const definition = exp?.meaning ?? exp?.definition;
+    return definition && String(definition).trim().length > 0;
+  });
+
+  if (validEntries.length === 0) {
+    console.warn('⚠️ syncWordExplanations: No valid entries to sync');
+    return { data: [], error: null };
+  }
+
+  if (validEntries.length < entries.length) {
+    console.warn(`⚠️ syncWordExplanations: Skipping ${entries.length - validEntries.length} invalid entries`);
+  }
+
+  // Delete existing explanations only when we have valid entries to replace
   const { error: deleteError } = await supabase
     .from('word_explanations')
     .delete()
@@ -241,13 +258,10 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
 
   if (deleteError) return { error: deleteError };
 
-  const entries = Object.entries(explanations);
-  if (entries.length === 0) return { data: [], error: null };
-
   const { data, error } = await supabase
     .from('word_explanations')
     .insert(
-      entries.map(([wordId, exp]: [string, any]) => ({
+      validEntries.map(([wordId, exp]: [string, any]) => ({
         user_id: user.id,
         word_id: wordId,
         definition: exp.meaning || exp.definition || '', // ✅ Frontend uses 'meaning', fallback to 'definition'
@@ -279,15 +293,19 @@ export const syncTokenUsage = async (tokenUsage: any) => {
 
   const { data, error } = await supabase
     .from('token_usage')
-    .upsert({
-      user_id: user.id,
-      input_tokens: tokenUsage.inputTokens,
-      output_tokens: tokenUsage.outputTokens,
-      total_cost: tokenUsage.totalCost,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: 'user_id' // ✅ Handle duplicate key - update existing record
-    })
+    .upsert(
+      {
+        user_id: user.id,
+        input_tokens: tokenUsage.inputTokens,
+        output_tokens: tokenUsage.outputTokens,
+        total_cost: tokenUsage.totalCost,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id',
+        ignoreDuplicates: false
+      }
+    )
     .select()
     .single();
 

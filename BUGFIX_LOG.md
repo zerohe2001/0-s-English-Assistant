@@ -34,6 +34,18 @@
 - `pages/Vocabulary.tsx`
 **提交**: [待提交]
 
+### 2. 云端同步：解释与用量报错
+**时间**: 2026-01-28
+**问题**:
+1. word_explanations 中 definition 为空会触发数据库非空约束错误
+2. token_usage 的 user_id 唯一键冲突导致同步失败
+**解决**:
+- 同步解释时跳过 definition 为空的条目
+- token_usage 同步改为基于 user_id 的 upsert
+**修改的文件**:
+- `services/supabase.ts`
+**提交**: [待提交]
+
 ## 2026-01-20
 
 ### 0. Library 重复单词检测与智能清洗
