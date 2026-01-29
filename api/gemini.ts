@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  *
  * POST request with JSON body:
  * {
- *   action: 'generateWordExplanation' | 'evaluateShadowing' | 'evaluateUserSentence' | 'translateToChinese',
+ *   action: 'generateWordExplanation' | 'generateWordSentences' | 'evaluateShadowing' | 'evaluateUserSentence' | 'translateToChinese',
  *   ...params
  * }
  *
@@ -68,6 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (action) {
       case 'generateWordExplanation':
         return await handleGenerateWordExplanation(ai, params, res);
+
+      case 'generateWordSentences':
+        return await handleGenerateWordSentences(ai, params, res);
 
       case 'evaluateShadowing':
         return await handleEvaluateShadowing(ai, params, res);
@@ -200,6 +203,119 @@ Requirements for ALL fields:
   }
 
   throw new Error('Failed to generate word explanation after retries');
+}
+
+/**
+ * Generate 3 practice sentences with Chinese translations
+ */
+async function handleGenerateWordSentences(
+  ai: GoogleGenAI,
+  params: { word: string; profile: any; context: string },
+  res: VercelResponse
+) {
+  const { word, profile, context } = params;
+  const maxRetries = 2;
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    attempt++;
+    console.log(`🔄 [generateWordSentences] Attempt ${attempt}/${maxRetries + 1} for: ${word}`);
+
+    const prompt = `
+You are an expert English tutor.
+
+User Profile:
+Name: ${profile.name}
+City: ${profile.city}
+Job: ${profile.occupation}
+Hobbies: ${profile.hobbies}
+
+Today's Context: ${context}
+
+Task: Create 3 SHORT, natural English sentences using the word "${word}".
+For each sentence, provide a natural Chinese translation.
+
+Requirements:
+1. Each English sentence must be <= 12 words.
+2. Each Chinese translation must be a full Chinese sentence (中文).
+3. Output must be JSON only, with this shape:
+{
+  "sentences": [
+    {"sentence": "...", "translation": "..."},
+    {"sentence": "...", "translation": "..."},
+    {"sentence": "...", "translation": "..."}
+  ]
+}
+`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              sentences: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    sentence: { type: Type.STRING },
+                    translation: { type: Type.STRING },
+                  },
+                  required: ["sentence", "translation"],
+                },
+              },
+            },
+            required: ["sentences"],
+          },
+        },
+      });
+
+      const data = JSON.parse(response.text || "null");
+      const sentences = Array.isArray(data?.sentences) ? data.sentences : [];
+
+      if (sentences.length !== 3) {
+        console.error(`❌ Attempt ${attempt}: Invalid sentence count`);
+        if (attempt > maxRetries) {
+          throw new Error('Invalid response from AI: missing sentences');
+        }
+        continue;
+      }
+
+      const cleaned = sentences.map((item: any) => ({
+        sentence: (item?.sentence || '').trim(),
+        translation: (item?.translation || '').trim(),
+      }));
+
+      const allValid = cleaned.every(s =>
+        s.sentence && s.sentence.split(/\s+/).length <= 12 && isValidTranslation(s.translation)
+      );
+
+      if (allValid) {
+        console.log(`✅ [generateWordSentences] Success on attempt ${attempt}!`);
+        return res.status(200).json({ sentences: cleaned });
+      }
+
+      console.warn(`⚠️ [generateWordSentences] Validation failed on attempt ${attempt}`);
+      if (attempt > maxRetries) {
+        return res.status(200).json({
+          sentences: cleaned.map(s => ({
+            sentence: s.sentence || `I learned the word "${word}" today.`,
+            translation: s.translation || '（翻译生成失败，请重试）'
+          }))
+        });
+      }
+    } catch (error) {
+      console.error(`❌ [generateWordSentences] Attempt ${attempt} error:`, error);
+      if (attempt > maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  throw new Error('Failed to generate word sentences after retries');
 }
 
 /**

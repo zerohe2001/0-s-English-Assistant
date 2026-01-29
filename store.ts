@@ -962,6 +962,10 @@ export const useStore = create<AppState>()(
                 ? currentReviewCount + 1
                 : currentReviewCount;
 
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'store.ts:966',message:'updateReviewStats nextReviewDate',data:{wordId:w.id,reviewCount:currentReviewCount,nextReviewDate,skipped:stats.skipped,retryCount:stats.retryCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'H2'})}).catch(()=>{});
+              // #endregion agent log
+
               return {
                 ...w,
                 reviewStats: stats,
