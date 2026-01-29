@@ -52,6 +52,7 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     resolve: (value: string) => void;
     reject: (error: Error) => void;
   } | null>(null); // ✅ Promise to wait for transcript
+  const invalidSentenceHandledRef = useRef(false);
   const [textInput, setTextInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -62,6 +63,21 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const currentSentence = userSentences[currentSentenceIndex];
   const originalSentence = currentSentence?.sentence || '';
   const chineseTranslation = currentSentence?.translation || '';
+  const hasValidSentence =
+    userSentences.length > 0 &&
+    currentSentenceIndex >= 0 &&
+    currentSentenceIndex < userSentences.length;
+
+  useEffect(() => {
+    if (hasValidSentence) {
+      invalidSentenceHandledRef.current = false;
+      return;
+    }
+    if (invalidSentenceHandledRef.current) return;
+    invalidSentenceHandledRef.current = true;
+    showToast('该单词没有可复习的句子，已跳过', 'warning');
+    nextReviewWordStandalone({ retryCount, skipped: true });
+  }, [hasValidSentence, retryCount, showToast, nextReviewWordStandalone]);
 
   // 🐛 DEBUG: Log the data to find the issue
   useEffect(() => {
@@ -362,6 +378,14 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   const playOriginal = () => {
     speak(originalSentence);
   };
+
+  if (!hasValidSentence) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white">
+        <p className="text-small text-gray-500">正在准备下一条复习内容...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-white">

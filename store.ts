@@ -13,6 +13,22 @@ export interface ToastMessage {
   type: ToastType;
 }
 
+const safeJsonParse = <T,>(value: string | null | undefined, fallback: T, label: string): T => {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.error(`Failed to parse ${label}:`, error);
+    return fallback;
+  }
+};
+
+const isNoRowsError = (error: any) => {
+  return error?.code === 'PGRST116' || /0 rows/i.test(error?.message || '');
+};
+
 interface AppState {
   // Authentication & Sync
   user: any | null;
@@ -131,15 +147,49 @@ export const useStore = create<AppState>()(
       loadDataFromCloud: async () => {
         try {
           set({ isSyncing: true });
+          const { showToast } = get();
+          const loadErrors: string[] = [];
 
           // Fetch all data in parallel
-          const [profileData, wordsData, explanationsData, tokenData, articlesData] = await Promise.all([
+          const results = await Promise.allSettled([
             fetchProfile(),
             fetchWords(),
             fetchWordExplanations(),
             fetchTokenUsage(),
             fetchReadingArticles()
           ]);
+          const [profileResult, wordsResult, explanationsResult, tokenResult, articlesResult] = results;
+
+          const getResult = <T,>(result: PromiseSettledResult<T>, label: string): T | null => {
+            if (result.status === 'fulfilled') {
+              return result.value;
+            }
+            console.error(`❌ Failed to load ${label}:`, result.reason);
+            loadErrors.push(label);
+            return null;
+          };
+
+          const profileData = getResult(profileResult, 'profile');
+          const wordsData = getResult(wordsResult, 'words');
+          const explanationsData = getResult(explanationsResult, 'word explanations');
+          const tokenData = getResult(tokenResult, 'token usage');
+          const articlesData = getResult(articlesResult, 'reading articles');
+
+          const trackDataError = (result: { error?: any } | null, label: string, ignoreNoRows = false) => {
+            if (result?.error) {
+              if (ignoreNoRows && isNoRowsError(result.error)) {
+                return;
+              }
+              console.error(`❌ ${label} error:`, result.error);
+              loadErrors.push(label);
+            }
+          };
+
+          trackDataError(profileData, 'profile', true);
+          trackDataError(wordsData, 'words');
+          trackDataError(explanationsData, 'word explanations');
+          trackDataError(tokenData, 'token usage');
+          trackDataError(articlesData, 'reading articles');
 
           // Update profile
           if (profileData.data) {
@@ -240,21 +290,25 @@ export const useStore = create<AppState>()(
                   id: a.id,
                   title: a.title,
                   content: a.content,
-                  sentences: JSON.parse(a.sentences), // Parse JSONB
+                  sentences: safeJsonParse(a.sentences, [], 'reading article sentences'), // Parse JSONB safely
                   createdAt: new Date(a.created_at).getTime(),
                   lastPlayedAt: a.last_played_at ? new Date(a.last_played_at).getTime() : undefined,
                   audioStatus: a.audio_status,
                   audioBlobKey: a.audio_blob_key || undefined,
                   audioDuration: a.audio_duration || undefined,
-                  sentenceTimes: a.sentence_times ? JSON.parse(a.sentence_times) : undefined, // Parse JSONB
+                  sentenceTimes: safeJsonParse(a.sentence_times, undefined, 'reading article sentence_times'), // Parse JSONB safely
                 }))
               }
             });
           }
 
           console.log('✅ Data loaded from cloud');
+          if (loadErrors.length > 0) {
+            showToast('部分数据加载失败，可稍后重试', 'warning');
+          }
         } catch (error) {
           console.error('❌ Failed to load data from cloud:', error);
+          get().showToast('数据加载失败，请稍后重试', 'error');
         } finally {
           set({ isSyncing: false });
         }
@@ -266,9 +320,11 @@ export const useStore = create<AppState>()(
 
         try {
           set({ isSyncing: true });
+          const { showToast } = get();
+          const syncErrors: string[] = [];
 
           // Sync all data in parallel
-          await Promise.all([
+          const results = await Promise.allSettled([
             syncProfile(state.profile),
             syncWords(state.words),
             syncWordExplanations(state.learnState.wordExplanations || {}),
@@ -276,9 +332,28 @@ export const useStore = create<AppState>()(
             syncReadingArticles(state.readingState.articles)
           ]);
 
-          console.log('✅ Data synced to cloud');
+          const labels = ['profile', 'words', 'word explanations', 'token usage', 'reading articles'];
+          results.forEach((result, index) => {
+            const label = labels[index];
+            if (result.status === 'rejected') {
+              console.error(`❌ sync ${label} failed:`, result.reason);
+              syncErrors.push(label);
+              return;
+            }
+            if (result.value?.error) {
+              console.error(`❌ sync ${label} error:`, result.value.error);
+              syncErrors.push(label);
+            }
+          });
+
+          if (syncErrors.length === 0) {
+            console.log('✅ Data synced to cloud');
+          } else {
+            showToast('云端同步部分失败，请稍后重试', 'warning');
+          }
         } catch (error) {
           console.error('❌ Failed to sync data to cloud:', error);
+          get().showToast('云端同步失败，请稍后重试', 'error');
         } finally {
           set({ isSyncing: false });
         }

@@ -5,6 +5,46 @@ import { UserProfile } from '../types';
  * All requests go through /api/gemini Edge Function for security
  */
 
+const readErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const data = await response.clone().json();
+    if (data?.message) return data.message;
+  } catch {
+    // Ignore JSON parse errors
+  }
+  try {
+    const text = await response.text();
+    if (text) return text;
+  } catch {
+    // Ignore text read errors
+  }
+  return `Request failed (${response.status})`;
+};
+
+const postGemini = async (payload: Record<string, unknown>) => {
+  let response: Response;
+  try {
+    response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error('Network error. Please check your connection.');
+  }
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || 'Request failed');
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    throw new Error('Invalid response from server');
+  }
+};
+
 /**
  * Fast text comparison for typed input (no AI call needed)
  * Returns immediate feedback based on simple text matching
@@ -194,23 +234,12 @@ export const generateWordExplanation = async (
   profile: UserProfile,
   context: string
 ) => {
-  const response = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'generateWordExplanation',
-      word,
-      profile,
-      context,
-    }),
+  return await postGemini({
+    action: 'generateWordExplanation',
+    word,
+    profile,
+    context,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to generate word explanation');
-  }
-
-  return await response.json();
 };
 
 /**
@@ -220,22 +249,11 @@ export const evaluateShadowing = async (
   targetSentence: string,
   userTranscript: string
 ) => {
-  const response = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'evaluateShadowing',
-      targetSentence,
-      userTranscript,
-    }),
+  return await postGemini({
+    action: 'evaluateShadowing',
+    targetSentence,
+    userTranscript,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to evaluate shadowing');
-  }
-
-  return await response.json();
 };
 
 /**
@@ -246,43 +264,24 @@ export const evaluateUserSentence = async (
   userSentence: string,
   context: string
 ) => {
-  const response = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'evaluateUserSentence',
-      word,
-      userSentence,
-      context,
-    }),
+  return await postGemini({
+    action: 'evaluateUserSentence',
+    word,
+    userSentence,
+    context,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to evaluate sentence');
-  }
-
-  return await response.json();
 };
 
 /**
  * Translate English to Chinese via Edge Function
  */
 export const translateToChinese = async (sentence: string): Promise<string> => {
-  const response = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'translateToChinese',
-      sentence,
-    }),
+  const data = await postGemini({
+    action: 'translateToChinese',
+    sentence,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to translate');
+  if (!data || typeof data.translation !== 'string') {
+    throw new Error('Invalid translation response');
   }
-
-  const data = await response.json();
   return data.translation;
 };
