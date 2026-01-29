@@ -35,25 +35,16 @@ const buildGeminiUrl = () => {
 const postGemini = async (payload: Record<string, unknown>) => {
   let response: Response;
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/geminiClient.ts:37',message:'postGemini start',data:{action:payload.action},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion agent log
     response = await fetch(buildGeminiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
   } catch {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/geminiClient.ts:45',message:'postGemini network error',data:{action:payload.action},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion agent log
     throw new Error('Network error. Please check your connection.');
   }
 
   if (!response.ok) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/geminiClient.ts:52',message:'postGemini non-ok',data:{action:payload.action,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion agent log
     const message = await readErrorMessage(response);
     throw new Error(message || 'Request failed');
   }
@@ -61,9 +52,6 @@ const postGemini = async (payload: Record<string, unknown>) => {
   try {
     return await response.json();
   } catch {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/geminiClient.ts:61',message:'postGemini invalid json',data:{action:payload.action},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion agent log
     throw new Error('Invalid response from server');
   }
 };

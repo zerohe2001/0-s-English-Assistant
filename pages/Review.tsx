@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import ReviewWord from '../components/ReviewWord';
@@ -44,59 +44,7 @@ export const Review = () => {
     new Date(w.nextReviewDate) > new Date()
   ).length;
 
-  const reviewDebug = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const overdueExcluded: Array<{
-      id: string;
-      text: string;
-      learned: boolean;
-      hasSentences: boolean;
-      hasNextReviewDate: boolean;
-      reviewDateISO: string | null;
-    }> = [];
-    let overdueExcludedCount = 0;
-
-    words.forEach(word => {
-      const hasSentences = !!(word.userSentences && word.userSentences.length > 0);
-      const learned = !!word.learned;
-      const hasNextReviewDate = !!word.nextReviewDate;
-      const reviewDate = hasNextReviewDate ? new Date(word.nextReviewDate as string) : null;
-      if (reviewDate) {
-        reviewDate.setHours(0, 0, 0, 0);
-      }
-      const isOverdue = !!reviewDate && reviewDate < today;
-      const shouldReview = hasSentences && learned && hasNextReviewDate && !!reviewDate && reviewDate <= today;
-
-      if (isOverdue && !shouldReview) {
-        overdueExcludedCount += 1;
-        if (overdueExcluded.length < 3) {
-          overdueExcluded.push({
-            id: word.id,
-            text: word.text,
-            learned,
-            hasSentences,
-            hasNextReviewDate,
-            reviewDateISO: reviewDate ? reviewDate.toISOString() : null
-          });
-        }
-      }
-    });
-
-    return {
-      reviewWordsCount: reviewWords.length,
-      totalWords: words.length,
-      overdueExcludedCount,
-      overdueExcluded
-    };
-  }, [words, reviewWords.length]);
-
-  useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Review.tsx:88',message:'review debug snapshot',data:reviewDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run9',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion agent log
-  }, [reviewDebug]);
-
+  
 
   // Review mode - using store state
   if (reviewState.isActive && reviewState.currentWordIndex !== null) {

@@ -202,30 +202,15 @@ export const Library = () => {
 
     try {
       setGeneratingWordId(word.id);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:190',message:'generate sentences start',data:{wordId:word.id,text:word.text},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion agent log
-
       const sentences = await generateWordSentences(word.text, profile, '');
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:198',message:'generate sentences result',data:{wordId:word.id,count:sentences.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion agent log
-
       sentences.forEach(item => {
         if (item?.sentence && item?.translation) {
           addUserSentence(word.id, item.sentence, item.translation);
         }
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:208',message:'generate sentences saved',data:{wordId:word.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion agent log
-
       showToast('已生成句子，可进入复习', 'success');
     } catch (error) {
       console.error('Failed to generate sentences:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:214',message:'generate sentences failed',data:{wordId:word.id,text:word.text,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion agent log
       showToast('生成句子失败，请稍后重试', 'error');
     } finally {
       setGeneratingWordId(null);
