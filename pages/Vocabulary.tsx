@@ -17,7 +17,15 @@ export const Vocabulary = () => {
   const navigate = useNavigate();
 
   const unlearnedWords = words.filter(w => !w.learned);
-  const learnedWords = words.filter(w => w.learned);
+  // Sort learned words by nextReviewDate (earliest first)
+  const learnedWords = words
+    .filter(w => w.learned)
+    .sort((a, b) => {
+      // Words without nextReviewDate go to the end
+      if (!a.nextReviewDate) return 1;
+      if (!b.nextReviewDate) return -1;
+      return new Date(a.nextReviewDate).getTime() - new Date(b.nextReviewDate).getTime();
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
