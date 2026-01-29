@@ -917,7 +917,7 @@ export const useStore = create<AppState>()(
           let daysToAdd = 1; // default: tomorrow
 
           // Performance-based intervals following spaced repetition
-          if (stats.skipped || stats.retryCount >= 3) {
+          if (stats.retryCount >= 3) {
             // Poor performance → Review tomorrow
             daysToAdd = 1;
           } else if (stats.retryCount >= 1) {
@@ -944,18 +944,28 @@ export const useStore = create<AppState>()(
         return {
           words: state.words.map(w => {
             if (w.id === wordId) {
+              // ✅ Skip: Don't change nextReviewDate or learned status
+              // Word stays in today's review list for another chance
+              if (stats.skipped) {
+                return {
+                  ...w,
+                  reviewStats: stats,
+                  // Keep existing nextReviewDate and learned status unchanged
+                };
+              }
+
               const currentReviewCount = w.reviewCount || 0;
               const nextReviewDate = calculateNextReviewDate(stats, currentReviewCount);
 
-              // Increment review count only if performance is good (not skipped, retry < 3)
-              const newReviewCount = (!stats.skipped && stats.retryCount < 3)
+              // Increment review count only if performance is good (retry < 3)
+              const newReviewCount = stats.retryCount < 3
                 ? currentReviewCount + 1
                 : currentReviewCount;
 
               return {
                 ...w,
                 reviewStats: stats,
-                learned: !stats.skipped && stats.retryCount < 3,
+                learned: stats.retryCount < 3, // Only set to false if too many retries
                 nextReviewDate,
                 lastPracticed: new Date().toISOString(),
                 reviewCount: newReviewCount
