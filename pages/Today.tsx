@@ -22,11 +22,13 @@ export const Today = () => {
   const unlearnedWords = words.filter(w => !w.learned);
   const wordsToLearn = unlearnedWords.slice(0, 5);
 
-  // Words due for review today
+  // Words due for review today (must match Review.tsx logic)
   const isDueForReview = (word: typeof words[0]): boolean => {
     // Only review words that have at least one sentence
     if (!word.userSentences || word.userSentences.length === 0) return false;
-    if (!word.nextReviewDate) return true;
+
+    // Must be marked as learned AND have a review date
+    if (!word.learned || !word.nextReviewDate) return false;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
