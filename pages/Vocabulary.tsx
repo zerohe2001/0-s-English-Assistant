@@ -8,6 +8,8 @@ export const Vocabulary = () => {
   const { getActiveWords, addWord, removeWord, bulkAddWords, startLearningWithWords, setDailyContext, showToast } = useStore();
   const words = getActiveWords(); // ✅ Only show non-deleted words
 
+  const REQUIRED_SELECTION_COUNT = 5;
+
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [activeTab, setActiveTab] = useState<'unlearned' | 'learned'>('unlearned');
@@ -34,13 +36,17 @@ export const Vocabulary = () => {
     if (selectedWordIds.includes(wordId)) {
       setSelectedWordIds(selectedWordIds.filter(id => id !== wordId));
     } else {
+      if (selectedWordIds.length >= REQUIRED_SELECTION_COUNT) {
+        showToast(`You can select exactly ${REQUIRED_SELECTION_COUNT} words.`, 'info');
+        return;
+      }
       setSelectedWordIds([...selectedWordIds, wordId]);
     }
   };
 
   const handleStartLearningSelected = () => {
-    if (selectedWordIds.length === 0) {
-      showToast('Please select at least one word to learn.', 'info');
+    if (selectedWordIds.length !== REQUIRED_SELECTION_COUNT) {
+      showToast(`Please select exactly ${REQUIRED_SELECTION_COUNT} words to learn.`, 'info');
       return;
     }
 
@@ -312,9 +318,16 @@ export const Vocabulary = () => {
           <div className="max-w-2xl mx-auto pointer-events-auto">
             <button
               onClick={handleStartLearningSelected}
-              className="w-full bg-gray-900 hover:bg-gray-700 text-white py-3 rounded text-small font-medium transition-colors flex items-center justify-center gap-2"
+              disabled={selectedWordIds.length !== REQUIRED_SELECTION_COUNT}
+              className={`w-full py-3 rounded text-small font-medium transition-colors flex items-center justify-center gap-2 ${
+                selectedWordIds.length === REQUIRED_SELECTION_COUNT
+                  ? 'bg-gray-900 hover:bg-gray-700 text-white'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              <span>Start Learning ({selectedWordIds.length} {selectedWordIds.length === 1 ? 'word' : 'words'})</span>
+              <span>
+                Start Learning ({selectedWordIds.length}/{REQUIRED_SELECTION_COUNT})
+              </span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
