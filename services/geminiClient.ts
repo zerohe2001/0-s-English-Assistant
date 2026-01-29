@@ -156,6 +156,9 @@ export const quickCheckSentence = (
 
   if (wordParts.length > 1 && !isToDoPattern) {
     // Phrase like "come across" - check if all parts are present (with flexible matching)
+    // BE verb conjugations - "be" is highly irregular and needs special handling
+    const beVerbs = ['be', 'am', 'is', 'are', 'was', 'were', 'been', 'being'];
+
     const allPartsPresent = wordParts.every(part => {
       // For each part, check:
       // 1. Exact match (e.g., "across" in "came across")
@@ -163,7 +166,14 @@ export const quickCheckSentence = (
         return true;
       }
 
-      // 2. For irregular verbs and inflections, check with very flexible matching
+      // 2. Special handling for "be" verb - matches all conjugations
+      if (part === 'be') {
+        const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
+        const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
+        return sentenceWords.some(w => beVerbs.includes(w));
+      }
+
+      // 3. For other irregular verbs and inflections, check with flexible matching
       // Extract only alphanumeric characters from sentence for matching
       const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
       const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
