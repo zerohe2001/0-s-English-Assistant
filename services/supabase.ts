@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+let wordExplanationsSyncInFlight = false;
+
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -233,6 +235,12 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
   const user = await getCurrentUser();
   if (!user) return { error: new Error('Not authenticated') };
 
+  if (wordExplanationsSyncInFlight) {
+    return { data: [], error: null };
+  }
+
+  wordExplanationsSyncInFlight = true;
+
   const entries = Object.entries(explanations);
   if (entries.length === 0) return { data: [], error: null };
 
@@ -254,37 +262,29 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
     console.warn(`⚠️ syncWordExplanations: Skipping ${entries.length - validEntries.length} invalid entries`);
   }
 
-  // Delete existing explanations only when we have valid entries to replace
-  const { error: deleteError } = await supabase
-    .from('word_explanations')
-    .delete()
-    .eq('user_id', user.id);
+  try {
+    const { data, error } = await supabase
+      .from('word_explanations')
+      .upsert(
+        validEntries.map(([wordId, exp]: [string, any]) => ({
+          user_id: user.id,
+          word_id: wordId,
+          definition: exp.meaning || exp.definition || '', // ✅ Frontend uses 'meaning', fallback to 'definition'
+          example: exp.example || '',
+          example_translation: exp.exampleTranslation || '',
+          tips: exp.tips || exp.phonetic || '', // ✅ Fallback to 'phonetic' if 'tips' not present
+        })),
+        {
+          onConflict: 'user_id,word_id',
+          ignoreDuplicates: false
+        }
+      )
+      .select();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/supabase.ts:266',message:'syncWordExplanations delete result',data:{hasError:!!deleteError,errorCode:deleteError?.code||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion agent log
-
-  if (deleteError) return { error: deleteError };
-
-  const { data, error } = await supabase
-    .from('word_explanations')
-    .insert(
-      validEntries.map(([wordId, exp]: [string, any]) => ({
-        user_id: user.id,
-        word_id: wordId,
-        definition: exp.meaning || exp.definition || '', // ✅ Frontend uses 'meaning', fallback to 'definition'
-        example: exp.example || '',
-        example_translation: exp.exampleTranslation || '',
-        tips: exp.tips || exp.phonetic || '', // ✅ Fallback to 'phonetic' if 'tips' not present
-      }))
-    )
-    .select();
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/supabase.ts:285',message:'syncWordExplanations insert result',data:{hasError:!!error,errorCode:error?.code||null,insertedCount:data?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion agent log
-
-  return { data, error };
+    return { data, error };
+  } finally {
+    wordExplanationsSyncInFlight = false;
+  }
 };
 
 export const fetchWordExplanations = async () => {

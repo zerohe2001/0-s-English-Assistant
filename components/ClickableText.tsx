@@ -3,7 +3,7 @@ import React from 'react';
 import { useStore } from '../store';
 
 interface ClickableTextProps {
-  text: string;
+  text?: string;
   className?: string;
 }
 
@@ -17,7 +17,8 @@ const ClickableText: React.FC<ClickableTextProps> = ({ text, className = '' }) =
 
   // Split text into words and non-words (punctuation/spaces)
   // Regex captures delimiters so we can reconstruct the sentence
-  const parts = text.split(/([^\w'])+/g);
+  const safeText = text ?? '';
+  const parts = safeText.split(/([^\w'])+/g);
 
   return (
     <span className={className}>

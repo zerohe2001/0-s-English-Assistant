@@ -46,6 +46,23 @@
 - `services/supabase.ts`
 **提交**: [待提交]
 
+### 3. 本地学习崩溃与解释同步冲突
+**时间**: 2026-01-28
+**问题**:
+1. ClickableText 在 text 为空时调用 split 导致崩溃
+2. word_explanations 同步并发导致唯一键冲突
+3. 本地 /api/gemini 404 无法生成解释
+**解决**:
+- ClickableText 允许空文本并安全处理
+- word_explanations 改为 upsert，并增加单次同步保护
+- 本地通过 Vite proxy 转发 /api 到线上
+**修改的文件**:
+- `components/ClickableText.tsx`
+- `services/supabase.ts`
+- `services/geminiClient.ts`
+- `vite.config.ts`
+**提交**: [待提交]
+
 ## 2026-01-20
 
 ### 0. Library 重复单词检测与智能清洗

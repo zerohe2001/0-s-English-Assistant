@@ -21,10 +21,21 @@ const readErrorMessage = async (response: Response): Promise<string> => {
   return `Request failed (${response.status})`;
 };
 
+const buildGeminiUrl = () => {
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+  );
+  if (isLocalhost) return '/api/gemini';
+  const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (!base) return '/api/gemini';
+  return `${base.replace(/\/+$/, '')}/api/gemini`;
+};
+
 const postGemini = async (payload: Record<string, unknown>) => {
   let response: Response;
   try {
-    response = await fetch('/api/gemini', {
+    response = await fetch(buildGeminiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
