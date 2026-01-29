@@ -414,7 +414,15 @@ export const Learn = () => {
 
           // Move to next word or complete session
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-              // All words completed, end session
+              // All words completed, record check-in and end session
+              const today = new Date().toISOString().split('T')[0];
+              const wordIds = learnState.learningQueue.map(w => w.id);
+              const existingCheckIn = getCheckInRecord(today);
+              const newGroupCount = (existingCheckIn?.groupsCompleted || 0) + 1;
+
+              addCheckIn(today, newGroupCount, wordIds);
+              console.log(`✅ Check-in recorded: ${newGroupCount} group(s) today`);
+
               showToast("Great job! All words learned.", "success");
               resetSession();
               navigate('/');
@@ -438,7 +446,15 @@ export const Learn = () => {
 
       // Move to next word or complete session (same logic as Next but without marking)
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-          // All words completed, end session
+          // All words completed, record check-in and end session
+          const today = new Date().toISOString().split('T')[0];
+          const wordIds = learnState.learningQueue.map(w => w.id);
+          const existingCheckIn = getCheckInRecord(today);
+          const newGroupCount = (existingCheckIn?.groupsCompleted || 0) + 1;
+
+          addCheckIn(today, newGroupCount, wordIds);
+          console.log(`✅ Check-in recorded: ${newGroupCount} group(s) today`);
+
           showToast("Session complete!", "success");
           resetSession();
           navigate('/');
@@ -476,7 +492,15 @@ export const Learn = () => {
       } else if (learnState.wordSubStep === 'creation') {
           // Move to next word or complete session
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-              // All words completed, end session
+              // All words completed, record check-in and end session
+              const today = new Date().toISOString().split('T')[0];
+              const wordIds = learnState.learningQueue.map(w => w.id);
+              const existingCheckIn = getCheckInRecord(today);
+              const newGroupCount = (existingCheckIn?.groupsCompleted || 0) + 1;
+
+              addCheckIn(today, newGroupCount, wordIds);
+              console.log(`✅ Check-in recorded: ${newGroupCount} group(s) today`);
+
               showToast("Great job! All words learned.", "success");
               resetSession();
               navigate('/');
