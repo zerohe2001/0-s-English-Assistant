@@ -75,7 +75,13 @@ export const Library = () => {
         if (!b.nextReviewDate) return -1;
         return new Date(a.nextReviewDate).getTime() - new Date(b.nextReviewDate).getTime();
       }
-      return 0; // Keep original order for other filters
+      // For unlearned filter: sort by addedAt (earliest first)
+      if (wordFilter === 'unlearned') {
+        if (!a.addedAt) return 1;
+        if (!b.addedAt) return -1;
+        return new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime();
+      }
+      return 0; // Keep original order for 'all' filter
     });
 
   const handleSubmitWord = async (e: React.FormEvent) => {
