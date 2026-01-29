@@ -31,7 +31,6 @@ export const Learn = () => {
     goBackStep, // ✅ Go back to previous step in learning flow
     nextReviewWord, // ✅ Move to next word in review
     updateReviewStats, // ✅ Update review statistics
-    startReviewPhase, // ✅ Start review phase after learning
     resetSession,
     getActiveWords,
     addSavedContext,
@@ -413,11 +412,12 @@ export const Learn = () => {
               console.log('✅ Word marked as learned after 3 sentences:', currentWord.text);
           }
 
-          // Move to next word or start review phase
+          // Move to next word or complete session
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-              // All words completed, start review phase
-              showToast("Great job! Now let's review.", "success");
-              startReviewPhase();
+              // All words completed, end session
+              showToast("Great job! All words learned.", "success");
+              resetSession();
+              navigate('/');
           } else {
               setEvaluation(null);
               setTranscript('');
@@ -436,11 +436,12 @@ export const Learn = () => {
   const handleSkipCreation = async () => {
       console.log('⏭️ Skipped creation, word NOT marked as learned');
 
-      // Move to next word or start review phase (same logic as Next but without marking)
+      // Move to next word or complete session (same logic as Next but without marking)
       if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-          // All words completed, start review phase
-          showToast("Session complete! Now let's review.", "success");
-          startReviewPhase();
+          // All words completed, end session
+          showToast("Session complete!", "success");
+          resetSession();
+          navigate('/');
       } else {
           setEvaluation(null);
           setTranscript('');
@@ -473,11 +474,12 @@ export const Learn = () => {
           // Default behavior for other callers
           setWordSubStep('creation');
       } else if (learnState.wordSubStep === 'creation') {
-          // Move to next word or start review phase
+          // Move to next word or complete session
           if (learnState.currentWordIndex >= learnState.learningQueue.length - 1) {
-              // All words completed, start review phase
-              showToast("Great job! Now let's review.", "success");
-              startReviewPhase();
+              // All words completed, end session
+              showToast("Great job! All words learned.", "success");
+              resetSession();
+              navigate('/');
           } else {
              nextWord();
           }
