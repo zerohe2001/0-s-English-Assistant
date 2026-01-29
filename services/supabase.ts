@@ -249,10 +249,6 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
     return definition && String(definition).trim().length > 0;
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/supabase.ts:248',message:'syncWordExplanations counts',data:{entriesCount:entries.length,validCount:validEntries.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion agent log
-
   if (validEntries.length === 0) {
     console.warn('⚠️ syncWordExplanations: No valid entries to sync');
     return { data: [], error: null };
@@ -303,10 +299,6 @@ export const syncTokenUsage = async (tokenUsage: any) => {
   const user = await getCurrentUser();
   if (!user) return { error: new Error('Not authenticated') };
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/supabase.ts:296',message:'syncTokenUsage start',data:{hasTokenUsage:!!tokenUsage,inputTokens:tokenUsage?.inputTokens,outputTokens:tokenUsage?.outputTokens},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion agent log
-
   const { data, error } = await supabase
     .from('token_usage')
     .upsert(
@@ -324,10 +316,6 @@ export const syncTokenUsage = async (tokenUsage: any) => {
     )
     .select()
     .single();
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'services/supabase.ts:314',message:'syncTokenUsage result',data:{hasError:!!error,errorCode:error?.code||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion agent log
 
   return { data, error };
 };
