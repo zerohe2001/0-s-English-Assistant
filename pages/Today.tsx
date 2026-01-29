@@ -48,17 +48,6 @@ export const Today = () => {
     return 'Good evening';
   };
 
-  // Calculate progress (out of 7 tasks per day)
-  // ✅ Check if today's planned words are all learned (not if there are no more unlearned words)
-  const todayWordsAllLearned = wordsToLearn.every(w => w.learned);
-
-  const tasksCompleted = [
-    todayWordsAllLearned,  // ✅ Today's 5 words are all learned
-    wordsToReview.length === 0,  // ✅ No reviews due today
-  ].filter(Boolean).length;
-  const totalTasks = 2;
-
-
   // Check if there's an active learning session in progress
   const hasActiveSession = learnState.currentStep === 'learning' && learnState.learningQueue.length > 0;
   const sessionProgress = hasActiveSession
@@ -166,44 +155,6 @@ export const Today = () => {
         </button>
       </div>
 
-      {/* Progress & Stats Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        {/* Progress Indicator */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-body font-semibold text-gray-900">Today's Progress</h3>
-            <span className="text-small text-gray-600">
-              {tasksCompleted}/{totalTasks}
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            {Array.from({ length: totalTasks }).map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 flex-1 rounded-full transition-all ${
-                  i < tasksCompleted ? 'bg-gray-900' : 'bg-gray-200'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gray-50 rounded-lg p-4 text-center">
-            <p className="text-2xl font-semibold text-gray-900">{words.filter(w => w.learned).length}</p>
-            <p className="text-tiny text-gray-500 mt-1">Learned</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-4 text-center">
-            <p className="text-2xl font-semibold text-gray-900">{words.length}</p>
-            <p className="text-tiny text-gray-500 mt-1">Total</p>
-          </div>
-          <div className="bg-gray-50 rounded-lg p-4 text-center">
-            <p className="text-2xl font-semibold text-gray-900">{readingState.articles.length}</p>
-            <p className="text-tiny text-gray-500 mt-1">Articles</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
