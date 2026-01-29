@@ -81,7 +81,40 @@ export const quickCheckSentence = (
   // For phrases (contains space), check each word separately
   const wordParts = wordLower.split(/\s+/);
 
-  if (wordParts.length > 1) {
+  // Handle "X to do" pattern - "do" is a verb placeholder
+  // Examples: "keen to do", "want to do", "like to do"
+  if (wordParts.length >= 2) {
+    const lastTwo = wordParts.slice(-2);  // e.g., ["to", "do"]
+
+    if (lastTwo[0] === 'to' && lastTwo[1] === 'do') {
+      // Pattern ends with "to do" - check prefix + "to" + ANY verb
+      const prefix = wordParts.slice(0, -2);  // e.g., ["keen"] or []
+
+      // All prefix parts must be present
+      const prefixPresent = prefix.length === 0 || prefix.every(part =>
+        sentenceLower.includes(part)
+      );
+
+      // Must have "to" followed by any word (the actual verb used)
+      const hasToVerb = /\bto\s+\w+/.test(sentenceLower);
+
+      if (!prefixPresent || !hasToVerb) {
+        return {
+          passed: false,
+          feedback: `Please use the pattern "${word}" with any verb (e.g., "${prefix.length > 0 ? prefix[0] : 'want'} to learn", "${prefix.length > 0 ? prefix[0] : 'want'} to try").`
+        };
+      }
+      // Pattern matched! Continue to other checks (word count, not copying example)
+      // Skip to the checks after phrase matching by setting a flag
+    }
+  }
+
+  // Check if this is a "to do" pattern (already handled above)
+  const isToDoPattern = wordParts.length >= 2 &&
+    wordParts.slice(-2)[0] === 'to' &&
+    wordParts.slice(-2)[1] === 'do';
+
+  if (wordParts.length > 1 && !isToDoPattern) {
     // Phrase like "come across" - check if all parts are present (with flexible matching)
     const allPartsPresent = wordParts.every(part => {
       // For each part, check:
@@ -111,7 +144,7 @@ export const quickCheckSentence = (
         feedback: `Please use the phrase "${word}" (or its variations like past tense) in your sentence.`
       };
     }
-  } else {
+  } else if (wordParts.length === 1) {
     // Single word - use prefix matching for inflections
     const minMatchLength = Math.min(4, wordLower.length - 1);
     const wordPrefix = wordLower.substring(0, minMatchLength);
