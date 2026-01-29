@@ -897,9 +897,20 @@ export const useStore = create<AppState>()(
                 translation,
                 createdAt: new Date().toISOString()
               };
+              let nextReviewDate = w.nextReviewDate;
+              if (w.learned && nextReviewDate) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const reviewDate = new Date(nextReviewDate);
+                reviewDate.setHours(0, 0, 0, 0);
+                if (reviewDate < today) {
+                  nextReviewDate = today.toISOString();
+                }
+              }
               return {
                 ...w,
-                userSentences: [...existingSentences, newSentence]
+                userSentences: [...existingSentences, newSentence],
+                ...(nextReviewDate ? { nextReviewDate } : {})
               };
             }
             return w;
@@ -961,10 +972,6 @@ export const useStore = create<AppState>()(
               const newReviewCount = stats.retryCount < 3
                 ? currentReviewCount + 1
                 : currentReviewCount;
-
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'store.ts:966',message:'updateReviewStats nextReviewDate',data:{wordId:w.id,reviewCount:currentReviewCount,nextReviewDate,skipped:stats.skipped,retryCount:stats.retryCount},timestamp:Date.now(),sessionId:'debug-session',runId:'run8',hypothesisId:'H2'})}).catch(()=>{});
-              // #endregion agent log
 
               return {
                 ...w,

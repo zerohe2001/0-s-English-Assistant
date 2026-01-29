@@ -196,7 +196,7 @@ export const Library = () => {
     }
   };
 
-  const handleGenerateSentences = async (word: { id: string; text: string; userSentences?: Array<{ sentence: string }> }) => {
+  const handleGenerateSentences = async (word: { id: string; text: string; userSentences?: Array<{ sentence: string }>; nextReviewDate?: string; learned?: boolean }) => {
     if (generatingWordId) return;
     if (word.userSentences && word.userSentences.length > 0) return;
 
