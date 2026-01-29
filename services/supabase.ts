@@ -250,10 +250,10 @@ export const syncWordExplanations = async (explanations: Record<string, any>) =>
       entries.map(([wordId, exp]: [string, any]) => ({
         user_id: user.id,
         word_id: wordId,
-        definition: exp.definition,
-        example: exp.example,
-        example_translation: exp.exampleTranslation,
-        tips: exp.tips,
+        definition: exp.meaning || exp.definition || '', // ✅ Frontend uses 'meaning', fallback to 'definition'
+        example: exp.example || '',
+        example_translation: exp.exampleTranslation || '',
+        tips: exp.tips || exp.phonetic || '', // ✅ Fallback to 'phonetic' if 'tips' not present
       }))
     )
     .select();
@@ -285,6 +285,8 @@ export const syncTokenUsage = async (tokenUsage: any) => {
       output_tokens: tokenUsage.outputTokens,
       total_cost: tokenUsage.totalCost,
       updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id' // ✅ Handle duplicate key - update existing record
     })
     .select()
     .single();
