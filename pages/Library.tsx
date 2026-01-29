@@ -5,6 +5,7 @@ import AddArticleModal from '../components/AddArticleModal';
 import DictionaryModal from '../components/DictionaryModal';
 import { ContextLibrary } from '../components/Settings/ContextLibrary';
 import { audioCache } from '../services/audioCache';
+import { generateWordSentences } from '../services/geminiClient';
 
 export const Library = () => {
   const navigate = useNavigate();
@@ -15,11 +16,13 @@ export const Library = () => {
 
   const {
     getActiveWords,
+    profile,
     addWord,
     removeWord,
     bulkAddWords,
     bulkAddWordsForce,
     quickAddLearnedWords,
+    addUserSentence,
     readingState,
     addArticle,
     removeArticle,
@@ -33,6 +36,7 @@ export const Library = () => {
   const [newWord, setNewWord] = useState('');
   const [isBulk, setIsBulk] = useState(false);
   const [wordFilter, setWordFilter] = useState<'all' | 'learned' | 'unlearned'>('unlearned');
+  const [generatingWordId, setGeneratingWordId] = useState<string | null>(null);
 
   // Quick Add Learned Words states
   const [showLearnedModal, setShowLearnedModal] = useState(false);
@@ -57,12 +61,22 @@ export const Library = () => {
     setSearchParams({ tab: activeTab });
   }, [activeTab, setSearchParams]);
 
-  // Filter words
-  const filteredWords = words.filter(w => {
-    if (wordFilter === 'learned') return w.learned;
-    if (wordFilter === 'unlearned') return !w.learned;
-    return true;
-  });
+  // Filter and sort words
+  const filteredWords = words
+    .filter(w => {
+      if (wordFilter === 'learned') return w.learned;
+      if (wordFilter === 'unlearned') return !w.learned;
+      return true;
+    })
+    .sort((a, b) => {
+      // For learned filter: sort by nextReviewDate (earliest first)
+      if (wordFilter === 'learned') {
+        if (!a.nextReviewDate) return 1;
+        if (!b.nextReviewDate) return -1;
+        return new Date(a.nextReviewDate).getTime() - new Date(b.nextReviewDate).getTime();
+      }
+      return 0; // Keep original order for other filters
+    });
 
   const handleSubmitWord = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,6 +193,42 @@ export const Library = () => {
       showToast('Failed to add words. Please try again.', 'error');
     } finally {
       setIsAddingLearned(false);
+    }
+  };
+
+  const handleGenerateSentences = async (word: { id: string; text: string; userSentences?: Array<{ sentence: string }> }) => {
+    if (generatingWordId) return;
+    if (word.userSentences && word.userSentences.length > 0) return;
+
+    try {
+      setGeneratingWordId(word.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:190',message:'generate sentences start',data:{wordId:word.id,text:word.text},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion agent log
+
+      const sentences = await generateWordSentences(word.text, profile, '');
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:198',message:'generate sentences result',data:{wordId:word.id,count:sentences.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion agent log
+
+      sentences.forEach(item => {
+        if (item?.sentence && item?.translation) {
+          addUserSentence(word.id, item.sentence, item.translation);
+        }
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:208',message:'generate sentences saved',data:{wordId:word.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run10',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion agent log
+
+      showToast('已生成句子，可进入复习', 'success');
+    } catch (error) {
+      console.error('Failed to generate sentences:', error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/34db8039-d717-47fe-916b-d095ceab83aa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pages/Library.tsx:214',message:'generate sentences failed',data:{wordId:word.id,text:word.text,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run11',hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion agent log
+      showToast('生成句子失败，请稍后重试', 'error');
+    } finally {
+      setGeneratingWordId(null);
     }
   };
 
@@ -415,13 +465,28 @@ export const Library = () => {
                   <div className="flex-1">
                     <p className="text-body text-gray-900">{word.text}</p>
                     <p className="text-tiny text-gray-500 mt-1">
-                      {word.learned && word.nextReviewDate ? (
+                      {word.learned && (!word.userSentences || word.userSentences.length === 0) ? (
+                        <>Needs sentences to review</>
+                      ) : word.learned && word.nextReviewDate ? (
                         <>Review on {new Date(word.nextReviewDate).toLocaleDateString()}</>
                       ) : (
                         <>Added {new Date(word.addedAt).toLocaleDateString()}</>
                       )}
                       {word.learned && ' • Learned'}
                     </p>
+                    {word.learned && (!word.userSentences || word.userSentences.length === 0) && (
+                      <button
+                        onClick={() => handleGenerateSentences(word)}
+                        disabled={generatingWordId === word.id}
+                        className={`mt-2 inline-flex items-center px-2 py-1 text-tiny rounded border ${
+                          generatingWordId === word.id
+                            ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed'
+                            : 'bg-gray-900 text-white border-gray-900 hover:bg-gray-700'
+                        }`}
+                      >
+                        {generatingWordId === word.id ? 'Generating…' : 'AI 生成句子'}
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={() => removeWord(word.id)}
