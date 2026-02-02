@@ -338,7 +338,15 @@ export const Learn = () => {
             console.log("✅ Quick check passed, calling AI for grammar evaluation...");
             const result = await evaluateUserSentence(currentWord.text, text, learnState.dailyContext);
             console.log("Sentence evaluation result:", result);
-            setEvaluation(result);
+            const normalizeSentence = (value: string) =>
+              value.trim().replace(/\s+/g, ' ').toLowerCase();
+            const normalizedInput = normalizeSentence(text);
+            const normalizedBetterWay = result.betterWay ? normalizeSentence(result.betterWay) : '';
+            const shouldHideBetterWay = result.isCorrect || normalizedBetterWay === normalizedInput;
+            const finalResult = shouldHideBetterWay
+              ? { ...result, betterWay: '' }
+              : result;
+            setEvaluation(finalResult);
         }
       } catch (error) {
           logAndNotify(error, showToast, "Evaluation failed");
