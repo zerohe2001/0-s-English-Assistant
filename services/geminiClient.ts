@@ -125,6 +125,67 @@ export const quickCheckSentence = (
   const trimmed = sentence.trim();
   const wordLower = word.toLowerCase();
   const sentenceLower = trimmed.toLowerCase();
+  const isWithinOneEdit = (a: string, b: string) => {
+    if (a === b) return true;
+    const lenDiff = Math.abs(a.length - b.length);
+    if (lenDiff > 1) return false;
+    if (a.length === b.length) {
+      let diffs = 0;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i] && ++diffs > 1) return false;
+      }
+      return true;
+    }
+    const shorter = a.length < b.length ? a : b;
+    const longer = a.length < b.length ? b : a;
+    let i = 0;
+    let j = 0;
+    let foundDiff = false;
+    while (i < shorter.length && j < longer.length) {
+      if (shorter[i] === longer[j]) {
+        i++;
+        j++;
+        continue;
+      }
+      if (foundDiff) return false;
+      foundDiff = true;
+      j++;
+    }
+    return true;
+  };
+  const getBaseForms = (w: string) => {
+    const forms = new Set<string>();
+    const lower = w.toLowerCase();
+    forms.add(lower);
+    if (lower.endsWith('ies') && lower.length > 3) {
+      forms.add(lower.slice(0, -3) + 'y');
+    }
+    if (lower.endsWith('ied') && lower.length > 3) {
+      forms.add(lower.slice(0, -3) + 'y');
+    }
+    if (lower.endsWith('es') && lower.length > 3) {
+      forms.add(lower.slice(0, -2));
+    }
+    if (lower.endsWith('s') && lower.length > 3 && !lower.endsWith('ss')) {
+      forms.add(lower.slice(0, -1));
+    }
+    if (lower.endsWith('ed') && lower.length > 3) {
+      let base = lower.slice(0, -2);
+      if (base.length >= 2 && base[base.length - 1] === base[base.length - 2]) {
+        base = base.slice(0, -1);
+      }
+      forms.add(base);
+    }
+    if (lower.endsWith('ing') && lower.length > 4) {
+      let base = lower.slice(0, -3);
+      if (base.endsWith('ie')) base = base.slice(0, -2) + 'y';
+      if (base.length >= 2 && base[base.length - 1] === base[base.length - 2]) {
+        base = base.slice(0, -1);
+      }
+      forms.add(base);
+    }
+    return forms;
+  };
 
   // 1. Check for word presence with flexible matching
   // Strategy: Handle both single words and phrases (like "come across")
@@ -169,34 +230,41 @@ export const quickCheckSentence = (
     // Phrase like "come across" - check if all parts are present (with flexible matching)
     // BE verb conjugations - "be" is highly irregular and needs special handling
     const beVerbs = ['be', 'am', 'is', 'are', 'was', 'were', 'been', 'being'];
-
+    const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
+    const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
+    const partMatchSummary = wordParts.map(part => {
+      const partForms = getBaseForms(part);
+      let matched = false;
+      let matchType: 'exact' | 'be' | 'stem' | 'edit' | 'none' = 'none';
+      for (const w of sentenceWords) {
+        if (w === part) {
+          matched = true;
+          matchType = 'exact';
+          break;
+        }
+        if (part === 'be' && beVerbs.includes(w)) {
+          matched = true;
+          matchType = 'be';
+          break;
+        }
+        const wordForms = getBaseForms(w);
+        const hasStemMatch = [...wordForms].some(f => partForms.has(f));
+        if (hasStemMatch) {
+          matched = true;
+          matchType = 'stem';
+          break;
+        }
+        if (isWithinOneEdit(w, part)) {
+          matched = true;
+          matchType = 'edit';
+          break;
+        }
+      }
+      return { part, matched, matchType };
+    });
     const allPartsPresent = wordParts.every(part => {
-      // For each part, check:
-      // 1. Exact match (e.g., "across" in "came across")
-      if (sentenceLower.includes(part)) {
-        return true;
-      }
-
-      // 2. Special handling for "be" verb - matches all conjugations
-      if (part === 'be') {
-        const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
-        const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
-        return sentenceWords.some(w => beVerbs.includes(w));
-      }
-
-      // 3. For other irregular verbs and inflections, check with flexible matching
-      // Extract only alphanumeric characters from sentence for matching
-      const cleanSentence = sentenceLower.replace(/[^\w\s]/g, ' ');
-      const sentenceWords = cleanSentence.split(/\s+/).filter(w => w.length > 0);
-
-      // Check if any word matches with first 2-3 chars and similar length
-      return sentenceWords.some(w => {
-        // Match first 2 chars (catches come→came, run→ran)
-        const matches2Chars = w.substring(0, 2) === part.substring(0, 2);
-        const similarLength = Math.abs(w.length - part.length) <= 2;
-
-        return matches2Chars && similarLength;
-      });
+      const summary = partMatchSummary.find(p => p.part === part);
+      return summary?.matched === true;
     });
 
     if (!allPartsPresent) {

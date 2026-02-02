@@ -329,7 +329,7 @@ export const Learn = () => {
                 setEvaluation({
                     isCorrect: false,
                     feedback: quickCheck.feedback!,
-                    betterWay: text  // Keep original sentence
+                    betterWay: ''  // Hide Better Way for quick-check failures
                 });
                 return;
             }
