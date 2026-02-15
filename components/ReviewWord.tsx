@@ -590,12 +590,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
               </div>
             </div>
 
-            {/* Feedback */}
-            {comparison.feedback && (
-              <div className="p-4 bg-gray-100 rounded border-l-2 border-gray-900">
-                <p className="text-small text-gray-700 leading-relaxed">{comparison.feedback}</p>
-              </div>
-            )}
 
             {/* Comparison */}
             {(() => {
