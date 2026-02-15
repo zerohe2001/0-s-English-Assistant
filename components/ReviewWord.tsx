@@ -254,40 +254,111 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     }
   };
 
-  // ✅ Word-level diff using LCS (Longest Common Subsequence)
-  const wordDiff = (original: string, user: string): { originalMarked: { text: string; match: boolean }[]; userMarked: { text: string; match: boolean }[] } => {
-    const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'""`´''""()\[\]{}\-–—_\/\\@#$%^&*+=<>~|]/g, '').trim();
-    const origWords = original.split(/\s+/).filter(Boolean);
-    const userWords = user.split(/\s+/).filter(Boolean);
-    const a = origWords.map(w => normalize(w));
-    const b = userWords.map(w => normalize(w));
+  // ✅ Expand contractions to full forms so "can't"="cannot", "it's"="it is" etc.
+  const expandContractions = (str: string): string => {
+    const map: Record<string, string> = {
+      "can't": "can not", "cannot": "can not",
+      "won't": "will not", "don't": "do not", "doesn't": "does not", "didn't": "did not",
+      "isn't": "is not", "aren't": "are not", "wasn't": "was not", "weren't": "were not",
+      "hasn't": "has not", "haven't": "have not", "hadn't": "had not",
+      "couldn't": "could not", "wouldn't": "would not", "shouldn't": "should not",
+      "it's": "it is", "he's": "he is", "she's": "she is",
+      "that's": "that is", "there's": "there is", "here's": "here is",
+      "what's": "what is", "who's": "who is", "how's": "how is",
+      "where's": "where is", "when's": "when is", "why's": "why is",
+      "i'm": "i am", "you're": "you are", "we're": "we are", "they're": "they are",
+      "i've": "i have", "you've": "you have", "we've": "we have", "they've": "they have",
+      "i'll": "i will", "you'll": "you will", "he'll": "he will", "she'll": "she will",
+      "we'll": "we will", "they'll": "they will", "it'll": "it will",
+      "i'd": "i would", "you'd": "you would", "he'd": "he would", "she'd": "she would",
+      "we'd": "we would", "they'd": "they would", "let's": "let us",
+    };
+    // Replace contractions word-by-word (handle apostrophe variants)
+    return str.replace(/[\w][\w'']*(?:'[\w]+)?/gi, (match) => {
+      const key = match.toLowerCase().replace(/[\u2019']/g, "'");
+      return map[key] || match;
+    });
+  };
 
-    // Build LCS table
+  // ✅ Word-level diff using LCS, with contraction expansion
+  const wordDiff = (original: string, user: string): { originalMarked: { text: string; match: boolean }[]; userMarked: { text: string; match: boolean }[] } => {
+    const cleanPunc = (s: string) => s.toLowerCase().replace(/[.,!?;:'""`´''""()\[\]{}\-–—_\/\\@#$%^&*+=<>~|]/g, '').trim();
+
+    // Original display words (keep as-is for rendering)
+    const origDisplayWords = original.split(/\s+/).filter(Boolean);
+    const userDisplayWords = user.split(/\s+/).filter(Boolean);
+
+    // Expand contractions then split for LCS comparison
+    const origExpanded = expandContractions(original).split(/\s+/).filter(Boolean).map(w => cleanPunc(w)).filter(Boolean);
+    const userExpanded = expandContractions(user).split(/\s+/).filter(Boolean).map(w => cleanPunc(w)).filter(Boolean);
+
+    // Track which expanded word came from which display word
+    const buildMap = (text: string, displayWords: string[]) => {
+      const expanded = expandContractions(text).split(/\s+/).filter(Boolean);
+      const map: number[] = []; // map[expandedIdx] = displayWordIdx
+      let di = 0, ei = 0;
+      while (di < displayWords.length && ei < expanded.length) {
+        const dNorm = cleanPunc(displayWords[di]);
+        const eNorm = cleanPunc(expanded[ei]);
+        if (dNorm === eNorm) {
+          map.push(di); ei++; di++;
+        } else {
+          // This display word expanded into multiple words
+          map.push(di); ei++;
+          // Check if next expanded words still belong to same display word
+          while (ei < expanded.length && di + 1 < displayWords.length) {
+            const nextDNorm = cleanPunc(displayWords[di + 1]);
+            const nextENorm = cleanPunc(expanded[ei]);
+            if (nextDNorm === nextENorm) break; // next expanded belongs to next display word
+            map.push(di); ei++;
+          }
+          di++;
+        }
+      }
+      while (ei < expanded.length) { map.push(Math.max(0, di - 1)); ei++; }
+      return map;
+    };
+
+    const origMap = buildMap(original, origDisplayWords);
+    const userMap = buildMap(user, userDisplayWords);
+
+    // Build LCS table on expanded words
+    const a = origExpanded, b = userExpanded;
     const m = a.length, n = b.length;
     const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
     for (let i = 1; i <= m; i++)
       for (let j = 1; j <= n; j++)
         dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
 
-    // Backtrack to find matched indices
-    const origMatched = new Set<number>();
-    const userMatched = new Set<number>();
+    // Backtrack
+    const origExpandedMatched = new Set<number>();
+    const userExpandedMatched = new Set<number>();
     let i = m, j = n;
     while (i > 0 && j > 0) {
       if (a[i - 1] === b[j - 1]) {
-        origMatched.add(i - 1);
-        userMatched.add(j - 1);
+        origExpandedMatched.add(i - 1); userExpandedMatched.add(j - 1);
         i--; j--;
-      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
-        i--;
-      } else {
-        j--;
-      }
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) { i--; } else { j--; }
     }
 
+    // Map back: a display word is matched only if ALL its expanded parts matched
+    const isDisplayWordMatched = (expandedMatchSet: Set<number>, mapArr: number[], displayCount: number) => {
+      const result = new Set<number>();
+      for (let d = 0; d < displayCount; d++) {
+        const expandedIndices = mapArr.map((mapped, ei) => mapped === d ? ei : -1).filter(ei => ei >= 0);
+        if (expandedIndices.length > 0 && expandedIndices.every(ei => expandedMatchSet.has(ei))) {
+          result.add(d);
+        }
+      }
+      return result;
+    };
+
+    const origMatched = isDisplayWordMatched(origExpandedMatched, origMap, origDisplayWords.length);
+    const userMatched = isDisplayWordMatched(userExpandedMatched, userMap, userDisplayWords.length);
+
     return {
-      originalMarked: origWords.map((w, idx) => ({ text: w, match: origMatched.has(idx) })),
-      userMarked: userWords.map((w, idx) => ({ text: w, match: userMatched.has(idx) })),
+      originalMarked: origDisplayWords.map((w, idx) => ({ text: w, match: origMatched.has(idx) })),
+      userMarked: userDisplayWords.map((w, idx) => ({ text: w, match: userMatched.has(idx) })),
     };
   };
 
@@ -327,9 +398,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
   // ✅ Fast comparison without AI (cost-free, instant)
   const compareWithOriginal = async (original: string, userInput: string) => {
-    // Normalize for comparison: lowercase, normalize quotes, remove ALL punctuation, normalize spaces
+    // Normalize for comparison: expand contractions, lowercase, remove punctuation
     const normalizeForComparison = (str: string): string => {
-      return str
+      return expandContractions(str)
         .toLowerCase()
         // Normalize curly/smart quotes to straight quotes first
         .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // Single curly quotes → '
