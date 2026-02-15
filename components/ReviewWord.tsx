@@ -254,6 +254,43 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
     }
   };
 
+  // ✅ Word-level diff using LCS (Longest Common Subsequence)
+  const wordDiff = (original: string, user: string): { originalMarked: { text: string; match: boolean }[]; userMarked: { text: string; match: boolean }[] } => {
+    const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'""`´''""()\[\]{}\-–—_\/\\@#$%^&*+=<>~|]/g, '').trim();
+    const origWords = original.split(/\s+/).filter(Boolean);
+    const userWords = user.split(/\s+/).filter(Boolean);
+    const a = origWords.map(w => normalize(w));
+    const b = userWords.map(w => normalize(w));
+
+    // Build LCS table
+    const m = a.length, n = b.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+    // Backtrack to find matched indices
+    const origMatched = new Set<number>();
+    const userMatched = new Set<number>();
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (a[i - 1] === b[j - 1]) {
+        origMatched.add(i - 1);
+        userMatched.add(j - 1);
+        i--; j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
+    return {
+      originalMarked: origWords.map((w, idx) => ({ text: w, match: origMatched.has(idx) })),
+      userMarked: userWords.map((w, idx) => ({ text: w, match: userMatched.has(idx) })),
+    };
+  };
+
   // ✅ Calculate similarity using Levenshtein distance
   const calculateSimilarity = (str1: string, str2: string): number => {
     const len1 = str1.length;
@@ -490,47 +527,78 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
             )}
 
             {/* Comparison */}
-            <div className="space-y-3">
-              <div className="p-4 bg-white border border-gray-300 rounded">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-tiny text-gray-500">You said</span>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(userSentence); showToast('Copied!', 'success'); }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="text-gray-900"><ClickableText text={userSentence} /></div>
-              </div>
+            {(() => {
+              const diff = comparison.similarity < 100 ? wordDiff(originalSentence, userSentence) : null;
+              return (
+                <div className="space-y-3">
+                  <div className="p-4 bg-white border border-gray-300 rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-tiny text-gray-500">You said</span>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(userSentence); showToast('Copied!', 'success'); }}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="text-gray-900">
+                      {diff ? (
+                        <span>
+                          {diff.userMarked.map((w, i) => (
+                            <span key={i}>
+                              {i > 0 && ' '}
+                              <span className={w.match ? '' : 'text-red-500 bg-red-50 rounded px-0.5'}>{w.text}</span>
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <ClickableText text={userSentence} />
+                      )}
+                    </div>
+                  </div>
 
-              <div className="p-4 bg-white border border-gray-300 rounded">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-tiny text-gray-500">Original</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(originalSentence); showToast('Copied!', 'success'); }}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={playOriginal}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      </svg>
-                    </button>
+                  <div className="p-4 bg-white border border-gray-300 rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-tiny text-gray-500">Original</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(originalSentence); showToast('Copied!', 'success'); }}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={playOriginal}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-gray-900">
+                      {diff ? (
+                        <span>
+                          {diff.originalMarked.map((w, i) => (
+                            <span key={i}>
+                              {i > 0 && ' '}
+                              <span className={w.match ? '' : 'text-green-600 bg-green-50 rounded px-0.5'}>{w.text}</span>
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <ClickableText text={originalSentence} />
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="text-gray-900"><ClickableText text={originalSentence} /></div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Differences */}
             {comparison.differences && comparison.differences.length > 0 && (
