@@ -918,7 +918,7 @@ export const useStore = create<AppState>()(
         }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
-      updateReviewStats: (wordId, stats) => set((state) => {
+      updateReviewStats: (wordId, stats) => {
         // ✅ Calculate next review date based on Ebbinghaus forgetting curve
         const calculateNextReviewDate = (
           stats: import('./types').ReviewStats,
@@ -952,7 +952,7 @@ export const useStore = create<AppState>()(
           return nextDate.toISOString();
         };
 
-        return {
+        set((state) => ({
           words: state.words.map(w => {
             if (w.id === wordId) {
               // ✅ Skip: Don't change nextReviewDate or learned status
@@ -984,8 +984,10 @@ export const useStore = create<AppState>()(
             }
             return w;
           })
-        };
-      }),
+        }));
+        // ✅ Sync to cloud after review stats update
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
 
       learnState: {
         currentStep: 'input-context',
