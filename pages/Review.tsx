@@ -12,7 +12,9 @@ export const Review = () => {
     updateReviewStats,
     reviewState,
     startReviewSession,
-    exitReviewSession
+    exitReviewSession,
+    deferRemainingReviews,
+    showToast
   } = useStore();
 
   const words = getActiveWords(); // ✅ Only show non-deleted words
@@ -35,6 +37,12 @@ export const Review = () => {
 
   const reviewWords = useMemo(() => {
     return words.filter(isDueForReview);
+  }, [words]);
+
+  // Count words reviewed today (lastPracticed is today)
+  const reviewedToday = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return words.filter(w => w.lastPracticed && w.lastPracticed.slice(0, 10) === todayStr).length;
   }, [words]);
 
   const totalWithSentences = words.filter(w => w.userSentences && w.userSentences.length > 0).length;
@@ -125,12 +133,26 @@ export const Review = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => startReviewSession(reviewWords)}
-              className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-small font-medium rounded transition-colors"
-            >
-              Start Review
-            </button>
+            <div className="flex items-center gap-2">
+              {reviewedToday >= 10 && (
+                <button
+                  onClick={() => {
+                    const ids = reviewWords.map(w => w.id);
+                    deferRemainingReviews(ids);
+                    showToast(`${ids.length} 个词已延后到明天`, 'success');
+                  }}
+                  className="px-3 py-2 text-tiny text-gray-500 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                >
+                  延后到明天
+                </button>
+              )}
+              <button
+                onClick={() => startReviewSession(reviewWords)}
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-small font-medium rounded transition-colors"
+              >
+                Start Review
+              </button>
+            </div>
           </div>
 
           {/* Word cards */}

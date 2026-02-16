@@ -77,6 +77,7 @@ interface AppState {
   markWordAsLearned: (wordId: string) => void; // ✅ Mark word as learned
   addUserSentence: (wordId: string, sentence: string, translation: string) => void; // ✅ Add a sentence to Word's userSentences array
   updateReviewStats: (wordId: string, stats: import('./types').ReviewStats) => void; // ✅ Update review stats
+  deferRemainingReviews: (wordIds: string[]) => void; // ✅ Defer words to tomorrow
 
   // Learning Session
   learnState: LearnState;
@@ -986,6 +987,19 @@ export const useStore = create<AppState>()(
           })
         }));
         // ✅ Sync to cloud after review stats update
+        setTimeout(() => get().syncDataToCloud(), 100);
+      },
+      deferRemainingReviews: (wordIds) => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        const tomorrowISO = tomorrow.toISOString();
+
+        set((state) => ({
+          words: state.words.map(w =>
+            wordIds.includes(w.id) ? { ...w, nextReviewDate: tomorrowISO } : w
+          )
+        }));
         setTimeout(() => get().syncDataToCloud(), 100);
       },
 
