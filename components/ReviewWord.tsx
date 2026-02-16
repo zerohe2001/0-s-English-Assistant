@@ -667,12 +667,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
               Try Again
             </button>
             <button
-              onClick={handleSkip}
-              className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-500 rounded text-small transition-colors"
-            >
-              Skip
-            </button>
-            <button
               onClick={handleNext}
               disabled={!comparison || comparison.similarity < 95}
               className={`px-6 py-2 rounded text-small font-medium transition-colors ${
