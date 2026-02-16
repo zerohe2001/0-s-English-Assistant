@@ -498,20 +498,25 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
-      <div className="flex-shrink-0 px-8 pt-8 pb-6 border-b border-gray-300">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 px-8 pt-6 pb-4 border-b border-gray-300">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
               className="text-gray-500 hover:text-gray-900 transition-colors"
               aria-label="Go back"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className="w-1 h-8 bg-gray-900 rounded-full"></div>
-            <h1 className="text-h1 text-gray-900">Review</h1>
+            <span className="text-h3 font-semibold text-gray-900">{word}</span>
+            {phonetic && (
+              <span className="text-tiny text-gray-500 font-mono">{phonetic}</span>
+            )}
+            {retryCount > 0 && (
+              <span className="text-tiny text-gray-400">· Attempt {retryCount + 1}</span>
+            )}
           </div>
           <button
             onClick={exitReviewSession}
@@ -519,25 +524,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
           >
             Exit
           </button>
-        </div>
-        <div className="flex items-center gap-2 text-gray-500 flex-wrap">
-          <div className="flex items-baseline gap-2 px-3 py-1 bg-gray-100 rounded">
-            <span className="text-small font-medium text-gray-900">{word}</span>
-            {phonetic && (
-              <span className="text-tiny text-gray-500 font-mono">
-                {phonetic}
-              </span>
-            )}
-          </div>
-          <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded text-small font-semibold">
-            Word {currentWordIndex + 1}/{totalWords}
-          </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-small font-semibold">
-            Sentence {currentSentenceIndex + 1}/{userSentences.length}
-          </span>
-          {retryCount > 0 && (
-            <span className="text-tiny text-gray-500">· Attempt {retryCount + 1}</span>
-          )}
         </div>
       </div>
 
