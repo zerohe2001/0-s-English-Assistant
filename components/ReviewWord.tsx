@@ -677,7 +677,12 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
             </button>
             <button
               onClick={handleNext}
-              className="px-6 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded text-small font-medium transition-colors"
+              disabled={!comparison || comparison.similarity < 95}
+              className={`px-6 py-2 rounded text-small font-medium transition-colors ${
+                comparison && comparison.similarity >= 95
+                  ? 'bg-gray-900 hover:bg-gray-700 text-white'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
               Next
             </button>
