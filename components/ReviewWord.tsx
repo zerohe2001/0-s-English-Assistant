@@ -538,9 +538,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       <div className="flex-1 overflow-y-auto px-8 py-8">
         {/* Prompt Card */}
         <div className="mb-8">
-          <div className="text-tiny font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Translate to English
-          </div>
           <div className="text-h2 text-gray-900 leading-relaxed">
             {chineseTranslation}
           </div>
