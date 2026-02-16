@@ -36,7 +36,9 @@ export const Review = () => {
   };
 
   const reviewWords = useMemo(() => {
-    return words.filter(isDueForReview);
+    return words.filter(isDueForReview).sort((a, b) => {
+      return new Date(a.nextReviewDate!).getTime() - new Date(b.nextReviewDate!).getTime();
+    });
   }, [words]);
 
   // Count words reviewed today (lastPracticed is today)
