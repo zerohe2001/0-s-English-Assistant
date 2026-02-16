@@ -208,12 +208,9 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
 
   const handleRetry = () => {
     setReviewStep('speaking');
+    setTextInput(userSentence); // Pre-fill with last attempt
     setUserSentence('');
-    setTextInput('');
     setComparison(null);
-    // Increment retry count in store
-    const newRetryCount = retryCount + 1;
-    // Store will track this
   };
 
   const handleSkip = () => {
