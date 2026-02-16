@@ -518,12 +518,19 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
               <span className="text-tiny text-gray-400">· Attempt {retryCount + 1}</span>
             )}
           </div>
-          <button
-            onClick={exitReviewSession}
-            className="text-gray-500 hover:text-gray-900 text-small font-medium transition-colors"
-          >
-            Exit
-          </button>
+          <div className="flex items-center gap-3">
+            {step === 'comparing' && comparison && (
+              <span className={`text-h3 font-bold ${comparison.similarity >= 90 ? 'text-green-600' : comparison.similarity >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
+                {comparison.similarity}%
+              </span>
+            )}
+            <button
+              onClick={exitReviewSession}
+              className="text-gray-500 hover:text-gray-900 text-small font-medium transition-colors"
+            >
+              Exit
+            </button>
+          </div>
         </div>
       </div>
 
@@ -567,16 +574,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
         {/* Comparing Step */}
         {step === 'comparing' && comparison && (
           <div className="space-y-6">
-            {/* Score */}
-            <div className="flex items-center justify-between p-5 bg-gray-100 rounded border border-gray-300">
-              <span className="text-small font-medium text-gray-700">Similarity</span>
-              <div className="flex items-center gap-3">
-                <div className="text-3xl font-bold text-gray-900">{comparison.similarity}%</div>
-                <div className={`w-2 h-2 rounded-full ${comparison.similarity >= 90 ? 'bg-green-500' : comparison.similarity >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-              </div>
-            </div>
-
-
             {/* Comparison */}
             {(() => {
               const diff = comparison.similarity < 100 ? wordDiff(originalSentence, userSentence) : null;
