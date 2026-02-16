@@ -645,19 +645,6 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
               );
             })()}
 
-            {/* Differences */}
-            {comparison.differences && comparison.differences.length > 0 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded">
-                <div className="text-tiny font-medium text-amber-900 mb-2">Differences</div>
-                <div className="flex flex-wrap gap-2">
-                  {comparison.differences.map((diff, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-white text-tiny text-amber-800 rounded border border-amber-300">
-                      {diff}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Warning */}
             {retryCount >= 2 && (
