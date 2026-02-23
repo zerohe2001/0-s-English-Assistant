@@ -97,19 +97,32 @@ const VoiceOrTextInput: React.FC<VoiceOrTextInputProps> = ({
                 <div className="flex-1 h-px bg-gray-300"></div>
               </div>
               <div className="space-y-2">
-                <textarea
-                  value={textInput}
-                  onChange={(e) => onTextInputChange(e.target.value)}
-                  placeholder={placeholder}
-                  className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
-                  disabled={disabled}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      onTextSubmit();
-                    }
-                  }}
-                />
+                <div className="relative">
+                  <textarea
+                    value={textInput}
+                    onChange={(e) => onTextInputChange(e.target.value)}
+                    placeholder={placeholder}
+                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
+                    disabled={disabled}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        onTextSubmit();
+                      }
+                    }}
+                  />
+                  {textInput && !disabled && (
+                    <button
+                      onClick={() => onTextInputChange('')}
+                      className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+                      aria-label="Clear text"
+                    >
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={onTextSubmit}
                   disabled={disabled || !textInput.trim()}
@@ -146,19 +159,32 @@ const VoiceOrTextInput: React.FC<VoiceOrTextInputProps> = ({
               <div className="flex-1 h-px bg-gray-300"></div>
             </div>
             <div className="space-y-2">
-              <textarea
-                value={textInput}
-                onChange={(e) => onTextInputChange(e.target.value)}
-                placeholder={placeholder}
-                className="w-full px-4 py-3 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
-                disabled={disabled || isRecording}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    onTextSubmit();
-                  }
-                }}
-              />
+              <div className="relative">
+                <textarea
+                  value={textInput}
+                  onChange={(e) => onTextInputChange(e.target.value)}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-3 pr-10 border border-gray-300 rounded text-small outline-none focus:border-gray-500 resize-none h-24"
+                  disabled={disabled || isRecording}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      onTextSubmit();
+                    }
+                  }}
+                />
+                {textInput && !disabled && !isRecording && (
+                  <button
+                    onClick={() => onTextInputChange('')}
+                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+                    aria-label="Clear text"
+                  >
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <button
                 onClick={onTextSubmit}
                 disabled={disabled || isRecording || !textInput.trim()}
