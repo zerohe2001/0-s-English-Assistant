@@ -270,9 +270,11 @@ const ReviewWord: React.FC<ReviewWordProps> = ({
       "i'd": "i would", "you'd": "you would", "he'd": "he would", "she'd": "she would",
       "we'd": "we would", "they'd": "they would", "let's": "let us",
     };
-    // Replace contractions word-by-word (handle apostrophe variants)
-    return str.replace(/[\w][\w'']*(?:'[\w]+)?/gi, (match) => {
-      const key = match.toLowerCase().replace(/[\u2019']/g, "'");
+    // Normalize all curly/smart apostrophes to straight apostrophe first
+    const normalized = str.replace(/[\u2018\u2019\u201B]/g, "'");
+    // Replace contractions word-by-word
+    return normalized.replace(/[\w][\w']*(?:'[\w]+)?/gi, (match) => {
+      const key = match.toLowerCase();
       return map[key] || match;
     });
   };
