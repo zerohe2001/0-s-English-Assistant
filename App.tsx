@@ -33,7 +33,7 @@ const NavLink = ({ to, icon, label, badge }: { to: string; icon: React.ReactNode
 };
 
 const Layout = ({ children }: PropsWithChildren) => {
-  const { getActiveWords } = useStore();
+  const { getActiveWords, reviewState } = useStore();
   const words = getActiveWords();
   const location = useLocation();
 
@@ -52,15 +52,17 @@ const Layout = ({ children }: PropsWithChildren) => {
 
   const reviewCount = words.filter(isDueForReview).length;
 
+  // Hide nav during Learn and active Review sessions
+  const hideNav = location.pathname === '/learn' || reviewState.isActive;
 
   return (
     <div className="h-full flex flex-col bg-white relative">
-      <main className="flex-1 overflow-y-auto no-scrollbar content-with-nav">
+      <main className={`flex-1 min-h-0 overflow-y-auto no-scrollbar ${hideNav ? '' : 'content-with-nav'}`}>
         {children}
       </main>
       {/* Fixed bottom navigation - 3 tabs (Notion-style minimal) */}
-      {/* Hide navigation when on /learn page to prevent accidental exits */}
-      {location.pathname !== '/learn' && (
+      {/* Hide navigation during Learn and active Review to prevent accidental exits */}
+      {!hideNav && (
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 flex justify-around items-center px-2 z-50 safe-bottom-nav">
         <NavLink
           to="/"

@@ -63,6 +63,11 @@
         --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
       }
 
+      /* Fix iOS Safari 100vh issue - use dvh when supported */
+      @supports (height: 100dvh) {
+        body { height: 100dvh !important; }
+      }
+
       /* Utility classes for safe area */
       .safe-area-pb {
         padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
